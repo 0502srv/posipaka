@@ -21,8 +21,17 @@ class WebAgent(BaseSpecializedAgent):
     @property
     def capabilities(self) -> list[str]:
         return [
-            "search", "fetch", "browse", "web", "url", "site",
-            "page", "website", "пошук", "сайт", "сторінка",
+            "search",
+            "fetch",
+            "browse",
+            "web",
+            "url",
+            "site",
+            "page",
+            "website",
+            "пошук",
+            "сайт",
+            "сторінка",
         ]
 
     async def execute(self, task: AgentTask) -> str:

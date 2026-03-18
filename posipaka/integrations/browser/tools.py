@@ -192,8 +192,7 @@ async def _fetch_with_playwright(url: str) -> FetchResult:
         return FetchResult(
             method="playwright",
             error=(
-                "Playwright не встановлено. "
-                "pip install playwright && playwright install chromium"
+                "Playwright не встановлено. pip install playwright && playwright install chromium"
             ),
         )
 
@@ -235,8 +234,7 @@ async def web_fetch(url: str, extract_text: bool = True) -> str:
     if result.is_valid():
         elapsed = (time.monotonic() - start) * 1000
         logger.info(
-            f"web_fetch url={url} method=httpx chars={len(result.content)} "
-            f"elapsed={elapsed:.0f}ms"
+            f"web_fetch url={url} method=httpx chars={len(result.content)} elapsed={elapsed:.0f}ms"
         )
         return sanitize_external_content(result.content, source=url)
 
@@ -251,14 +249,12 @@ async def web_fetch(url: str, extract_text: bool = True) -> str:
     elapsed = (time.monotonic() - start) * 1000
     if result.error:
         logger.error(
-            f"web_fetch url={url} method=playwright error={result.error} "
-            f"elapsed={elapsed:.0f}ms"
+            f"web_fetch url={url} method=playwright error={result.error} elapsed={elapsed:.0f}ms"
         )
         return f"Помилка завантаження {url}: {result.error}"
 
     logger.info(
-        f"web_fetch url={url} method=playwright chars={len(result.content)} "
-        f"elapsed={elapsed:.0f}ms"
+        f"web_fetch url={url} method=playwright chars={len(result.content)} elapsed={elapsed:.0f}ms"
     )
 
     return sanitize_external_content(result.content, source=url)
@@ -284,10 +280,7 @@ async def web_screenshot(url: str) -> str:
             await browser.close()
 
         elapsed = (time.monotonic() - start) * 1000
-        logger.info(
-            f"web_screenshot url={url} "
-            f"bytes={len(screenshot)} elapsed={elapsed:.0f}ms"
-        )
+        logger.info(f"web_screenshot url={url} bytes={len(screenshot)} elapsed={elapsed:.0f}ms")
         return f"Screenshot saved ({len(screenshot)} bytes)"
     except ImportError:
         return (

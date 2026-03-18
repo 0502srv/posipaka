@@ -512,9 +512,7 @@ class WebSetupWizard:
                 "deepseek": "deepseek-chat",
                 "xai": "grok-3-mini",
             }
-            self.config["llm_model"] = model_defaults.get(
-                self.config["llm_provider"], "llama3"
-            )
+            self.config["llm_model"] = model_defaults.get(self.config["llm_provider"], "llama3")
         elif step == 3:
             # Messengers
             channels = form_data.getlist("channels") if hasattr(form_data, "getlist") else []
@@ -676,7 +674,11 @@ class WebSetupWizard:
         openai_compatible = {
             "openai": ("https://api.openai.com/v1/models", "gpt-4o-mini", "OpenAI"),
             "mistral": ("https://api.mistral.ai/v1/models", "mistral-large-latest", "Mistral"),
-            "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/models", "gemini-2.0-flash", "Gemini"),
+            "gemini": (
+                "https://generativelanguage.googleapis.com/v1beta/openai/models",
+                "gemini-2.0-flash",
+                "Gemini",
+            ),
             "groq": ("https://api.groq.com/openai/v1/models", "llama-3.3-70b-versatile", "Groq"),
             "deepseek": ("https://api.deepseek.com/v1/models", "deepseek-chat", "DeepSeek"),
             "xai": ("https://api.x.ai/v1/models", "grok-3-mini", "xAI"),

@@ -13,7 +13,8 @@ _SOURCE_TIMEOUT = 5.0  # секунд на кожне джерело
 
 
 async def _fetch_source(
-    label: str, coro: Any,
+    label: str,
+    coro: Any,
 ) -> str:
     """Fetch одне джерело з таймаутом."""
     try:
@@ -37,34 +38,34 @@ async def create_digest() -> str:
     sources: list[tuple[str, Any]] = []
     try:
         from posipaka.integrations.gmail.tools import gmail_list
+
         sources.append(("📬 Пошта", gmail_list(max_results=5)))
     except Exception:
         sources.append(("📬 Пошта", _noop("не налаштовано")))
 
     try:
         from posipaka.integrations.calendar.tools import calendar_list
+
         sources.append(("📅 Календар", calendar_list(days_ahead=2)))
     except Exception:
         sources.append(("📅 Календар", _noop("не налаштовано")))
 
     try:
         from posipaka.integrations.weather.tools import get_weather
+
         sources.append(("🌤 Погода", get_weather(city="Kyiv")))
     except Exception:
         sources.append(("🌤 Погода", _noop("не налаштовано")))
 
     try:
         from posipaka.integrations.news.tools import get_headlines
-        sources.append(
-            ("📰 Новини", get_headlines(country="ua", max_results=3))
-        )
+
+        sources.append(("📰 Новини", get_headlines(country="ua", max_results=3)))
     except Exception:
         sources.append(("📰 Новини", _noop("не налаштовано")))
 
     # Паралельний fetch всіх джерел
-    sections = await asyncio.gather(
-        *[_fetch_source(label, coro) for label, coro in sources]
-    )
+    sections = await asyncio.gather(*[_fetch_source(label, coro) for label, coro in sources])
 
     result = "=== Дайджест ===\n\n" + "\n\n".join(sections)
     return sanitize_external_content(result, source="digest")

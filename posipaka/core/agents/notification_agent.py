@@ -19,8 +19,15 @@ class NotificationAgent(BaseSpecializedAgent):
     @property
     def capabilities(self) -> list[str]:
         return [
-            "notify", "alert", "send", "digest", "notification",
-            "сповістити", "нагадати", "дайджест", "сповіщення",
+            "notify",
+            "alert",
+            "send",
+            "digest",
+            "notification",
+            "сповістити",
+            "нагадати",
+            "дайджест",
+            "сповіщення",
         ]
 
     async def execute(self, task: AgentTask) -> str:

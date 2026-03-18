@@ -92,9 +92,7 @@ class SemanticResponseCache:
 
         # LRU eviction: if still over 1000 entries, keep only 900 newest
         if len(self._memory_cache) > 1000:
-            sorted_keys = sorted(
-                self._memory_cache, key=lambda k: self._memory_cache[k][1]
-            )
+            sorted_keys = sorted(self._memory_cache, key=lambda k: self._memory_cache[k][1])
             to_remove = sorted_keys[: len(self._memory_cache) - 900]
             for k in to_remove:
                 del self._memory_cache[k]

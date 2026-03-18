@@ -46,7 +46,8 @@ class SessionManager:
         """Remove sessions older than MAX_SESSION_TTL_SECONDS."""
         now = time.time()
         expired = [
-            sid for sid, s in self._sessions.items()
+            sid
+            for sid, s in self._sessions.items()
             if now - s.created_at > self.MAX_SESSION_TTL_SECONDS
         ]
         for sid in expired:

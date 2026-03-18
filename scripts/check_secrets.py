@@ -39,8 +39,7 @@ def main() -> int:
         return 0
 
     compiled = [
-        (re.compile(p["pattern"]), p["name"], p.get("severity", "high"))
-        for p in patterns_config
+        (re.compile(p["pattern"]), p["name"], p.get("severity", "high")) for p in patterns_config
     ]
 
     result = subprocess.run(
@@ -83,8 +82,7 @@ def main() -> int:
             print(v)
         print("\nRemove secrets before committing.")
         print(
-            "If this is a false positive, add the file"
-            " to allowlist_files in .secrets-patterns.yaml"
+            "If this is a false positive, add the file to allowlist_files in .secrets-patterns.yaml"
         )
         return 1
 

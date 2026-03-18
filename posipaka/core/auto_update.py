@@ -373,11 +373,66 @@ class AutoUpdater:
             "update_apply_done",
             {"stdout": out[:500], "backup": str(backup_path)},
         )
-        return (
-            f"Update applied successfully. "
-            f"Backup at {backup_path}.\n"
-            f"Restart the application to use the new version."
-        )
+
+        # Автоматичний рестарт сервісу
+        restart_result = await self._restart_service()
+
+        return f"Update applied successfully. Backup at {backup_path}.\n{restart_result}"
+
+    # ── Service restart ─────────────────────────────────
+
+    @staticmethod
+    def _detect_runtime() -> str:
+        """Визначити середовище: docker, systemd, або process."""
+        # Docker
+        if Path("/.dockerenv").exists():
+            return "docker"
+        # Systemd
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["systemctl", "is-active", "posipaka"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                return "systemd"
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        return "process"
+
+    async def _restart_service(self) -> str:
+        """Рестарт сервісу після оновлення."""
+        runtime = self._detect_runtime()
+        self._audit_log("update_restart", {"runtime": runtime})
+
+        if runtime == "docker":
+            # Docker контейнер — просто вийти, orchestrator перезапустить
+            logger.info("Docker runtime: container will restart automatically")
+            return "Docker: контейнер буде перезапущено автоматично."
+
+        if runtime == "systemd":
+            proc = await asyncio.create_subprocess_exec(
+                "sudo",
+                "systemctl",
+                "restart",
+                "posipaka",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode == 0:
+                logger.info("Systemd service restarted")
+                return "Systemd: сервіс перезапущено."
+            err = stderr.decode("utf-8", errors="replace")
+            logger.warning(f"Systemd restart failed: {err}")
+            return f"Systemd restart failed: {err[:200]}"
+
+        # Process — graceful shutdown, user restarts manually
+        logger.info("Process mode: manual restart required")
+        return "Перезапустіть агент вручну: python -m posipaka start"
 
     # ── Changelog ────────────────────────────────────────
 

@@ -94,7 +94,8 @@ class CostGuard:
 
     @classmethod
     def _get_tokenizer_profile(
-        cls, model: str,
+        cls,
+        model: str,
     ) -> dict[str, float]:
         """Знайти профіль tokenizer'а за назвою моделі."""
         model_lower = model.lower()
@@ -118,9 +119,7 @@ class CostGuard:
         total = max(len(text), 1)
         ascii_ratio = 1.0 - (non_ascii / total)
         # Зважений chars_per_token
-        cpt = profile["en"] * ascii_ratio + profile["ua"] * (
-            1 - ascii_ratio
-        )
+        cpt = profile["en"] * ascii_ratio + profile["ua"] * (1 - ascii_ratio)
         return max(1, int(total / cpt))
 
     def check_before_call(
@@ -133,8 +132,7 @@ class CostGuard:
         """Перевірити бюджет перед LLM call. Returns (allowed, reason)."""
         pricing = self.PRICING.get(model, self.PRICING["_default"])
         estimated_cost = (
-            estimated_input_tokens * pricing["input"]
-            + max_output_tokens * pricing["output"]
+            estimated_input_tokens * pricing["input"] + max_output_tokens * pricing["output"]
         )
 
         if estimated_cost > self.per_request_max:

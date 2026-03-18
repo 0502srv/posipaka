@@ -101,7 +101,8 @@ class WebhookRateLimiter(BaseHTTPMiddleware):
         self._request_count += 1
         if self._request_count % 100 == 0:
             stale = [
-                ip for ip, ts in self._requests.items()
+                ip
+                for ip, ts in self._requests.items()
                 if not ts or all(now - t > self._window for t in ts)
             ]
             for ip in stale:

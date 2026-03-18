@@ -130,14 +130,34 @@ class AuditLogger:
 
         return output.getvalue()
 
-    _REDACT_KEYS = frozenset({
-        "api_key", "token", "password", "secret", "credential",
-        "auth", "jwt", "session_id", "bearer", "access_token",
-        "refresh_token", "private_key", "secret_key", "api_secret",
-    })
-    _TRUNCATE_KEYS = frozenset({
-        "content", "text", "body", "message", "html", "response",
-    })
+    _REDACT_KEYS = frozenset(
+        {
+            "api_key",
+            "token",
+            "password",
+            "secret",
+            "credential",
+            "auth",
+            "jwt",
+            "session_id",
+            "bearer",
+            "access_token",
+            "refresh_token",
+            "private_key",
+            "secret_key",
+            "api_secret",
+        }
+    )
+    _TRUNCATE_KEYS = frozenset(
+        {
+            "content",
+            "text",
+            "body",
+            "message",
+            "html",
+            "response",
+        }
+    )
 
     @classmethod
     def _sanitize_data(cls, data: dict[str, Any]) -> dict[str, Any]:

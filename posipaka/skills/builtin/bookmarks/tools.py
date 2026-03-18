@@ -51,7 +51,7 @@ async def add_bookmark(url: str, title: str = "", description: str = "", tags: s
         )
         await db.commit()
         bid = cursor.lastrowid
-    label = f" \"{title}\"" if title else ""
+    label = f' "{title}"' if title else ""
     return f"Bookmark{label} saved (id={bid}): {url}"
 
 
@@ -88,8 +88,8 @@ async def search_bookmarks(query: str) -> str:
             (pattern, pattern, pattern, pattern),
         )
     if not rows:
-        return f"No bookmarks matching \"{query}\"."
-    lines: list[str] = [f"Found {len(rows)} bookmark(s) for \"{query}\":"]
+        return f'No bookmarks matching "{query}".'
+    lines: list[str] = [f'Found {len(rows)} bookmark(s) for "{query}":']
     for row in rows:
         bid, ts, url, title, desc, tags = row
         date_str = time.strftime("%Y-%m-%d", time.localtime(ts))
@@ -112,66 +112,78 @@ async def delete_bookmark(bookmark_id: int) -> str:
 def register(registry: Any) -> None:
     from posipaka.core.tools.registry import ToolDefinition
 
-    registry.register(ToolDefinition(
-        name="add_bookmark",
-        description="Save a web bookmark with optional title, description and tags",
-        category="productivity",
-        handler=add_bookmark,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "url": {"type": "string", "description": "URL to bookmark"},
-                "title": {"type": "string", "description": "Bookmark title", "default": ""},
-                "description": {"type": "string", "description": "Description", "default": ""},
-                "tags": {"type": "string", "description": "Comma-separated tags", "default": ""},
+    registry.register(
+        ToolDefinition(
+            name="add_bookmark",
+            description="Save a web bookmark with optional title, description and tags",
+            category="productivity",
+            handler=add_bookmark,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "URL to bookmark"},
+                    "title": {"type": "string", "description": "Bookmark title", "default": ""},
+                    "description": {"type": "string", "description": "Description", "default": ""},
+                    "tags": {
+                        "type": "string",
+                        "description": "Comma-separated tags",
+                        "default": "",
+                    },
+                },
+                "required": ["url"],
             },
-            "required": ["url"],
-        },
-        tags=["bookmarks", "web", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="list_bookmarks",
-        description="List latest saved bookmarks",
-        category="productivity",
-        handler=list_bookmarks,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "limit": {
-                    "type": "integer",
-                    "description": "Max bookmarks to return",
-                    "default": 10,
+            tags=["bookmarks", "web", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="list_bookmarks",
+            description="List latest saved bookmarks",
+            category="productivity",
+            handler=list_bookmarks,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max bookmarks to return",
+                        "default": 10,
+                    },
                 },
             },
-        },
-        tags=["bookmarks", "web", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="search_bookmarks",
-        description="Search bookmarks by URL, title, description or tags",
-        category="productivity",
-        handler=search_bookmarks,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Search query"},
+            tags=["bookmarks", "web", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="search_bookmarks",
+            description="Search bookmarks by URL, title, description or tags",
+            category="productivity",
+            handler=search_bookmarks,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                },
+                "required": ["query"],
             },
-            "required": ["query"],
-        },
-        tags=["bookmarks", "web", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="delete_bookmark",
-        description="Delete a bookmark by id",
-        category="productivity",
-        handler=delete_bookmark,
-        requires_approval=True,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "bookmark_id": {"type": "integer", "description": "Bookmark id to delete"},
+            tags=["bookmarks", "web", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="delete_bookmark",
+            description="Delete a bookmark by id",
+            category="productivity",
+            handler=delete_bookmark,
+            requires_approval=True,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "bookmark_id": {"type": "integer", "description": "Bookmark id to delete"},
+                },
+                "required": ["bookmark_id"],
             },
-            "required": ["bookmark_id"],
-        },
-        tags=["bookmarks", "web", "productivity"],
-    ))
+            tags=["bookmarks", "web", "productivity"],
+        )
+    )

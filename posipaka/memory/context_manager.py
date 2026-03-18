@@ -83,7 +83,4 @@ class ContextManager:
         """Оцінка токенів через CostGuard."""
         from posipaka.core.cost_guard import CostGuard
 
-        return sum(
-            CostGuard.estimate_tokens(m.get("content", ""))
-            for m in messages
-        )
+        return sum(CostGuard.estimate_tokens(m.get("content", "")) for m in messages)

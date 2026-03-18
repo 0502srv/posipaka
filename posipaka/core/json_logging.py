@@ -143,6 +143,7 @@ def json_sink(message: Any) -> None:
 # Setup
 # ---------------------------------------------------------------------------
 
+
 def _secrets_filter(record: dict) -> bool:
     """Loguru filter that redacts secret patterns from log messages in-place."""
     msg = record.get("message", "")

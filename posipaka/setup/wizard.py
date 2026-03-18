@@ -627,7 +627,10 @@ class SetupWizard:
         openai_compatible = {
             "openai": ("https://api.openai.com/v1/models", "gpt-4o-mini"),
             "mistral": ("https://api.mistral.ai/v1/models", "mistral-large-latest"),
-            "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/models", "gemini-2.0-flash"),
+            "gemini": (
+                "https://generativelanguage.googleapis.com/v1beta/openai/models",
+                "gemini-2.0-flash",
+            ),
             "groq": ("https://api.groq.com/openai/v1/models", "llama-3.3-70b-versatile"),
             "deepseek": ("https://api.deepseek.com/v1/models", "deepseek-chat"),
             "xai": ("https://api.x.ai/v1/models", "grok-3-mini"),

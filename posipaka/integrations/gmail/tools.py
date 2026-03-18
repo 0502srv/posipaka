@@ -19,16 +19,10 @@ async def gmail_list(max_results: int = 10, query: str = "") -> str:
 
         service = _get_gmail_service()
         if not service:
-            return (
-                "Gmail не налаштовано. "
-                "Запустіть `posipaka integrations setup gmail`."
-            )
+            return "Gmail не налаштовано. Запустіть `posipaka integrations setup gmail`."
 
         results = (
-            service.users()
-            .messages()
-            .list(userId="me", maxResults=max_results, q=query)
-            .execute()
+            service.users().messages().list(userId="me", maxResults=max_results, q=query).execute()
         )
         messages = results.get("messages", [])
 
@@ -38,27 +32,23 @@ async def gmail_list(max_results: int = 10, query: str = "") -> str:
         # Паралельний fetch метаданих (замість N+1 sequential)
         async def _get_metadata(msg_id: str) -> str:
             msg = await asyncio.to_thread(
-                lambda: service.users()
-                .messages()
-                .get(
-                    userId="me",
-                    id=msg_id,
-                    format="metadata",
-                    metadataHeaders=["From", "Subject", "Date"],
+                lambda: (
+                    service.users()
+                    .messages()
+                    .get(
+                        userId="me",
+                        id=msg_id,
+                        format="metadata",
+                        metadataHeaders=["From", "Subject", "Date"],
+                    )
+                    .execute()
                 )
-                .execute()
             )
-            headers = {
-                h["name"]: h["value"]
-                for h in msg.get("payload", {}).get("headers", [])
-            }
+            headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
             subj = headers.get("Subject", "(без теми)")
             frm = headers.get("From", "?")
             date = headers.get("Date", "?")
-            return (
-                f"📧 [{msg_id[:8]}] {subj}\n"
-                f"   Від: {frm} | {date}"
-            )
+            return f"📧 [{msg_id[:8]}] {subj}\n   Від: {frm} | {date}"
 
         tasks = [_get_metadata(m["id"]) for m in messages]
         lines = await asyncio.gather(*tasks, return_exceptions=True)

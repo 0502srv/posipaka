@@ -43,7 +43,7 @@ async def create_note(content: str, title: str = "", tags: str = "") -> str:
         )
         await db.commit()
         note_id = cursor.lastrowid
-    label = f" \"{title}\"" if title else ""
+    label = f' "{title}"' if title else ""
     return f"Note{label} created (id={note_id})."
 
 
@@ -80,8 +80,8 @@ async def search_notes(query: str) -> str:
             (pattern, pattern),
         )
     if not rows:
-        return f"No notes matching \"{query}\"."
-    lines: list[str] = [f"Found {len(rows)} note(s) for \"{query}\":"]
+        return f'No notes matching "{query}".'
+    lines: list[str] = [f'Found {len(rows)} note(s) for "{query}":']
     for row in rows:
         nid, ts, title, content, tags = row
         date_str = time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
@@ -105,61 +105,77 @@ async def delete_note(note_id: int) -> str:
 def register(registry: Any) -> None:
     from posipaka.core.tools.registry import ToolDefinition
 
-    registry.register(ToolDefinition(
-        name="create_note",
-        description="Create a new personal note with optional title and tags",
-        category="productivity",
-        handler=create_note,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "content": {"type": "string", "description": "Note content"},
-                "title": {"type": "string", "description": "Optional title", "default": ""},
-                "tags": {"type": "string", "description": "Comma-separated tags", "default": ""},
+    registry.register(
+        ToolDefinition(
+            name="create_note",
+            description="Create a new personal note with optional title and tags",
+            category="productivity",
+            handler=create_note,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "description": "Note content"},
+                    "title": {"type": "string", "description": "Optional title", "default": ""},
+                    "tags": {
+                        "type": "string",
+                        "description": "Comma-separated tags",
+                        "default": "",
+                    },
+                },
+                "required": ["content"],
             },
-            "required": ["content"],
-        },
-        tags=["notes", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="list_notes",
-        description="List latest personal notes",
-        category="productivity",
-        handler=list_notes,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "limit": {"type": "integer", "description": "Max notes to return", "default": 10},
+            tags=["notes", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="list_notes",
+            description="List latest personal notes",
+            category="productivity",
+            handler=list_notes,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max notes to return",
+                        "default": 10,
+                    },
+                },
             },
-        },
-        tags=["notes", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="search_notes",
-        description="Search notes by content or title",
-        category="productivity",
-        handler=search_notes,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Search query"},
+            tags=["notes", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="search_notes",
+            description="Search notes by content or title",
+            category="productivity",
+            handler=search_notes,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                },
+                "required": ["query"],
             },
-            "required": ["query"],
-        },
-        tags=["notes", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="delete_note",
-        description="Delete a note by id",
-        category="productivity",
-        handler=delete_note,
-        requires_approval=True,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "note_id": {"type": "integer", "description": "Note id to delete"},
+            tags=["notes", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="delete_note",
+            description="Delete a note by id",
+            category="productivity",
+            handler=delete_note,
+            requires_approval=True,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "note_id": {"type": "integer", "description": "Note id to delete"},
+                },
+                "required": ["note_id"],
             },
-            "required": ["note_id"],
-        },
-        tags=["notes", "productivity"],
-    ))
+            tags=["notes", "productivity"],
+        )
+    )

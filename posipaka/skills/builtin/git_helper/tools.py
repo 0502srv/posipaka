@@ -26,8 +26,14 @@ _MAX_FILES = 1000
 _MAX_FILE_SIZE = 1_000_000  # 1 MB
 
 FORBIDDEN_FILENAMES = [
-    ".env", "credentials", "secret", "private_key",
-    ".pem", ".key", "MASTER.md", "CLAUDE.md",
+    ".env",
+    "credentials",
+    "secret",
+    "private_key",
+    ".pem",
+    ".key",
+    "MASTER.md",
+    "CLAUDE.md",
 ]
 AI_TRACE_PATTERN = re.compile(r"Co-Authored-By.*(?:Claude|GPT|AI|Copilot)", re.I)
 
@@ -92,7 +98,7 @@ async def git_secret_scan(repo_path: str = ".") -> str:
         rel = str(p.relative_to(repo))
         for pattern, label in SECRET_PATTERNS:
             for m in pattern.finditer(content):
-                line_no = content[:m.start()].count("\n") + 1
+                line_no = content[: m.start()].count("\n") + 1
                 findings.append(f"  - {rel}:{line_no} — {label}")
 
     if findings:
@@ -110,8 +116,7 @@ async def git_history_audit(repo_path: str = ".", depth: int = 50) -> str:
     repo = Path(repo_path).resolve()
     safe_repo = shlex.quote(str(repo))
     cmd = (
-        f'git -C {safe_repo} log --all --diff-filter=A'
-        f' --name-only --format="%H %s" -n {int(depth)}'
+        f'git -C {safe_repo} log --all --diff-filter=A --name-only --format="%H %s" -n {int(depth)}'
     )
     output = await shell_exec(cmd)
 
@@ -252,63 +257,83 @@ async def git_safe_commit(message: str, files: str = ".") -> str:
 def register(registry: Any) -> None:
     from posipaka.core.tools.registry import ToolDefinition
 
-    registry.register(ToolDefinition(
-        name="git_secret_scan",
-        description="Scan repository files for leaked secrets (API keys, tokens, passwords)",
-        category="security",
-        handler=git_secret_scan,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "repo_path": {"type": "string", "description": "Path to git repo", "default": "."},
-            },
-        },
-        tags=["git", "security", "scanning"],
-    ))
-    registry.register(ToolDefinition(
-        name="git_history_audit",
-        description="Audit git history for sensitive files and AI traces in commits",
-        category="security",
-        handler=git_history_audit,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "repo_path": {"type": "string", "description": "Path to git repo", "default": "."},
-                "depth": {
-                    "type": "integer",
-                    "description": "Number of commits to check",
-                    "default": 50,
+    registry.register(
+        ToolDefinition(
+            name="git_secret_scan",
+            description="Scan repository files for leaked secrets (API keys, tokens, passwords)",
+            category="security",
+            handler=git_secret_scan,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {
+                        "type": "string",
+                        "description": "Path to git repo",
+                        "default": ".",
+                    },
                 },
             },
-        },
-        tags=["git", "security", "audit"],
-    ))
-    registry.register(ToolDefinition(
-        name="repo_hygiene_check",
-        description="Check repo hygiene: .gitignore, .dockerignore, LICENSE, pre-commit",
-        category="security",
-        handler=repo_hygiene_check,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "repo_path": {"type": "string", "description": "Path to git repo", "default": "."},
+            tags=["git", "security", "scanning"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="git_history_audit",
+            description="Audit git history for sensitive files and AI traces in commits",
+            category="security",
+            handler=git_history_audit,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {
+                        "type": "string",
+                        "description": "Path to git repo",
+                        "default": ".",
+                    },
+                    "depth": {
+                        "type": "integer",
+                        "description": "Number of commits to check",
+                        "default": 50,
+                    },
+                },
             },
-        },
-        tags=["git", "hygiene"],
-    ))
-    registry.register(ToolDefinition(
-        name="git_safe_commit",
-        description="Safe git commit with pre-commit secret scanning",
-        category="security",
-        handler=git_safe_commit,
-        requires_approval=True,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "message": {"type": "string", "description": "Commit message"},
-                "files": {"type": "string", "description": "Files to stage", "default": "."},
+            tags=["git", "security", "audit"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="repo_hygiene_check",
+            description="Check repo hygiene: .gitignore, .dockerignore, LICENSE, pre-commit",
+            category="security",
+            handler=repo_hygiene_check,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {
+                        "type": "string",
+                        "description": "Path to git repo",
+                        "default": ".",
+                    },
+                },
             },
-            "required": ["message"],
-        },
-        tags=["git", "security", "commit"],
-    ))
+            tags=["git", "hygiene"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="git_safe_commit",
+            description="Safe git commit with pre-commit secret scanning",
+            category="security",
+            handler=git_safe_commit,
+            requires_approval=True,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string", "description": "Commit message"},
+                    "files": {"type": "string", "description": "Files to stage", "default": "."},
+                },
+                "required": ["message"],
+            },
+            tags=["git", "security", "commit"],
+        )
+    )

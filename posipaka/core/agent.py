@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -373,6 +374,9 @@ class Agent:
         # 7. Advanced modules
         self._init_advanced_modules()
 
+        # 8. Background update check
+        self._schedule_update_check()
+
         self.status = AgentStatus.READY
         await self.hooks.emit(HookEvent.AGENT_START)
         self.audit.log("agent_start", {"version": "0.1.0"})
@@ -457,6 +461,45 @@ class Agent:
             logger.debug(f"CronEngine: {len(self.cron_engine.list_jobs())} jobs loaded")
         except Exception as e:
             logger.warning(f"CronEngine init error: {e}")
+
+    def _schedule_update_check(self) -> None:
+        """Фонова перевірка оновлень при старті (не блокує).
+
+        Якщо знайдено нову версію — надсилає повідомлення
+        через активні канали (Telegram тощо).
+        """
+        try:
+            from posipaka.core.auto_update import AutoUpdater
+
+            updater = AutoUpdater(
+                data_dir=self.settings.data_dir,
+                audit_logger=self.audit,
+            )
+            if not updater.should_check():
+                return
+
+            async def _check() -> None:
+                try:
+                    info = await updater.check_for_updates()
+                    if not info.update_available:
+                        return
+                    msg = (
+                        f"Доступне оновлення Posipaka: "
+                        f"v{info.current_version} → v{info.latest_version}\n"
+                        f"Надішліть /update для оновлення."
+                    )
+                    logger.info(msg)
+                    # Надіслати адміну через gateway (Telegram тощо)
+                    if self.gateway:
+                        admin_id = getattr(self.settings, "admin_user_id", "")
+                        if admin_id:
+                            await self.gateway.broadcast(admin_id, msg)
+                except Exception as e:
+                    logger.debug(f"Background update check failed: {e}")
+
+            asyncio.create_task(_check())
+        except Exception as e:
+            logger.debug(f"Update check init: {e}")
 
     def _init_advanced_modules(self) -> None:
         """Ініціалізація advanced модулів."""
@@ -693,11 +736,13 @@ class Agent:
                 # CostGuard check
                 estimated_tokens = sum(
                     self.cost_guard.estimate_tokens(
-                        m.get("content", ""), selected_model,
+                        m.get("content", ""),
+                        selected_model,
                     )
                     for m in messages
                 ) + self.cost_guard.estimate_tokens(
-                    system_prompt, selected_model,
+                    system_prompt,
+                    selected_model,
                 )
                 allowed, reason = self.cost_guard.check_before_call(
                     model=selected_model,
@@ -1006,7 +1051,8 @@ class Agent:
                 else:
                     # Для великих MEMORY.md — включити тільки релевантні рядки
                     relevant_lines = self._select_relevant_facts(
-                        memory_md, session_id,
+                        memory_md,
+                        session_id,
                     )
                     if relevant_lines:
                         parts.append(f"# Пам'ять (релевантне)\n{relevant_lines}")
@@ -1019,7 +1065,9 @@ class Agent:
         return "\n\n---\n\n".join(parts)
 
     def _select_relevant_facts(
-        self, memory_md: str, session_id: str,
+        self,
+        memory_md: str,
+        session_id: str,
     ) -> str:
         """Вибрати тільки релевантні факти з MEMORY.md."""
         lines = memory_md.strip().split("\n")

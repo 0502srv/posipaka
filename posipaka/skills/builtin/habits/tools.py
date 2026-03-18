@@ -73,8 +73,8 @@ async def add_habit(name: str) -> str:
             )
             await db.commit()
         except aiosqlite.IntegrityError:
-            return f"Habit \"{name}\" already exists."
-    return f"Habit \"{name}\" added. Start logging!"
+            return f'Habit "{name}" already exists.'
+    return f'Habit "{name}" added. Start logging!'
 
 
 async def log_habit(name: str, note: str = "") -> str:
@@ -85,7 +85,7 @@ async def log_habit(name: str, note: str = "") -> str:
             "SELECT id FROM habits WHERE name = ? AND active = 1", (name,)
         )
         if not row:
-            return f"Habit \"{name}\" not found. Create it first with add_habit."
+            return f'Habit "{name}" not found. Create it first with add_habit.'
         habit_id = row[0][0]
 
         await db.execute(
@@ -104,7 +104,7 @@ async def log_habit(name: str, note: str = "") -> str:
         date_strs = [d[0] for d in dates]
         streak = _calc_streak(date_strs)
 
-    return f"Logged \"{name}\" for today. Current streak: {streak} day(s)."
+    return f'Logged "{name}" for today. Current streak: {streak} day(s).'
 
 
 async def habits_report() -> str:
@@ -143,11 +143,9 @@ async def habits_streak(name: str) -> str:
     """Detailed streak info for a single habit."""
     async with aiosqlite.connect(_get_db_path()) as db:
         await _ensure_schema(db)
-        row = await db.execute_fetchall(
-            "SELECT id, created_at FROM habits WHERE name = ?", (name,)
-        )
+        row = await db.execute_fetchall("SELECT id, created_at FROM habits WHERE name = ?", (name,))
         if not row:
-            return f"Habit \"{name}\" not found."
+            return f'Habit "{name}" not found.'
         habit_id, created_at = row[0]
 
         total = await db.execute_fetchall(
@@ -169,7 +167,7 @@ async def habits_streak(name: str) -> str:
         rate = (total_count / days_since * 100) if days_since > 0 else 0
 
     return (
-        f"STREAK: \"{name}\"\n"
+        f'STREAK: "{name}"\n'
         f"  Current streak: {streak} day(s)\n"
         f"  Total completions: {total_count}\n"
         f"  Tracking since: {created} ({days_since} days)\n"
@@ -180,54 +178,62 @@ async def habits_streak(name: str) -> str:
 def register(registry: Any) -> None:
     from posipaka.core.tools.registry import ToolDefinition
 
-    registry.register(ToolDefinition(
-        name="add_habit",
-        description="Add a new habit to track",
-        category="productivity",
-        handler=add_habit,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "name": {"type": "string", "description": "Habit name"},
+    registry.register(
+        ToolDefinition(
+            name="add_habit",
+            description="Add a new habit to track",
+            category="productivity",
+            handler=add_habit,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Habit name"},
+                },
+                "required": ["name"],
             },
-            "required": ["name"],
-        },
-        tags=["habits", "tracking", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="log_habit",
-        description="Log habit completion for today",
-        category="productivity",
-        handler=log_habit,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "name": {"type": "string", "description": "Habit name"},
-                "note": {"type": "string", "description": "Optional note", "default": ""},
+            tags=["habits", "tracking", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="log_habit",
+            description="Log habit completion for today",
+            category="productivity",
+            handler=log_habit,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Habit name"},
+                    "note": {"type": "string", "description": "Optional note", "default": ""},
+                },
+                "required": ["name"],
             },
-            "required": ["name"],
-        },
-        tags=["habits", "tracking", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="habits_report",
-        description="Report on all active habits with streaks",
-        category="productivity",
-        handler=habits_report,
-        input_schema={"type": "object", "properties": {}},
-        tags=["habits", "tracking", "productivity"],
-    ))
-    registry.register(ToolDefinition(
-        name="habits_streak",
-        description="Detailed streak info for a single habit",
-        category="productivity",
-        handler=habits_streak,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "name": {"type": "string", "description": "Habit name"},
+            tags=["habits", "tracking", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="habits_report",
+            description="Report on all active habits with streaks",
+            category="productivity",
+            handler=habits_report,
+            input_schema={"type": "object", "properties": {}},
+            tags=["habits", "tracking", "productivity"],
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="habits_streak",
+            description="Detailed streak info for a single habit",
+            category="productivity",
+            handler=habits_streak,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Habit name"},
+                },
+                "required": ["name"],
             },
-            "required": ["name"],
-        },
-        tags=["habits", "tracking", "productivity"],
-    ))
+            tags=["habits", "tracking", "productivity"],
+        )
+    )

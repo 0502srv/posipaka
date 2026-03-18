@@ -21,9 +21,18 @@ class SecurityAgent(BaseSpecializedAgent):
     @property
     def capabilities(self) -> list[str]:
         return [
-            "security", "secret", "scan", "audit", "vulnerability",
-            "leak", "credential", "безпека", "секрети", "аудит",
-            "сканування", "вразливість",
+            "security",
+            "secret",
+            "scan",
+            "audit",
+            "vulnerability",
+            "leak",
+            "credential",
+            "безпека",
+            "секрети",
+            "аудит",
+            "сканування",
+            "вразливість",
         ]
 
     async def execute(self, task: AgentTask) -> str:

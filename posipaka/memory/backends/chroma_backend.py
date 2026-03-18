@@ -54,11 +54,13 @@ class ChromaBackend:
             self._collection.add(
                 ids=[doc_id or str(uuid.uuid4())],
                 documents=[text],
-                metadatas=[{
-                    "session_id": session_id,
-                    "created_at": time_mod.time(),
-                    **(metadata or {}),
-                }],
+                metadatas=[
+                    {
+                        "session_id": session_id,
+                        "created_at": time_mod.time(),
+                        **(metadata or {}),
+                    }
+                ],
             )
         except Exception as e:
             logger.warning(f"ChromaDB add error: {e}")
@@ -97,6 +99,7 @@ class ChromaBackend:
                 created = meta.get("created_at", now)
                 age_days = (now - created) / 86400
                 import math
+
                 decay = math.exp(-age_days / 30)  # half-life ~30 days
                 final_score = similarity * (0.7 + 0.3 * decay)  # 70% semantic + 30% recency
                 scored.append((doc, final_score))

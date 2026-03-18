@@ -190,7 +190,10 @@ class SQLiteBackend:
         return None
 
     async def cache_embedding(
-        self, content_hash: str, embedding: list[float], model: str,
+        self,
+        content_hash: str,
+        embedding: list[float],
+        model: str,
     ) -> None:
         """Cache embedding for future use."""
         db = self._ensure_db()

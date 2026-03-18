@@ -19,9 +19,21 @@ class WriterAgent(BaseSpecializedAgent):
     @property
     def capabilities(self) -> list[str]:
         return [
-            "write", "draft", "compose", "letter", "email", "blog",
-            "article", "docs", "text", "напиши", "лист", "стаття",
-            "документація", "текст", "чернетка",
+            "write",
+            "draft",
+            "compose",
+            "letter",
+            "email",
+            "blog",
+            "article",
+            "docs",
+            "text",
+            "напиши",
+            "лист",
+            "стаття",
+            "документація",
+            "текст",
+            "чернетка",
         ]
 
     async def execute(self, task: AgentTask) -> str:

@@ -27,6 +27,25 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    labels:
+      - "com.centurylinklabs.watchtower.scope=posipaka"
+    networks:
+      - posipaka_net
+
+  # Auto-update: watchtower перебілдить контейнер при новому образі
+  watchtower:
+    image: containrrr/watchtower
+    container_name: posipaka-watchtower
+    restart: unless-stopped
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=86400  # раз на добу
+      - WATCHTOWER_ROLLING_RESTART=true
+      - WATCHTOWER_SCOPE=posipaka
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "com.centurylinklabs.watchtower.scope=posipaka"
     networks:
       - posipaka_net
 

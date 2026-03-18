@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -62,6 +63,10 @@ class TestFetchResultIsValid:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    not importlib.util.find_spec("bs4"),
+    reason="beautifulsoup4 not installed",
+)
 class TestExtractContent:
     def test_extracts_title(self):
         html = (
@@ -108,8 +113,7 @@ class TestWebFetchTwoLayer:
     async def test_httpx_sufficient_no_playwright(self):
         """Якщо httpx повернув достатньо контенту — Playwright НЕ викликається."""
         good_html = (
-            "<html><head><title>Docs</title></head>"
-            "<body><p>" + "A" * 500 + "</p></body></html>"
+            "<html><head><title>Docs</title></head><body><p>" + "A" * 500 + "</p></body></html>"
         )
 
         mock_response = MagicMock()
@@ -143,8 +147,7 @@ class TestWebFetchTwoLayer:
     async def test_js_only_triggers_playwright(self):
         """Якщо httpx повернув JS-only — Playwright має викликатись."""
         js_only_html = (
-            '<html><body><div id="root"></div>'
-            '<script src="app.js"></script></body></html>'
+            '<html><body><div id="root"></div><script src="app.js"></script></body></html>'
         )
 
         mock_response = MagicMock()

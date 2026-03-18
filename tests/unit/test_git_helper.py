@@ -81,9 +81,7 @@ class TestGitSecretScan:
     @pytest.mark.asyncio
     async def test_detects_secret(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            (Path(tmpdir) / "config.py").write_text(
-                'API_KEY = "sk-ant-abc123def456ghi789jkl012"\n'
-            )
+            (Path(tmpdir) / "config.py").write_text('API_KEY = "sk-ant-abc123def456ghi789jkl012"\n')
             result = await git_secret_scan(tmpdir)
             assert "issue(s) found" in result
             assert "Anthropic API Key" in result

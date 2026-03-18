@@ -13,6 +13,7 @@ class TestSecurityAgent:
     @pytest.fixture
     def agent(self):
         from posipaka.core.agents.security_agent import SecurityAgent
+
         return SecurityAgent()
 
     def test_name(self, agent):
@@ -39,7 +40,8 @@ class TestSecurityAgent:
     @pytest.mark.asyncio
     async def test_scan_route(self, agent):
         with patch.object(
-            agent, "_run_secret_scan",
+            agent,
+            "_run_secret_scan",
             new_callable=AsyncMock,
             return_value="No secrets",
         ):
@@ -65,6 +67,7 @@ class TestWriterAgent:
     @pytest.fixture
     def agent(self):
         from posipaka.core.agents.writer_agent import WriterAgent
+
         return WriterAgent()
 
     def test_name(self, agent):
@@ -86,6 +89,7 @@ class TestWebAgent:
     @pytest.fixture
     def agent(self):
         from posipaka.core.agents.web_agent import WebAgent
+
         return WebAgent()
 
     def test_name(self, agent):
@@ -122,6 +126,7 @@ class TestNotificationAgent:
     @pytest.fixture
     def agent(self):
         from posipaka.core.agents.notification_agent import NotificationAgent
+
         return NotificationAgent()
 
     def test_name(self, agent):

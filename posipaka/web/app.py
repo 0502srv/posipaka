@@ -79,6 +79,26 @@ def create_app(
             **report.to_dict(),
         }
 
+    # ─── Update check ────────────────────────────────────────────────
+    @app.post("/api/v1/check-update", response_class=HTMLResponse)
+    async def check_update():
+        try:
+            from posipaka.core.auto_update import AutoUpdater
+
+            data_dir = agent.settings.data_dir if agent else Path.home() / ".posipaka"
+            updater = AutoUpdater(data_dir=data_dir)
+            info = await updater.check_for_updates()
+            if info.update_available:
+                return (
+                    f'<div class="text-yellow-400">'
+                    f"Доступне оновлення: v{info.latest_version} "
+                    f"(поточна: v{info.current_version})"
+                    f"</div>"
+                )
+            return f'<div class="text-green-400">v{info.current_version} — актуальна версія</div>'
+        except Exception as e:
+            return f'<div class="text-red-400">Помилка: {e}</div>'
+
     # ─── Login ───────────────────────────────────────────────────────
     @app.get("/login", response_class=HTMLResponse)
     async def login_page():
@@ -265,11 +285,33 @@ def create_app(
                     </div>
                 </div>
 
+                <div class="bg-gray-800 p-6 rounded-lg mb-8"
+                     id="update-section">
+                    <h2 class="text-xl font-bold mb-4">Оновлення</h2>
+                    <button hx-post="/api/v1/check-update"
+                            hx-target="#update-result"
+                            hx-indicator="#update-spinner"
+                            class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">
+                        Перевірити оновлення
+                    </button>
+                    <span id="update-spinner"
+                          class="htmx-indicator text-gray-400 ml-2">
+                        Перевіряю...
+                    </span>
+                    <div id="update-result" class="mt-3 text-sm"></div>
+                </div>
+
                 <div class="bg-gray-800 p-6 rounded-lg">
                     <h2 class="text-xl font-bold mb-4">Швидкі дії</h2>
                     <div class="flex gap-4">
-                        <a href="/api/v1/health" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">Health Check</a>
-                        <a href="/logout" class="px-4 py-2 bg-gray-600 rounded hover:bg-gray-700">Вийти</a>
+                        <a href="/api/v1/health"
+                           class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
+                            Health Check
+                        </a>
+                        <a href="/logout"
+                           class="px-4 py-2 bg-gray-600 rounded hover:bg-gray-700">
+                            Вийти
+                        </a>
                     </div>
                 </div>
             </div>
