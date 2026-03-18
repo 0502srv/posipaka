@@ -8,14 +8,13 @@ version = "0.1.0"
 description = "Posipaka — персональний AI-агент для месенджерів"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [
     { name = "Posipaka Team" },
 ]
 keywords = ["ai", "agent", "telegram", "assistant", "llm"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Communications :: Chat",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -92,12 +91,12 @@ posipaka = "posipaka.main:cli"
 packages = ["posipaka"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
-ignore = ["SIM102", "SIM105", "SIM108", "SIM103", "B905", "UP042"]
+ignore = ["SIM102", "SIM105", "SIM108", "SIM103", "B905", "UP042", "UP036", "UP047"]
 
 [tool.ruff.lint.per-file-ignores]
 "posipaka/web/app.py" = ["E501"]
@@ -109,6 +108,6 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
