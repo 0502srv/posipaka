@@ -348,8 +348,15 @@ def create_app(
             f"— {desc}</span></div>"
         )
 
-    # ─── Dashboard ───────────────────────────────────────────────────
-    @app.get("/", response_class=HTMLResponse)
+    # ─── Root → Settings ────────────────────────────────────────────
+    @app.get("/")
+    async def root():
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse("/settings")
+
+    # ─── Dashboard (monitoring) ──────────────────────────────────────
+    @app.get("/dashboard", response_class=HTMLResponse)
     async def dashboard(request: Request):
         agent_status = agent.status.value if agent else "not_initialized"
         tools_count = len(agent.tools.list_tools()) if agent else 0
@@ -689,7 +696,7 @@ def create_app(
             <div class="max-w-4xl mx-auto">
                 <div class="flex items-center justify-between mb-8">
                     <h1 class="text-3xl font-bold">Налаштування</h1>
-                    <a href="/" class="{btn_secondary}">← Dashboard</a>
+                    <a href="/dashboard" class="{btn_secondary}">Моніторинг</a>
                 </div>
 
                 <!-- Section 1: LLM Settings -->
@@ -1037,6 +1044,21 @@ def create_app(
                     <div id="audit-log-content"></div>
                 </div>
 
+                <!-- Section 8: Restart -->
+                <div class="{section_cls}">
+                    <h2 class="text-xl font-bold mb-4">Перезапуск</h2>
+                    <p class="text-gray-400 text-sm mb-4">
+                        Зміни LLM, провайдера, моделей, месенджерів та бюджету
+                        діють після перезапуску агента.
+                    </p>
+                    <button hx-post="/settings/restart" hx-target="#restart-result"
+                            hx-confirm="Перезапустити агент? Поточні сесії буде збережено."
+                            class="px-4 py-2 bg-yellow-600 rounded hover:bg-yellow-700">
+                        Перезапустити агент
+                    </button>
+                    <span id="restart-result" class="ml-3 text-sm"></span>
+                </div>
+
             </div>
 
             <script nonce="{nonce}">
@@ -1115,7 +1137,7 @@ def create_app(
         )
         if agent:
             agent.audit.log("settings_llm_updated", {"provider": str(form.get("provider", ""))})
-        return '<span class="text-green-400">Збережено! Зміни діють після перезапуску.</span>'
+        return '<span class="text-green-400">Збережено!</span> <button hx-post="/settings/restart" hx-target="this" hx-confirm="Перезапустити агент зараз?" class="ml-2 px-3 py-1 bg-yellow-600 rounded text-sm hover:bg-yellow-700">Перезапустити</button>'
 
     @app.post("/settings/soul", response_class=HTMLResponse)
     async def settings_soul(request: Request):
@@ -1199,7 +1221,7 @@ def create_app(
         )
         if agent:
             agent.audit.log("settings_agent_updated", {"name": str(form.get("name", ""))})
-        return '<span class="text-green-400">Збережено! Зміни діють після перезапуску.</span>'
+        return '<span class="text-green-400">Збережено!</span> <button hx-post="/settings/restart" hx-target="this" hx-confirm="Перезапустити агент зараз?" class="ml-2 px-3 py-1 bg-yellow-600 rounded text-sm hover:bg-yellow-700">Перезапустити</button>'
 
     @app.post("/settings/cost", response_class=HTMLResponse)
     async def settings_cost(request: Request):
@@ -1215,7 +1237,7 @@ def create_app(
         )
         if agent:
             agent.audit.log("settings_cost_updated", {})
-        return '<span class="text-green-400">Збережено! Зміни діють після перезапуску.</span>'
+        return '<span class="text-green-400">Збережено!</span> <button hx-post="/settings/restart" hx-target="this" hx-confirm="Перезапустити агент зараз?" class="ml-2 px-3 py-1 bg-yellow-600 rounded text-sm hover:bg-yellow-700">Перезапустити</button>'
 
     @app.delete("/settings/memory/clear", response_class=HTMLResponse)
     async def settings_memory_clear(request: Request):
@@ -1297,6 +1319,29 @@ def create_app(
             return f'<span class="text-green-400">Цілісність OK: {count} записів. {esc_msg}</span>'
         return (
             f'<span class="text-red-400">ПОРУШЕННЯ: {esc_msg} ({count} записів до помилки)</span>'
+        )
+
+    # ─── Restart ─────────────────────────────────────────────────────
+    @app.post("/settings/restart", response_class=HTMLResponse)
+    async def settings_restart(request: Request):
+        """Restart the agent process."""
+        import asyncio
+        import os
+        import signal
+
+        if agent:
+            agent.audit.log("agent_restart", {"source": "web_ui"})
+
+        async def _delayed_restart() -> None:
+            await asyncio.sleep(1)
+            os.kill(os.getpid(), signal.SIGTERM)
+
+        asyncio.create_task(_delayed_restart())
+        return (
+            '<span class="text-yellow-400">'
+            "Перезапуск... Сторінка оновиться автоматично."
+            "</span>"
+            "<script>setTimeout(function(){location.reload()}, 5000)</script>"
         )
 
     # ─── Models API ───────────────────────────────────────────────────

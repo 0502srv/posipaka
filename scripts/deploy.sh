@@ -267,17 +267,18 @@ case "$DEPLOY_METHOD" in
     native) deploy_native ;;
 esac
 
-# ─── Extract web password from logs ──────────────────────────────────────────
-sleep 5  # дочекатись щоб контейнер встиг вивести пароль
+# ─── Extract web password ─────────────────────────────────────────────────────
+sleep 5
 _web_password=""
 if [[ "$DEPLOY_METHOD" == "docker" ]]; then
-    _web_password=$($DOCKER logs posipaka 2>&1 | grep -oP 'WEB UI PASSWORD: \K\S+' | head -1)
-    # Fallback: спробувати прочитати з файлу і скинути
+    # Спробувати з логів
+    _web_password=$($DOCKER logs posipaka 2>&1 | grep "WEB UI PASSWORD:" | head -1 | sed 's/.*WEB UI PASSWORD: //' | tr -d '[:space:]')
+    # Fallback: згенерувати новий
     if [[ -z "$_web_password" ]]; then
-        _web_password=$($DOCKER exec posipaka posipaka reset-password 2>&1 | grep -oP 'NEW WEB UI PASSWORD: \K\S+' | head -1)
+        _web_password=$($DOCKER exec posipaka posipaka reset-password 2>&1 | grep "NEW WEB UI PASSWORD:" | head -1 | sed 's/.*NEW WEB UI PASSWORD: //' | tr -d '[:space:]')
     fi
 else
-    _web_password=$(sudo journalctl -u posipaka --no-pager -n 50 2>&1 | grep -oP 'WEB UI PASSWORD: \K\S+' | head -1)
+    _web_password=$(sudo journalctl -u posipaka --no-pager -n 50 2>&1 | grep "WEB UI PASSWORD:" | head -1 | sed 's/.*WEB UI PASSWORD: //' | tr -d '[:space:]')
 fi
 
 # ─── Done ────────────────────────────────────────────────────────────────────
