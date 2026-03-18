@@ -318,7 +318,7 @@ class Agent:
         self._pending_approvals: dict[str, PendingAction] = {}
         self.model_router = ModelRouter(
             default_model=settings.llm.model,
-            fast_model=getattr(settings.llm, "fast_model", "claude-haiku-4-5-20251001"),
+            fast_model=getattr(settings.llm, "fast_model", settings.llm.fallback_model),
             complex_model=settings.llm.model,
         )
         self.semantic_cache = SemanticResponseCache()
