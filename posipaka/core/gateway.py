@@ -62,18 +62,17 @@ class MessageGateway:
         logger.info(f"Gateway starting channels: {list(self._channels.keys())}")
         await self.agent.hooks.emit(HookEvent.GATEWAY_START)
 
-        # Start all channels concurrently
-        tasks = []
+        # Start all channels
         for name, channel in self._channels.items():
             logger.info(f"Starting channel: {name}")
             await self.agent.hooks.emit(HookEvent.CHANNEL_CONNECTED, {"channel": name})
-            tasks.append(asyncio.create_task(channel.start()))
+            await channel.start()
 
+        # Keep gateway alive while channels run
         try:
-            await asyncio.gather(*tasks)
-        except asyncio.CancelledError:
-            pass
-        except KeyboardInterrupt:
+            while self._running:
+                await asyncio.sleep(1)
+        except (asyncio.CancelledError, KeyboardInterrupt):
             pass
         finally:
             await self.stop()

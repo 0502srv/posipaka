@@ -113,7 +113,7 @@ class AutoUpdater:
         self,
         current_version: str = "0.1.0",
         check_interval_hours: int = 24,
-        github_repo: str = "user/posipaka",
+        github_repo: str = "0502srv/posipaka",
         data_dir: Path | None = None,
         base_url: str = "https://api.github.com",
         audit_logger: Any = None,
