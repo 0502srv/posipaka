@@ -700,10 +700,7 @@ def create_app(
                             <div>
                                 <label class="block text-sm text-gray-400 mb-1">Provider</label>
                                 <select name="provider" id="llm-provider"
-                                        hx-get="/api/v1/models/{current_provider}"
-                                        hx-target="#llm-model"
-                                        hx-trigger="change"
-                                        onchange="this.setAttribute('hx-get', '/api/v1/models/' + this.value); htmx.process(this);"
+                                        id="llm-provider"
                                         class="{input_cls}">
                                     {provider_options}
                                 </select>
@@ -722,7 +719,7 @@ def create_app(
                                        value="{esc_api_key}"
                                        placeholder="{esc_api_key_display}"
                                        class="{input_cls} flex-1">
-                                <button type="button" onclick="toggleApiKey()" class="{btn_secondary}">
+                                <button type="button" id="api-key-toggle-btn" class="{btn_secondary}">
                                     <span id="api-key-toggle-text">Показати</span>
                                 </button>
                             </div>
@@ -732,15 +729,24 @@ def create_app(
                                 <label class="block text-sm text-gray-400 mb-1">
                                     Temperature: <span id="temp-value">{llm_temperature}</span>
                                 </label>
-                                <input type="range" name="temperature" min="0" max="1" step="0.05"
+                                <input type="range" name="temperature" id="temp-slider"
+                                       min="0" max="1" step="0.05"
                                        value="{llm_temperature}"
-                                       oninput="document.getElementById('temp-value').textContent=this.value"
                                        class="w-full accent-blue-500">
+                                <p class="text-xs text-gray-500 mt-1">
+                                    0 = точні, передбачувані відповіді.
+                                    1 = творчі, різноманітні.
+                                    0.7 = баланс (рекомендовано).
+                                </p>
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-400 mb-1">Max Tokens</label>
                                 <input type="number" name="max_tokens" value="{llm_max_tokens}"
                                        min="100" max="200000" class="{input_cls}">
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Максимальна довжина відповіді.
+                                    4096 = ~3 сторінки тексту.
+                                </p>
                             </div>
                         </div>
                         <div class="flex items-center gap-4">
@@ -760,17 +766,17 @@ def create_app(
                         <div class="flex gap-4 mb-6">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" name="routing_mode" value="single"
-                                       onchange="toggleRouting(this.value)" {checked_single}>
+                                       {checked_single}>
                                 <span>Одна модель</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" name="routing_mode" value="auto"
-                                       onchange="toggleRouting(this.value)" {checked_auto}>
+                                       {checked_auto}>
                                 <span>Автоматично</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" name="routing_mode" value="advanced"
-                                       onchange="toggleRouting(this.value)" {checked_advanced}>
+                                       {checked_advanced}>
                                 <span>Розширений</span>
                             </label>
                         </div>
@@ -1034,7 +1040,9 @@ def create_app(
             </div>
 
             <script nonce="{nonce}">
-                function toggleApiKey() {{
+                // API Key show/hide
+                document.getElementById('api-key-toggle-btn')
+                    .addEventListener('click', function() {{
                     var inp = document.getElementById('api-key-input');
                     var txt = document.getElementById('api-key-toggle-text');
                     if (inp.type === 'password') {{
@@ -1044,19 +1052,43 @@ def create_app(
                         inp.type = 'password';
                         txt.textContent = 'Показати';
                     }}
+                }});
+
+                // Temperature slider
+                document.getElementById('temp-slider')
+                    .addEventListener('input', function() {{
+                    document.getElementById('temp-value').textContent = this.value;
+                }});
+
+                // Routing mode toggle
+                document.querySelectorAll('input[name="routing_mode"]')
+                    .forEach(function(radio) {{
+                    radio.addEventListener('change', function() {{
+                        var mode = this.value;
+                        var autoEl = document.getElementById('routing-auto');
+                        var advEl = document.getElementById('routing-advanced');
+                        if (autoEl) autoEl.style.display =
+                            (mode === 'auto') ? 'block' : 'none';
+                        if (advEl) advEl.style.display =
+                            (mode === 'advanced') ? 'block' : 'none';
+                    }});
+                }});
+
+                // Provider change -> update model dropdown
+                var provSelect = document.getElementById('llm-provider');
+                if (provSelect) {{
+                    provSelect.addEventListener('change', function() {{
+                        htmx.ajax('GET',
+                            '/api/v1/models/' + this.value,
+                            '#llm-model');
+                    }});
                 }}
 
-                function toggleRouting(mode) {{
-                    document.getElementById('routing-auto').style.display =
-                        (mode === 'auto') ? 'block' : 'none';
-                    document.getElementById('routing-advanced').style.display =
-                        (mode === 'advanced') ? 'block' : 'none';
-                }}
-
-                // Show/hide telegram config based on checkbox
+                // Telegram config show/hide
                 document.addEventListener('change', function(e) {{
                     if (e.target && e.target.name === 'channel_telegram') {{
-                        document.getElementById('telegram-config').style.display =
+                        var cfg = document.getElementById('telegram-config');
+                        if (cfg) cfg.style.display =
                             e.target.checked ? 'block' : 'none';
                     }}
                 }});
@@ -1339,138 +1371,175 @@ def create_app(
     # ─── Soul wizard ───────────────────────────────────────────────────
     @app.post("/settings/soul/wizard", response_class=HTMLResponse)
     async def soul_wizard(request: Request):
-        """Start AI-guided personality setup."""
-        nonce = getattr(request.state, "csp_nonce", "")
-        return f'''
-        <div class="bg-gray-700 p-4 rounded space-y-3">
-            <p class="text-sm">Відповідайте на питання, і я налаштую особистість агента:</p>
-            <div id="wizard-chat" class="space-y-2">
-                <div class="text-blue-400 text-sm">Як ви хочете щоб агент до вас звертався? (на "ти" чи на "ви"?)</div>
-            </div>
-            <div class="flex gap-2">
-                <input type="text" id="wizard-input"
-                       placeholder="Ваша відповідь..."
-                       class="flex-1 p-2 rounded bg-gray-600 border border-gray-500 text-sm"
-                       onkeypress="if(event.key===\'Enter\') sendSoulWizard()">
-                <button type="button" onclick="sendSoulWizard()"
-                        class="px-3 py-2 bg-purple-600 rounded hover:bg-purple-700 text-sm">
-                    Далі
-                </button>
-            </div>
-        </div>
-        <script nonce="{nonce}">
-        var soulWizardStep = 0;
-        var soulWizardQuestions = [
-            "Як ви хочете щоб агент до вас звертався? (на \\"ти\\" чи на \\"ви\\"?)",
-            "Який стиль відповідей вам подобається? (коротко / детально / дружній / професійний)",
-            "Чи є щось, що агент НЕ повинен робити? (наприклад: не використовувати емодзі)",
-            "Як звати агента? (або залишіть поточне ім\\'я)"
-        ];
-        var soulWizardAnswers = [];
-        function sendSoulWizard() {{
-            var input = document.getElementById("wizard-input");
-            var answer = input.value.trim();
-            if (!answer) return;
-            soulWizardAnswers.push(answer);
-            var chat = document.getElementById("wizard-chat");
-            chat.innerHTML += "<div class=\\"text-gray-300 text-sm\\">Ви: " + answer + "</div>";
-            input.value = "";
-            soulWizardStep++;
-            if (soulWizardStep < soulWizardQuestions.length) {{
-                chat.innerHTML += "<div class=\\"text-blue-400 text-sm\\">" + soulWizardQuestions[soulWizardStep] + "</div>";
-            }} else {{
-                var formality = soulWizardAnswers[0];
-                var style = soulWizardAnswers[1];
-                var restrictions = soulWizardAnswers[2];
-                var name = soulWizardAnswers[3];
+        """Start AI-guided personality setup — step 0."""
+        return _soul_wizard_step(0, [])
 
-                var soul = "# " + (name || "Posipaka") + " — Особистість\\n\\n"
-                    + "## Хто я\\nЯ " + (name || "Posipaka") + " — персональний AI-асистент.\\n\\n"
-                    + "## Звернення\\n" + formality + "\\n\\n"
-                    + "## Стиль\\n" + style + "\\n\\n"
-                    + "## Обмеження\\n" + (restrictions || "Немає додаткових обмежень") + "\\n";
+    @app.post("/settings/soul/wizard/step", response_class=HTMLResponse)
+    async def soul_wizard_step(request: Request):
+        """Process wizard step via htmx."""
+        form = await request.form()
+        step = int(form.get("step", "0"))
+        answer = str(form.get("answer", ""))
+        # Collect previous answers
+        prev = []
+        for i in range(step):
+            prev.append(str(form.get(f"a{i}", "")))
+        if answer:
+            prev.append(answer)
+        return HTMLResponse(_soul_wizard_step(step + 1, prev))
 
-                fetch("/settings/soul", {{
-                    method: "POST",
-                    headers: {{"Content-Type": "application/x-www-form-urlencoded",
-                               "X-CSRF-Token": document.body.getAttribute("hx-headers") ? JSON.parse(document.body.getAttribute("hx-headers"))["X-CSRF-Token"] : ""}},
-                    body: "soul_raw=" + encodeURIComponent(soul)
-                }}).then(function(r) {{ return r.text(); }}).then(function() {{
-                    chat.innerHTML += "<div class=\\"text-green-400 text-sm\\">Готово! Особистість налаштована.</div>";
-                }});
-            }}
-            chat.scrollTop = chat.scrollHeight;
-        }}
-        </script>
-        '''
+    def _soul_wizard_step(step: int, answers: list[str]) -> str:
+        questions = [
+            'Як ви хочете щоб агент звертався? (на "ти" чи на "ви"?)',
+            "Який стиль відповідей? (коротко / детально / дружній / професійний)",
+            "Чого агент НЕ повинен робити?",
+            "Як звати агента?",
+        ]
+        # Build chat history
+        history = ""
+        for i, ans in enumerate(answers):
+            if i < len(questions):
+                q = questions[i]
+                history += (
+                    f'<div class="text-blue-400 text-sm">{q}</div>'
+                    f'<div class="text-gray-300 text-sm">Ви: {ans}</div>'
+                )
+
+        # Hidden fields for previous answers
+        hidden = "".join(
+            f'<input type="hidden" name="a{i}" value="{a}">' for i, a in enumerate(answers)
+        )
+
+        if step < len(questions):
+            # Show next question
+            return f'''
+            <div class="bg-gray-700 p-4 rounded space-y-3">
+                <div class="space-y-2">{history}</div>
+                <div class="text-blue-400 text-sm">{questions[step]}</div>
+                <form hx-post="/settings/soul/wizard/step"
+                      hx-target="#soul-wizard-result" class="flex gap-2">
+                    {hidden}
+                    <input type="hidden" name="step" value="{step}">
+                    <input type="text" name="answer" autofocus
+                           placeholder="Ваша відповідь..."
+                           class="flex-1 p-2 rounded bg-gray-600 border border-gray-500 text-sm">
+                    <button type="submit"
+                            class="px-3 py-2 bg-purple-600 rounded hover:bg-purple-700 text-sm">
+                        Далі
+                    </button>
+                </form>
+            </div>'''
+        else:
+            # All answers collected — build SOUL.md
+            formality = answers[0] if len(answers) > 0 else "ви"
+            style = answers[1] if len(answers) > 1 else "коротко"
+            restrictions = answers[2] if len(answers) > 2 else ""
+            name = answers[3] if len(answers) > 3 else "Posipaka"
+            soul = (
+                f"# {name} — Особистість\n\n"
+                f"## Хто я\n"
+                f"Я {name} — персональний AI-асистент.\n\n"
+                f"## Звернення\n{formality}\n\n"
+                f"## Стиль\n{style}\n\n"
+            )
+            if restrictions:
+                soul += f"## Обмеження\n{restrictions}\n"
+
+            # Save directly
+            data_dir = Path.home() / ".posipaka"
+            if agent:
+                data_dir = agent.settings.data_dir
+            soul_path = data_dir / "SOUL.md"
+            soul_path.write_text(soul, encoding="utf-8")
+
+            return f'''
+            <div class="bg-gray-700 p-4 rounded space-y-3">
+                <div class="space-y-2">{history}</div>
+                <div class="text-green-400 text-sm font-bold">
+                    Готово! Особистість "{name}" налаштована.
+                </div>
+            </div>'''
 
     # ─── User wizard ───────────────────────────────────────────────────
     @app.post("/settings/user/wizard", response_class=HTMLResponse)
     async def user_wizard(request: Request):
-        """Start AI-guided user profile setup."""
-        nonce = getattr(request.state, "csp_nonce", "")
-        return f'''
-        <div class="bg-gray-700 p-4 rounded space-y-3">
-            <p class="text-sm">Відповідайте на питання, і я заповню ваш профіль:</p>
-            <div id="user-wizard-chat" class="space-y-2">
-                <div class="text-blue-400 text-sm">Як вас звати?</div>
-            </div>
-            <div class="flex gap-2">
-                <input type="text" id="user-wizard-input"
-                       placeholder="Ваша відповідь..."
-                       class="flex-1 p-2 rounded bg-gray-600 border border-gray-500 text-sm"
-                       onkeypress="if(event.key===\'Enter\') sendUserWizard()">
-                <button type="button" onclick="sendUserWizard()"
-                        class="px-3 py-2 bg-purple-600 rounded hover:bg-purple-700 text-sm">
-                    Далі
-                </button>
-            </div>
-        </div>
-        <script nonce="{nonce}">
-        var userWizardStep = 0;
-        var userWizardQuestions = [
+        """Start AI-guided user profile setup — step 0."""
+        return _user_wizard_step(0, [])
+
+    @app.post("/settings/user/wizard/step", response_class=HTMLResponse)
+    async def user_wizard_step(request: Request):
+        """Process user wizard step via htmx."""
+        form = await request.form()
+        step = int(form.get("step", "0"))
+        answer = str(form.get("answer", ""))
+        prev = []
+        for i in range(step):
+            prev.append(str(form.get(f"a{i}", "")))
+        if answer:
+            prev.append(answer)
+        return HTMLResponse(_user_wizard_step(step + 1, prev))
+
+    def _user_wizard_step(step: int, answers: list[str]) -> str:
+        questions = [
             "Як вас звати?",
             "Чим ви займаєтесь?",
             "Яка ваша мова спілкування?",
-            "Що вам подобається? (хобі, інтереси)"
-        ];
-        var userWizardAnswers = [];
-        function sendUserWizard() {{
-            var input = document.getElementById("user-wizard-input");
-            var answer = input.value.trim();
-            if (!answer) return;
-            userWizardAnswers.push(answer);
-            var chat = document.getElementById("user-wizard-chat");
-            chat.innerHTML += "<div class=\\"text-gray-300 text-sm\\">Ви: " + answer + "</div>";
-            input.value = "";
-            userWizardStep++;
-            if (userWizardStep < userWizardQuestions.length) {{
-                chat.innerHTML += "<div class=\\"text-blue-400 text-sm\\">" + userWizardQuestions[userWizardStep] + "</div>";
-            }} else {{
-                var uName = userWizardAnswers[0];
-                var uWork = userWizardAnswers[1];
-                var uLang = userWizardAnswers[2];
-                var uPrefs = userWizardAnswers[3];
+            "Що вам подобається? (хобі, інтереси)",
+        ]
+        history = ""
+        for i, ans in enumerate(answers):
+            if i < len(questions):
+                history += (
+                    f'<div class="text-blue-400 text-sm">{questions[i]}</div>'
+                    f'<div class="text-gray-300 text-sm">Ви: {ans}</div>'
+                )
 
-                var userMd = "# Профіль користувача\\n\\n"
-                    + "## Ім\\'я\\n" + uName + "\\n\\n"
-                    + "## Сфера\\n" + uWork + "\\n\\n"
-                    + "## Мова\\n" + uLang + "\\n\\n"
-                    + "## Вподобання\\n" + uPrefs + "\\n";
+        hidden = "".join(
+            f'<input type="hidden" name="a{i}" value="{a}">' for i, a in enumerate(answers)
+        )
 
-                fetch("/settings/user", {{
-                    method: "POST",
-                    headers: {{"Content-Type": "application/x-www-form-urlencoded",
-                               "X-CSRF-Token": document.body.getAttribute("hx-headers") ? JSON.parse(document.body.getAttribute("hx-headers"))["X-CSRF-Token"] : ""}},
-                    body: "user_raw=" + encodeURIComponent(userMd)
-                }}).then(function(r) {{ return r.text(); }}).then(function() {{
-                    chat.innerHTML += "<div class=\\"text-green-400 text-sm\\">Готово! Профіль збережено.</div>";
-                }});
-            }}
-            chat.scrollTop = chat.scrollHeight;
-        }}
-        </script>
-        '''
+        if step < len(questions):
+            return f'''
+            <div class="bg-gray-700 p-4 rounded space-y-3">
+                <div class="space-y-2">{history}</div>
+                <div class="text-blue-400 text-sm">{questions[step]}</div>
+                <form hx-post="/settings/user/wizard/step"
+                      hx-target="#user-wizard-result" class="flex gap-2">
+                    {hidden}
+                    <input type="hidden" name="step" value="{step}">
+                    <input type="text" name="answer" autofocus
+                           placeholder="Ваша відповідь..."
+                           class="flex-1 p-2 rounded bg-gray-600 border border-gray-500 text-sm">
+                    <button type="submit"
+                            class="px-3 py-2 bg-purple-600 rounded hover:bg-purple-700 text-sm">
+                        Далі
+                    </button>
+                </form>
+            </div>'''
+        else:
+            u_name = answers[0] if answers else ""
+            u_work = answers[1] if len(answers) > 1 else ""
+            u_lang = answers[2] if len(answers) > 2 else ""
+            u_prefs = answers[3] if len(answers) > 3 else ""
+            user_md = (
+                f"# Профіль користувача\n\n"
+                f"## Ім'я\n{u_name}\n\n"
+                f"## Сфера\n{u_work}\n\n"
+                f"## Мова\n{u_lang}\n\n"
+                f"## Вподобання\n{u_prefs}\n"
+            )
+            data_dir = Path.home() / ".posipaka"
+            if agent:
+                data_dir = agent.settings.data_dir
+            (data_dir / "USER.md").write_text(user_md, encoding="utf-8")
+
+            return f'''
+            <div class="bg-gray-700 p-4 rounded space-y-3">
+                <div class="space-y-2">{history}</div>
+                <div class="text-green-400 text-sm font-bold">
+                    Готово! Профіль "{u_name}" збережено.
+                </div>
+            </div>'''
 
     # ─── Metrics ─────────────────────────────────────────────────────
     @app.get("/api/v1/metrics")

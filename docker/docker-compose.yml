@@ -7,7 +7,7 @@ services:
     container_name: posipaka
     restart: unless-stopped
     env_file:
-      - ${ENV_FILE:-.env}
+      - ../.env
     deploy:
       resources:
         limits:
