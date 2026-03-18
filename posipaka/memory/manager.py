@@ -97,9 +97,7 @@ class MemoryManager:
         return []
 
     async def maybe_extract_facts(self, session_id: str, text: str) -> None:
-        """Автоматичне витягнення фактів (placeholder для LLM-based extraction)."""
-        # В повній реалізації: LLM витягує факти з розмови
-        # Зараз: просто зберігаємо якщо текст містить "запам'ятай" / "remember"
+        """Витягнення фактів з тексту за ключовими словами."""
         lower = text.lower()
         if any(kw in lower for kw in ("запам'ятай", "запамʼятай", "remember", "нагадай що")):
             await self._sqlite.add_fact(session_id, text)

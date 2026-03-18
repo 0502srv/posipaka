@@ -20,6 +20,7 @@ class SlackChannel(BaseChannel):
     def __init__(self, agent: Agent, settings: Settings) -> None:
         super().__init__(agent)
         self.settings = settings
+        self._web_client = None
 
     @property
     def name(self) -> str:
@@ -41,6 +42,7 @@ class SlackChannel(BaseChannel):
             return
 
         app = AsyncApp(token=bot_token)
+        self._web_client = app.client
 
         @app.event("app_mention")
         async def handle_mention(event, say):
@@ -82,4 +84,13 @@ class SlackChannel(BaseChannel):
         pass
 
     async def send_message(self, user_id: str, text: str) -> None:
-        logger.warning("Slack direct send not implemented in Socket Mode")
+        if not self._web_client:
+            logger.warning("Slack client not initialized yet")
+            return
+        try:
+            resp = await self._web_client.conversations_open(users=[user_id])
+            channel_id = resp["channel"]["id"]
+            for part in split_message(text, 3000):
+                await self._web_client.chat_postMessage(channel=channel_id, text=part)
+        except Exception as e:
+            logger.error(f"Slack send_message failed: {e}")

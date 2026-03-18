@@ -8,7 +8,6 @@ from enum import StrEnum
 from pathlib import Path
 
 import aiosqlite
-from loguru import logger
 
 
 class PricingTier(StrEnum):
@@ -138,24 +137,3 @@ class UsageTracker:
             lines.append(f"Cost this month: ${cost:.2f}")
 
         return "\n".join(lines)
-
-
-class PaymentManager:
-    """Stub для Stripe/LemonSqueezy інтеграції.
-
-    Потребує API ключі для реальної роботи.
-    """
-
-    async def create_checkout_session(self, user_id: str, tier: PricingTier) -> str:
-        """Створити URL для оплати (stub)."""
-        logger.info(f"Payment checkout requested: {user_id} → {tier.value}")
-        return f"https://pay.posipaka.dev/checkout?user={user_id}&tier={tier.value}"
-
-    async def handle_webhook(self, payload: dict) -> None:
-        """Обробити webhook від платіжної системи (stub)."""
-        logger.info(f"Payment webhook received: {payload.get('type', 'unknown')}")
-
-    async def get_subscription(self, user_id: str) -> dict | None:
-        """Отримати підписку користувача (stub)."""
-        # В реальній імплементації — запит до Stripe
-        return None
