@@ -72,7 +72,7 @@ fi
 
 # ─── Interactive config ──────────────────────────────────────────────────────
 _current_key=$(grep "^LLM_API_KEY=" "$INSTALL_DIR/.env" | cut -d= -f2-)
-if [[ "$_current_key" == "sk-ant-your-key-here" || -z "$_current_key" ]]; then
+if [[ "$_current_key" == "sk-ant-your-key-here" || "$_current_key" == "your-api-key-here" || -z "$_current_key" ]]; then
     echo ""
     echo -e "${YELLOW}${BOLD}Configuration${NC}"
     echo ""
@@ -268,10 +268,14 @@ case "$DEPLOY_METHOD" in
 esac
 
 # ─── Extract web password from logs ──────────────────────────────────────────
-sleep 3  # дочекатись щоб контейнер встиг вивести пароль
+sleep 5  # дочекатись щоб контейнер встиг вивести пароль
 _web_password=""
 if [[ "$DEPLOY_METHOD" == "docker" ]]; then
     _web_password=$($DOCKER logs posipaka 2>&1 | grep -oP 'WEB UI PASSWORD: \K\S+' | head -1)
+    # Fallback: спробувати прочитати з файлу і скинути
+    if [[ -z "$_web_password" ]]; then
+        _web_password=$($DOCKER exec posipaka posipaka reset-password 2>&1 | grep -oP 'NEW WEB UI PASSWORD: \K\S+' | head -1)
+    fi
 else
     _web_password=$(sudo journalctl -u posipaka --no-pager -n 50 2>&1 | grep -oP 'WEB UI PASSWORD: \K\S+' | head -1)
 fi
