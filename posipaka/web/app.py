@@ -1327,14 +1327,14 @@ def create_app(
         """Restart the agent process."""
         import asyncio
         import os
-        import signal
 
         if agent:
             agent.audit.log("agent_restart", {"source": "web_ui"})
 
         async def _delayed_restart() -> None:
             await asyncio.sleep(1)
-            os.kill(os.getpid(), signal.SIGTERM)
+            # Exit with code 1 so Docker restart policy restarts container
+            os._exit(1)
 
         asyncio.create_task(_delayed_restart())
         return (
