@@ -230,13 +230,25 @@ case "$DEPLOY_METHOD" in
     native) deploy_native ;;
 esac
 
+# ─── Extract web password from logs ──────────────────────────────────────────
+_web_password=""
+if [[ "$DEPLOY_METHOD" == "docker" ]]; then
+    _web_password=$($DOCKER logs posipaka 2>&1 | grep -oP 'Web UI password \(first run\): \K.*' | head -1)
+else
+    sleep 2
+    _web_password=$(sudo journalctl -u posipaka --no-pager -n 50 2>&1 | grep -oP 'Web UI password \(first run\): \K.*' | head -1)
+fi
+
 # ─── Done ────────────────────────────────────────────────────────────────────
 _ip=$(hostname -I | awk '{print $1}')
 echo ""
 echo -e "${GREEN}${BOLD}Posipaka deployed successfully!${NC}"
 echo ""
 echo "  Web UI:  http://${_ip}:8080"
-echo "  Health:  curl http://localhost:8080/api/v1/health"
+if [[ -n "$_web_password" ]]; then
+    echo -e "  Password: ${YELLOW}${BOLD}${_web_password}${NC}  (save it, shown only once!)"
+fi
+echo ""
 if [[ "$DEPLOY_METHOD" == "docker" ]]; then
     echo "  Logs:    $DOCKER logs posipaka -f"
 else
