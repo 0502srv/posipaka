@@ -32,8 +32,18 @@ def create_app(
         password = auth.setup_password()
         from loguru import logger
 
-        logger.info(f"Web UI password (first run): {password}")
-        logger.info("Save this password! It won't be shown again.")
+        # Показати пароль яскраво — stdout + logger
+        banner = (
+            "\n"
+            "=" * 50 + "\n"
+            f"  WEB UI PASSWORD: {password}\n"
+            "=" * 50 + "\n"
+            "  Save this password! It won't be shown again.\n"
+            "  Reset: posipaka reset-password\n"
+            "=" * 50 + "\n"
+        )
+        print(banner, flush=True)  # noqa: T201
+        logger.info("Web UI password generated (first run)")
 
     # Middleware (order: last added = first executed)
     app.add_middleware(RequestValidationMiddleware)

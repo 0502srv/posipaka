@@ -133,6 +133,29 @@ def doctor() -> None:
     click.echo(format_doctor_report(checks))
 
 
+@cli.command("reset-password")
+def reset_password() -> None:
+    """Скинути пароль Web UI та показати новий."""
+    from pathlib import Path
+
+    from posipaka.web.auth import AuthManager
+
+    data_dir = Path.home() / ".posipaka"
+    auth = AuthManager(data_dir)
+
+    # Видалити старий пароль
+    pw_file = data_dir / ".web_password"
+    if pw_file.exists():
+        pw_file.unlink()
+
+    # Згенерувати новий
+    password = auth.setup_password()
+    click.echo("=" * 50)
+    click.echo(f"  NEW WEB UI PASSWORD: {password}")
+    click.echo("=" * 50)
+    click.echo("  Restart the agent for the new password to take effect.")
+
+
 @cli.group()
 def config() -> None:
     """Керування конфігурацією."""
