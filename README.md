@@ -20,10 +20,13 @@
 ## One-Command Deploy (VPS)
 
 ```bash
-# SSH to your server, then:
-git clone https://github.com/0502srv/posipaka.git /opt/posipaka
-cd /opt/posipaka
-bash scripts/deploy.sh
+curl -sSL https://raw.githubusercontent.com/0502srv/posipaka/main/scripts/deploy.sh | bash
+```
+
+Or manually:
+
+```bash
+git clone https://github.com/0502srv/posipaka.git /opt/posipaka && cd /opt/posipaka && bash scripts/deploy.sh
 ```
 
 The script auto-detects Docker or native Python, sets up everything, creates a systemd service, and runs health checks.

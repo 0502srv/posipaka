@@ -66,12 +66,12 @@ if [ ! -f "$INSTALL_DIR/.env" ]; then
     echo "  LLM_API_KEY     — Your Anthropic/OpenAI API key"
     echo "  TELEGRAM_TOKEN  — Your Telegram bot token (from @BotFather)"
     echo ""
-    read -rp "Do you want to configure .env now? [Y/n] " answer
+    read -rp "Do you want to configure .env now? [Y/n] " answer < /dev/tty
     if [[ "${answer:-Y}" =~ ^[Yy]$ ]]; then
         if command -v nano &>/dev/null; then
-            nano "$INSTALL_DIR/.env"
+            nano "$INSTALL_DIR/.env" < /dev/tty
         elif command -v vi &>/dev/null; then
-            vi "$INSTALL_DIR/.env"
+            vi "$INSTALL_DIR/.env" < /dev/tty
         else
             err "No editor found. Edit $INSTALL_DIR/.env manually."
         fi
