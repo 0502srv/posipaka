@@ -48,12 +48,17 @@ class ChromaBackend:
         if not self._available or not self._collection:
             return
         try:
+            import time as time_mod
             import uuid
 
             self._collection.add(
                 ids=[doc_id or str(uuid.uuid4())],
                 documents=[text],
-                metadatas=[{"session_id": session_id, **(metadata or {})}],
+                metadatas=[{
+                    "session_id": session_id,
+                    "created_at": time_mod.time(),
+                    **(metadata or {}),
+                }],
             )
         except Exception as e:
             logger.warning(f"ChromaDB add error: {e}")
@@ -64,18 +69,40 @@ class ChromaBackend:
         session_id: str | None = None,
         k: int = 5,
     ) -> list[str]:
-        """Семантичний пошук."""
+        """Семантичний пошук з temporal decay."""
         if not self._available or not self._collection:
             return []
         try:
+            import time as time_mod
+
             where = {"session_id": session_id} if session_id else None
             results = self._collection.query(
                 query_texts=[query],
-                n_results=k,
+                n_results=min(k * 2, 20),  # Fetch more for re-ranking
                 where=where,
+                include=["documents", "distances", "metadatas"],
             )
-            documents = results.get("documents", [[]])
-            return documents[0] if documents else []
+            documents = results.get("documents", [[]])[0]
+            distances = results.get("distances", [[]])[0]
+            metadatas = results.get("metadatas", [[]])[0]
+
+            if not documents:
+                return []
+
+            # Re-rank with temporal decay
+            now = time_mod.time()
+            scored = []
+            for doc, dist, meta in zip(documents, distances, metadatas):
+                similarity = max(0, 1.0 - dist)  # cosine distance -> similarity
+                created = meta.get("created_at", now)
+                age_days = (now - created) / 86400
+                import math
+                decay = math.exp(-age_days / 30)  # half-life ~30 days
+                final_score = similarity * (0.7 + 0.3 * decay)  # 70% semantic + 30% recency
+                scored.append((doc, final_score))
+
+            scored.sort(key=lambda x: -x[1])
+            return [doc for doc, _ in scored[:k]]
         except Exception as e:
             logger.warning(f"ChromaDB search error: {e}")
             return []

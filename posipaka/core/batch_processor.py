@@ -14,7 +14,7 @@ from loguru import logger
 class BatchRequest:
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     messages: list[dict] = field(default_factory=list)
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "mistral-large-latest"
     max_tokens: int = 1024
     metadata: dict = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
@@ -48,7 +48,7 @@ class BatchProcessor:
     async def add_request(
         self,
         messages: list[dict],
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "mistral-large-latest",
         max_tokens: int = 1024,
         **metadata,
     ) -> str:

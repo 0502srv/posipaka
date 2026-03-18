@@ -29,23 +29,46 @@ async def shell_exec(command: str, working_dir: str = "", timeout: int = 30) -> 
     return output.strip() or "(порожній вивід)"
 
 
+_python_cache: dict[str, str] = {}
+_PYTHON_CACHE_MAX = 64
+
+
 async def python_exec(code: str) -> str:
-    """Виконати Python код."""
+    """Виконати Python код (з кешем для повторних запусків)."""
+    import hashlib
     import tempfile
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+    # Кеш: якщо той самий код вже виконувався — повернути результат
+    code_hash = hashlib.sha256(code.encode()).hexdigest()[:16]
+    if code_hash in _python_cache:
+        return _python_cache[code_hash]
+
+    import shlex
+
+    fd = tempfile.mkstemp(suffix=".py", text=True)
+    fname = fd[1]
+    with os.fdopen(fd[0], "w") as f:
+        os.chmod(fname, 0o600)  # owner-only read/write
         f.write(code)
         f.flush()
         try:
-            result = await _sandbox.execute(f"python3 {f.name}")
+            result = await _sandbox.execute(f"python3 {shlex.quote(fname)}")
             if result.blocked:
                 return f"Заблоковано: {result.blocked_reason}"
             output = result.stdout
             if result.stderr:
                 output += f"\nSTDERR: {result.stderr}"
-            return output.strip() or "(порожній вивід)"
+            output = output.strip() or "(порожній вивід)"
+
+            # Зберегти в кеш (тільки успішні, без помилок)
+            if result.return_code == 0:
+                if len(_python_cache) >= _PYTHON_CACHE_MAX:
+                    _python_cache.pop(next(iter(_python_cache)))
+                _python_cache[code_hash] = output
+
+            return output
         finally:
-            os.unlink(f.name)
+            os.unlink(fname)
 
 
 async def read_file(path: str, max_lines: int = 200) -> str:

@@ -67,7 +67,7 @@ class AuthManager:
         self._sessions[token] = {
             "created_at": time.time(),
             "ip": client_ip,
-            "csrf_token": secrets.token_hex(CSRF_TOKEN_LENGTH),
+            "csrf_tokens": [secrets.token_hex(CSRF_TOKEN_LENGTH)],
         }
         return token
 
@@ -92,14 +92,32 @@ class AuthManager:
         return True
 
     def get_csrf_token(self, session_token: str) -> str | None:
+        """Return the most recent CSRF token for the session."""
         session = self._sessions.get(session_token)
-        return session["csrf_token"] if session else None
+        if not session:
+            return None
+        tokens = session.get("csrf_tokens", [])
+        return tokens[-1] if tokens else None
+
+    def rotate_csrf_token(self, session_token: str) -> str | None:
+        """Generate a new CSRF token and keep last 3."""
+        session = self._sessions.get(session_token)
+        if not session:
+            return None
+        new_token = secrets.token_hex(CSRF_TOKEN_LENGTH)
+        tokens = session.get("csrf_tokens", [])
+        tokens.append(new_token)
+        session["csrf_tokens"] = tokens[-3:]
+        return new_token
 
     def validate_csrf(self, session_token: str, csrf_token: str) -> bool:
-        expected = self.get_csrf_token(session_token)
-        if not expected:
+        session = self._sessions.get(session_token)
+        if not session:
             return False
-        return secrets.compare_digest(expected, csrf_token)
+        tokens = session.get("csrf_tokens", [])
+        if not tokens:
+            return False
+        return any(secrets.compare_digest(t, csrf_token) for t in tokens)
 
     def invalidate_session(self, token: str) -> None:
         self._sessions.pop(token, None)
@@ -130,6 +148,8 @@ class AuthManager:
         if client_ip not in self._failed_attempts:
             self._failed_attempts[client_ip] = []
         self._failed_attempts[client_ip].append(time.time())
+        if len(self._failed_attempts) > 100:
+            self.cleanup_old_timestamps()
 
 
 class AuthMiddleware(BaseHTTPMiddleware):

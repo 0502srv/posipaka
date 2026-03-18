@@ -73,9 +73,10 @@ class HookManager:
         """Зареєструвати handler для event."""
         self._handlers[event].append(handler)
 
-    async def emit(self, event: HookEvent, data: dict[str, Any] | None = None) -> None:
-        """Emit event. Error isolation — один хук не ламає інших."""
+    async def emit(self, event: HookEvent, data: dict[str, Any] | None = None) -> list[str]:
+        """Emit event. Error isolation — один хук не ламає інших. Returns failed handler names."""
         handlers = self._handlers.get(event, [])
+        failures: list[str] = []
         for handler in handlers:
             try:
                 if asyncio.iscoroutinefunction(handler):
@@ -83,7 +84,10 @@ class HookManager:
                 else:
                     handler(data or {})
             except Exception as e:
-                logger.error(f"Hook error [{event.value}]: {e}")
+                name = getattr(handler, "__name__", repr(handler))
+                logger.error(f"Hook error [{event.value}] in {name}: {e}")
+                failures.append(name)
+        return failures
 
     def list_hooks(self) -> dict[str, int]:
         """Кількість handlers per event."""

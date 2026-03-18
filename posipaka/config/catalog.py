@@ -26,7 +26,7 @@ CONFIG_CATALOG: list[ConfigEntry] = [
         effect="Де обробляються запити",
         type="str",
         default="anthropic",
-        docs="anthropic | openai | ollama",
+        docs="anthropic | openai | ollama | mistral | gemini | groq | deepseek | xai",
     ),
     ConfigEntry(
         key="LLM_MODEL",

@@ -2,32 +2,40 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
+from loguru import logger
 
-async def deep_research(topic: str, max_sources: int = 5) -> str:
-    """Агрегує web_search + wiki_search для глибокого дослідження."""
-    results = []
 
-    # Web search
+async def _fetch_web(topic: str, max_sources: int) -> str:
+    """Web search з graceful fallback."""
     try:
         from posipaka.integrations.browser.tools import web_search
 
-        web_results = await web_search(topic, num_results=max_sources)
-        results.append(f"## Веб-пошук\n{web_results}")
+        return f"## Веб-пошук\n{await web_search(topic, num_results=max_sources)}"
     except Exception as e:
-        results.append(f"## Веб-пошук\nПомилка: {e}")
+        return f"## Веб-пошук\nПомилка: {e}"
 
-    # Wikipedia
+
+async def _fetch_wiki(topic: str) -> str:
+    """Wikipedia з graceful fallback."""
     try:
         from posipaka.integrations.wikipedia.tools import wikipedia_summary
 
-        wiki = await wikipedia_summary(topic)
-        results.append(f"## Wikipedia\n{wiki}")
+        return f"## Wikipedia\n{await wikipedia_summary(topic)}"
     except Exception as e:
-        results.append(f"## Wikipedia\nПомилка: {e}")
+        return f"## Wikipedia\nПомилка: {e}"
 
-    return f"# Дослідження: {topic}\n\n" + "\n\n".join(results)
+
+async def deep_research(topic: str, max_sources: int = 5) -> str:
+    """Паралельне дослідження: web_search + wikipedia одночасно."""
+    web_result, wiki_result = await asyncio.gather(
+        _fetch_web(topic, max_sources),
+        _fetch_wiki(topic),
+    )
+    logger.debug(f"deep_research topic={topic!r} completed")
+    return f"# Дослідження: {topic}\n\n{web_result}\n\n{wiki_result}"
 
 
 def register(registry: Any) -> None:

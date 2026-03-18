@@ -33,7 +33,10 @@ class TestSmokeBasic:
         from posipaka.config.settings import Settings
 
         settings = Settings()
-        assert settings.llm.provider in ("anthropic", "openai", "ollama")
+        assert settings.llm.provider in (
+            "anthropic", "openai", "ollama",
+            "mistral", "gemini", "groq", "deepseek", "xai",
+        )
         assert settings.cost.daily_budget_usd > 0
 
     def test_security_modules_import(self):

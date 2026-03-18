@@ -20,6 +20,7 @@ class SessionManager:
     """Керування сесіями користувачів."""
 
     MAX_CONCURRENT_SESSIONS_PER_USER = 3
+    MAX_SESSION_TTL_SECONDS = 86400
 
     def __init__(self) -> None:
         self._sessions: dict[str, Session] = {}
@@ -41,7 +42,19 @@ class SessionManager:
     def get(self, session_id: str) -> Session | None:
         return self._sessions.get(session_id)
 
+    def cleanup_expired(self) -> None:
+        """Remove sessions older than MAX_SESSION_TTL_SECONDS."""
+        now = time.time()
+        expired = [
+            sid for sid, s in self._sessions.items()
+            if now - s.created_at > self.MAX_SESSION_TTL_SECONDS
+        ]
+        for sid in expired:
+            self._sessions.pop(sid, None)
+
     def get_or_create(self, user_id: str, channel: str) -> Session:
+        if len(self._sessions) > 50:
+            self.cleanup_expired()
         for s in self._sessions.values():
             if s.user_id == user_id and s.channel == channel:
                 return s

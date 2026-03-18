@@ -68,3 +68,21 @@ CLAUDE.md
 .windsurfrules
 .copilot-instructions.md
 .aider*
+
+# Additional secret files
+*.pem
+*.key
+*.p12
+*.pfx
+service-account*.json
+.secrets.baseline
+
+# Terraform state
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Additional AI editors
+.continue/
+.codeium/
+.tabnine/

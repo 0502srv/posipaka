@@ -52,6 +52,7 @@ async def test_clear_session(memory):
     """Очищення сесії видаляє всі повідомлення."""
     await memory.add("s1", {"role": "user", "content": "msg1"})
     await memory.add("s1", {"role": "user", "content": "msg2"})
+    await memory.flush()  # дочекатись фонових записів
 
     await memory.clear_session("s1")
 
@@ -93,6 +94,7 @@ async def test_memory_md(memory):
 async def test_stats(memory):
     """Статистика сесії."""
     await memory.add("s1", {"role": "user", "content": "hello"})
+    await memory.flush()  # дочекатись фонових записів
     stats = await memory.get_stats("s1")
     assert stats["ram_messages"] == 1
     assert stats["db_messages"] == 1

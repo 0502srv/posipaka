@@ -146,9 +146,14 @@ class WebSetupWizard:
             <label class="block mb-2 text-sm text-gray-300">AI модель</label>
             <select name="llm_provider"
                     class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4">
-                <option value="anthropic" selected>Anthropic Claude (рекомендовано)</option>
+                <option value="mistral" selected>Mistral AI (рекомендовано)</option>
+                <option value="anthropic">Anthropic Claude</option>
                 <option value="openai">OpenAI GPT-4o</option>
                 <option value="ollama">Ollama (локально, безкоштовно)</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="groq">Groq (швидко)</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="xai">xAI Grok</option>
             </select>
 
             <label class="block mb-2 text-sm text-gray-300">API ключ</label>
@@ -497,12 +502,19 @@ class WebSetupWizard:
             # LLM
             self.config["llm_provider"] = form_data.get("llm_provider", "anthropic")
             self.config["llm_api_key"] = form_data.get("llm_api_key", "")
-            if self.config["llm_provider"] == "anthropic":
-                self.config["llm_model"] = "claude-sonnet-4-20250514"
-            elif self.config["llm_provider"] == "openai":
-                self.config["llm_model"] = "gpt-4o-mini"
-            else:
-                self.config["llm_model"] = "llama3"
+            model_defaults = {
+                "anthropic": "claude-sonnet-4-20250514",
+                "openai": "gpt-4o-mini",
+                "ollama": "llama3",
+                "mistral": "mistral-large-latest",
+                "gemini": "gemini-2.0-flash",
+                "groq": "llama-3.3-70b-versatile",
+                "deepseek": "deepseek-chat",
+                "xai": "grok-3-mini",
+            }
+            self.config["llm_model"] = model_defaults.get(
+                self.config["llm_provider"], "llama3"
+            )
         elif step == 3:
             # Messengers
             channels = form_data.getlist("channels") if hasattr(form_data, "getlist") else []
@@ -661,6 +673,14 @@ class WebSetupWizard:
 
     def test_llm(self, provider: str, api_key: str) -> str:
         """Test LLM connection. Returns HTML fragment."""
+        openai_compatible = {
+            "openai": ("https://api.openai.com/v1/models", "gpt-4o-mini", "OpenAI"),
+            "mistral": ("https://api.mistral.ai/v1/models", "mistral-large-latest", "Mistral"),
+            "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/models", "gemini-2.0-flash", "Gemini"),
+            "groq": ("https://api.groq.com/openai/v1/models", "llama-3.3-70b-versatile", "Groq"),
+            "deepseek": ("https://api.deepseek.com/v1/models", "deepseek-chat", "DeepSeek"),
+            "xai": ("https://api.x.ai/v1/models", "grok-3-mini", "xAI"),
+        }
         try:
             if provider == "anthropic":
                 resp = httpx.post(
@@ -685,15 +705,16 @@ class WebSetupWizard:
                         f"Модель: {model}</p>"
                     )
                 return f'<p class="text-red-400">&#10007; Помилка: {resp.status_code}</p>'
-            elif provider == "openai":
+            elif provider in openai_compatible:
+                base_url, default_model, name = openai_compatible[provider]
                 resp = httpx.get(
-                    "https://api.openai.com/v1/models",
+                    base_url,
                     headers={"Authorization": f"Bearer {api_key}"},
                     timeout=10,
                 )
                 if resp.status_code == 200:
-                    self.config["llm_model"] = "gpt-4o-mini"
-                    return '<p class="text-green-400">&#10003; OpenAI підключено!</p>'
+                    self.config["llm_model"] = default_model
+                    return f'<p class="text-green-400">&#10003; {name} підключено!</p>'
                 return f'<p class="text-red-400">&#10007; Помилка: {resp.status_code}</p>'
             elif provider == "ollama":
                 self.config["llm_model"] = "llama3"

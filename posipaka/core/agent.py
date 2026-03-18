@@ -55,8 +55,17 @@ class PendingAction:
     created_at: float = field(default_factory=time.time)
 
 
+_PROVIDER_BASE_URLS: dict[str, str] = {
+    "mistral": "https://api.mistral.ai/v1",
+    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
+    "groq": "https://api.groq.com/openai/v1",
+    "deepseek": "https://api.deepseek.com/v1",
+    "xai": "https://api.x.ai/v1",
+}
+
+
 class LLMClient:
-    """Абстракція над LLM провайдерами (Anthropic / OpenAI / Ollama)."""
+    """Абстракція над LLM провайдерами (Anthropic / OpenAI / Ollama + OpenAI-сумісні)."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -87,6 +96,16 @@ class LLMClient:
 
                 base_url = self._settings.llm.base_url or "http://localhost:11434/v1"
                 self._primary_client = openai.AsyncOpenAI(base_url=base_url, api_key="ollama")
+            except ImportError:
+                logger.warning("openai package not installed")
+        elif provider in _PROVIDER_BASE_URLS and api_key:
+            try:
+                import openai
+
+                self._primary_client = openai.AsyncOpenAI(
+                    base_url=_PROVIDER_BASE_URLS[provider],
+                    api_key=api_key,
+                )
             except ImportError:
                 logger.warning("openai package not installed")
 
@@ -228,15 +247,47 @@ class LLMClient:
         fb_model = self._settings.llm.fallback_model
         fb_key = self._settings.llm.fallback_api_key.get_secret_value()
 
-        if fb_provider == "openai" and fb_key:
+        if fb_provider == "anthropic" and fb_key:
+            import anthropic
+
+            old_client = self._primary_client
+            self._primary_client = anthropic.AsyncAnthropic(api_key=fb_key)
+            try:
+                return await self._call_anthropic(system, messages, tools, fb_model)
+            finally:
+                self._primary_client = old_client
+        elif fb_provider == "openai" and fb_key:
             import openai
 
-            client = openai.AsyncOpenAI(api_key=fb_key)
-            self._primary_client = client
-            # Temporarily use openai calling
-            result = await self._call_openai(system, messages, tools, fb_model)
-            self._primary_client = None  # Reset
-            return result
+            old_client = self._primary_client
+            self._primary_client = openai.AsyncOpenAI(api_key=fb_key)
+            try:
+                return await self._call_openai(system, messages, tools, fb_model)
+            finally:
+                self._primary_client = old_client
+        elif fb_provider == "ollama":
+            import openai
+
+            old_client = self._primary_client
+            self._primary_client = openai.AsyncOpenAI(
+                base_url="http://localhost:11434/v1", api_key="ollama"
+            )
+            try:
+                return await self._call_openai(system, messages, tools, fb_model)
+            finally:
+                self._primary_client = old_client
+        elif fb_provider in _PROVIDER_BASE_URLS and fb_key:
+            import openai
+
+            old_client = self._primary_client
+            self._primary_client = openai.AsyncOpenAI(
+                base_url=_PROVIDER_BASE_URLS[fb_provider],
+                api_key=fb_key,
+            )
+            try:
+                return await self._call_openai(system, messages, tools, fb_model)
+            finally:
+                self._primary_client = old_client
 
         raise RuntimeError("No fallback LLM available")
 
@@ -362,8 +413,12 @@ class Agent:
             from posipaka.core.agents.calendar_agent import CalendarAgent
             from posipaka.core.agents.code_agent import CodeAgent
             from posipaka.core.agents.devops_agent import DevOpsAgent
+            from posipaka.core.agents.notification_agent import NotificationAgent
             from posipaka.core.agents.orchestrator import AgentOrchestrator
             from posipaka.core.agents.research_agent import ResearchAgent
+            from posipaka.core.agents.security_agent import SecurityAgent
+            from posipaka.core.agents.web_agent import WebAgent
+            from posipaka.core.agents.writer_agent import WriterAgent
 
             self.orchestrator = AgentOrchestrator()
             self.orchestrator.register_agent(ResearchAgent())
@@ -371,7 +426,12 @@ class Agent:
             self.orchestrator.register_agent(CalendarAgent())
             self.orchestrator.register_agent(DevOpsAgent())
             self.orchestrator.register_agent(AnalysisAgent())
-            logger.debug("Orchestrator: 5 agents registered")
+            self.orchestrator.register_agent(SecurityAgent())
+            self.orchestrator.register_agent(WriterAgent())
+            self.orchestrator.register_agent(NotificationAgent())
+            self.orchestrator.register_agent(WebAgent())
+            count = len(self.orchestrator._agents)
+            logger.debug(f"Orchestrator: {count} agents registered")
         except Exception as e:
             logger.warning(f"Orchestrator init error: {e}")
 
@@ -631,8 +691,13 @@ class Agent:
             # Agentic loop
             for _iteration in range(self.MAX_TOOL_LOOPS):
                 # CostGuard check
-                estimated_tokens = (
-                    sum(len(m["content"]) // 4 for m in messages) + len(system_prompt) // 4
+                estimated_tokens = sum(
+                    self.cost_guard.estimate_tokens(
+                        m.get("content", ""), selected_model,
+                    )
+                    for m in messages
+                ) + self.cost_guard.estimate_tokens(
+                    system_prompt, selected_model,
                 )
                 allowed, reason = self.cost_guard.check_before_call(
                     model=selected_model,
@@ -931,11 +996,20 @@ class Agent:
         if user_path.exists():
             parts.append(user_path.read_text(encoding="utf-8"))
 
-        # MEMORY.md
+        # MEMORY.md — тільки релевантні факти
         if self.memory:
             memory_md = self.memory.get_memory_md()
             if memory_md:
-                parts.append(f"# Пам'ять\n{memory_md}")
+                # Якщо MEMORY.md невеликий — включити цілком
+                if len(memory_md) < 2000:
+                    parts.append(f"# Пам'ять\n{memory_md}")
+                else:
+                    # Для великих MEMORY.md — включити тільки релевантні рядки
+                    relevant_lines = self._select_relevant_facts(
+                        memory_md, session_id,
+                    )
+                    if relevant_lines:
+                        parts.append(f"# Пам'ять (релевантне)\n{relevant_lines}")
 
         # Skill metadata
         skill_meta = self.tools.get_skill_metadata()
@@ -943,6 +1017,23 @@ class Agent:
             parts.append(skill_meta)
 
         return "\n\n---\n\n".join(parts)
+
+    def _select_relevant_facts(
+        self, memory_md: str, session_id: str,
+    ) -> str:
+        """Вибрати тільки релевантні факти з MEMORY.md."""
+        lines = memory_md.strip().split("\n")
+        # Always include headers and non-empty fact lines
+        headers = [ln for ln in lines if ln.startswith("#")]
+        facts = [ln for ln in lines if ln.strip() and not ln.startswith("#")]
+
+        # If few facts, include all
+        if len(facts) <= 10:
+            return memory_md
+
+        # Include last 10 facts (most recent) + all headers
+        selected = headers + facts[-10:]
+        return "\n".join(selected)
 
     async def _build_cached_system(self, session_id: str) -> list[dict]:
         """

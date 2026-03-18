@@ -143,6 +143,15 @@ def json_sink(message: Any) -> None:
 # Setup
 # ---------------------------------------------------------------------------
 
+def _secrets_filter(record: dict) -> bool:
+    """Loguru filter that redacts secret patterns from log messages in-place."""
+    msg = record.get("message", "")
+    scrubbed = _scrub(msg)
+    if scrubbed != msg:
+        record["message"] = scrubbed
+    return True
+
+
 _CONFIGURED = False
 
 
@@ -188,6 +197,7 @@ def setup_json_logging(
             json_sink,
             level=log_level,
             format="{message}",  # sink receives the full record
+            filter=_secrets_filter,
         )
         # File — JSON lines (loguru serialize)
         logger.add(
@@ -197,6 +207,7 @@ def setup_json_logging(
             retention="30 days",
             compression="gz",
             level=log_level,
+            filter=_secrets_filter,
         )
     else:
         # Development: human-readable with colours
@@ -210,12 +221,14 @@ def setup_json_logging(
             ),
             level=log_level,
             colorize=True,
+            filter=_secrets_filter,
         )
         logger.add(
             f"{log_dir}/posipaka.log",
             rotation="10 MB",
             retention="7 days",
             level=log_level,
+            filter=_secrets_filter,
         )
 
     _CONFIGURED = True

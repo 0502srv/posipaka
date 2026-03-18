@@ -80,6 +80,7 @@ class WebhookRateLimiter(BaseHTTPMiddleware):
         self._max = max_requests
         self._window = window_seconds
         self._requests: dict[str, list[float]] = {}
+        self._request_count: int = 0
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -91,10 +92,28 @@ class WebhookRateLimiter(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
 
-        # Cleanup old
+        # Cleanup old timestamps for current IP
         if client_ip not in self._requests:
             self._requests[client_ip] = []
         self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self._window]
+
+        # Periodically clean up stale IPs
+        self._request_count += 1
+        if self._request_count % 100 == 0:
+            stale = [
+                ip for ip, ts in self._requests.items()
+                if not ts or all(now - t > self._window for t in ts)
+            ]
+            for ip in stale:
+                del self._requests[ip]
+            # Hard cap: якщо більше 10K IP — очистити найстаріші
+            if len(self._requests) > 10_000:
+                sorted_ips = sorted(
+                    self._requests.items(),
+                    key=lambda x: max(x[1]) if x[1] else 0,
+                )
+                for ip, _ in sorted_ips[: len(self._requests) - 5000]:
+                    del self._requests[ip]
 
         if len(self._requests[client_ip]) >= self._max:
             return JSONResponse(

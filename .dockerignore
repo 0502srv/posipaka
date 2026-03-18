@@ -95,3 +95,14 @@ backups/
 
 # Deploy configs
 deploy/
+
+# Additional AI editors
+.continue/
+.codeium/
+.tabnine/
+
+# Secrets baseline & pre-commit
+.secrets.baseline
+.secrets-patterns.yaml
+.pre-commit-config.yaml
+scripts/

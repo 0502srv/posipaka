@@ -14,6 +14,21 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "claude-haiku-4-5-20251001": {"input": 0.8, "output": 4.0},
     "gpt-4o": {"input": 2.5, "output": 10.0},
     "gpt-4o-mini": {"input": 0.15, "output": 0.6},
+    # Mistral
+    "mistral-large-latest": {"input": 2.0, "output": 6.0},
+    "mistral-small-latest": {"input": 0.1, "output": 0.3},
+    # Gemini
+    "gemini-2.0-flash": {"input": 0.1, "output": 0.4},
+    "gemini-2.5-pro-preview-06-05": {"input": 1.25, "output": 10.0},
+    # Groq
+    "llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79},
+    "llama-3.1-8b-instant": {"input": 0.05, "output": 0.08},
+    # DeepSeek
+    "deepseek-chat": {"input": 0.14, "output": 0.28},
+    "deepseek-reasoner": {"input": 0.55, "output": 2.19},
+    # xAI
+    "grok-3": {"input": 3.0, "output": 15.0},
+    "grok-3-mini": {"input": 0.3, "output": 0.5},
     "_default": {"input": 5.0, "output": 25.0},
 }
 

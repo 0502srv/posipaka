@@ -13,40 +13,65 @@ from posipaka.security.injection import sanitize_external_content
 
 
 async def gmail_list(max_results: int = 10, query: str = "") -> str:
-    """Список останніх листів."""
+    """Список останніх листів (паралельний fetch метаданих)."""
     try:
+        import asyncio
+
         service = _get_gmail_service()
         if not service:
-            return "Gmail не налаштовано. Запустіть `posipaka integrations setup gmail`."
+            return (
+                "Gmail не налаштовано. "
+                "Запустіть `posipaka integrations setup gmail`."
+            )
 
         results = (
-            service.users().messages().list(userId="me", maxResults=max_results, q=query).execute()
+            service.users()
+            .messages()
+            .list(userId="me", maxResults=max_results, q=query)
+            .execute()
         )
         messages = results.get("messages", [])
 
         if not messages:
             return "Листів не знайдено."
 
-        lines = []
-        for msg_brief in messages:
-            msg = (
-                service.users()
+        # Паралельний fetch метаданих (замість N+1 sequential)
+        async def _get_metadata(msg_id: str) -> str:
+            msg = await asyncio.to_thread(
+                lambda: service.users()
                 .messages()
                 .get(
                     userId="me",
-                    id=msg_brief["id"],
+                    id=msg_id,
                     format="metadata",
                     metadataHeaders=["From", "Subject", "Date"],
                 )
                 .execute()
             )
-            headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
-            lines.append(
-                f"📧 [{msg_brief['id'][:8]}] {headers.get('Subject', '(без теми)')}\n"
-                f"   Від: {headers.get('From', '?')} | {headers.get('Date', '?')}"
+            headers = {
+                h["name"]: h["value"]
+                for h in msg.get("payload", {}).get("headers", [])
+            }
+            subj = headers.get("Subject", "(без теми)")
+            frm = headers.get("From", "?")
+            date = headers.get("Date", "?")
+            return (
+                f"📧 [{msg_id[:8]}] {subj}\n"
+                f"   Від: {frm} | {date}"
             )
 
-        return "\n".join(lines)
+        tasks = [_get_metadata(m["id"]) for m in messages]
+        lines = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Фільтруємо помилки
+        result_lines = []
+        for line in lines:
+            if isinstance(line, Exception):
+                logger.debug(f"Gmail metadata fetch error: {line}")
+            else:
+                result_lines.append(line)
+
+        return "\n".join(result_lines) or "Листів не знайдено."
     except Exception as e:
         logger.error(f"Gmail list error: {e}")
         return f"Помилка Gmail: {e}"

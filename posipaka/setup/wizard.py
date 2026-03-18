@@ -99,16 +99,21 @@ class SetupWizard:
         )
 
         providers = {
-            "1": ("anthropic", "Anthropic Claude (рекомендовано)"),
-            "2": ("openai", "OpenAI GPT-4o"),
-            "3": ("ollama", "Ollama (локально, безкоштовно)"),
+            "1": ("mistral", "Mistral AI (рекомендовано)"),
+            "2": ("anthropic", "Anthropic Claude"),
+            "3": ("openai", "OpenAI GPT-4o"),
+            "4": ("ollama", "Ollama (локально, безкоштовно)"),
+            "5": ("gemini", "Google Gemini"),
+            "6": ("groq", "Groq (швидко, безкоштовно)"),
+            "7": ("deepseek", "DeepSeek"),
+            "8": ("xai", "xAI Grok"),
         }
 
         for key, (_, desc) in providers.items():
             self.console.print(f"  [{key}] {desc}")
         self.console.print()
 
-        choice = Prompt.ask("Ваш вибір", choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask("Ваш вибір", choices=list(providers.keys()), default="1")
         provider, desc = providers[choice]
         self.config["llm_provider"] = provider
 
@@ -130,10 +135,16 @@ class SetupWizard:
                 self.console.print(
                     "[yellow]Не вдалось підключитись. Перевірте ключ пізніше.[/yellow]"
                 )
-                if provider == "anthropic":
-                    self.config["llm_model"] = "claude-sonnet-4-20250514"
-                else:
-                    self.config["llm_model"] = "gpt-4o-mini"
+                default_models = {
+                    "anthropic": "claude-sonnet-4-20250514",
+                    "openai": "gpt-4o-mini",
+                    "mistral": "mistral-large-latest",
+                    "gemini": "gemini-2.0-flash",
+                    "groq": "llama-3.3-70b-versatile",
+                    "deepseek": "deepseek-chat",
+                    "xai": "grok-3-mini",
+                }
+                self.config["llm_model"] = default_models.get(provider, "gpt-4o-mini")
 
     # ─── Step 3: Messenger Selection ─────────────────────────────
 
@@ -613,6 +624,14 @@ class SetupWizard:
 
     def _test_llm(self, provider: str, api_key: str) -> str | None:
         """Тест підключення до LLM."""
+        openai_compatible = {
+            "openai": ("https://api.openai.com/v1/models", "gpt-4o-mini"),
+            "mistral": ("https://api.mistral.ai/v1/models", "mistral-large-latest"),
+            "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/models", "gemini-2.0-flash"),
+            "groq": ("https://api.groq.com/openai/v1/models", "llama-3.3-70b-versatile"),
+            "deepseek": ("https://api.deepseek.com/v1/models", "deepseek-chat"),
+            "xai": ("https://api.x.ai/v1/models", "grok-3-mini"),
+        }
         try:
             if provider == "anthropic":
                 resp = httpx.post(
@@ -632,14 +651,15 @@ class SetupWizard:
                 if resp.status_code == 200:
                     return resp.json().get("model", "claude-sonnet-4-20250514")
                 return None
-            elif provider == "openai":
+            elif provider in openai_compatible:
+                base_url, default_model = openai_compatible[provider]
                 resp = httpx.get(
-                    "https://api.openai.com/v1/models",
+                    base_url,
                     headers={"Authorization": f"Bearer {api_key}"},
                     timeout=10,
                 )
                 if resp.status_code == 200:
-                    return "gpt-4o-mini"
+                    return default_model
                 return None
         except Exception:
             return None

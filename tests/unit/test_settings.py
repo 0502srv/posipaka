@@ -8,8 +8,8 @@ from posipaka.config.settings import LLMSettings, Settings
 def test_settings_defaults():
     """Settings створюються з дефолтними значеннями."""
     settings = Settings()
-    assert settings.llm.provider == "anthropic"
-    assert settings.llm.model == "claude-sonnet-4-20250514"
+    assert settings.llm.provider == "mistral"
+    assert settings.llm.model == "mistral-large-latest"
     assert settings.soul.name == "Posipaka"
     assert settings.soul.timezone == "Europe/Kyiv"
 

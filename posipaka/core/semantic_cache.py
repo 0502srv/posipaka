@@ -84,11 +84,20 @@ class SemanticResponseCache:
             self._memory_cache.clear()
 
     def _evict_expired(self) -> None:
-        """Видалити expired entries."""
+        """Видалити expired entries, then LRU evict if still over 1000."""
         now = time.time()
         expired = [k for k, (_, ts, ttl) in self._memory_cache.items() if now - ts > ttl]
         for k in expired:
             del self._memory_cache[k]
+
+        # LRU eviction: if still over 1000 entries, keep only 900 newest
+        if len(self._memory_cache) > 1000:
+            sorted_keys = sorted(
+                self._memory_cache, key=lambda k: self._memory_cache[k][1]
+            )
+            to_remove = sorted_keys[: len(self._memory_cache) - 900]
+            for k in to_remove:
+                del self._memory_cache[k]
 
     @staticmethod
     def _cache_key(query: str, session_id: str) -> str:

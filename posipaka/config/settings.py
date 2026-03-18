@@ -13,10 +13,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LLM_")
 
-    provider: Literal["anthropic", "openai", "ollama"] = "anthropic"
-    model: str = "claude-sonnet-4-20250514"
-    fallback_model: str = "gpt-4o-mini"
-    fallback_provider: Literal["anthropic", "openai", "ollama"] = "openai"
+    provider: Literal[
+        "anthropic", "openai", "ollama",
+        "mistral", "gemini", "groq", "deepseek", "xai",
+    ] = "mistral"
+    model: str = "mistral-large-latest"
+    fallback_model: str = "mistral-small-latest"
+    fallback_provider: Literal[
+        "anthropic", "openai", "ollama",
+        "mistral", "gemini", "groq", "deepseek", "xai",
+    ] = "groq"
     api_key: SecretStr = SecretStr("")
     fallback_api_key: SecretStr = SecretStr("")
     base_url: str | None = None
@@ -26,7 +32,11 @@ class LLMSettings(BaseSettings):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        if v not in ("anthropic", "openai", "ollama"):
+        allowed = (
+            "anthropic", "openai", "ollama",
+            "mistral", "gemini", "groq", "deepseek", "xai",
+        )
+        if v not in allowed:
             raise ValueError(f"Невідомий LLM провайдер: {v}")
         return v
 

@@ -6,11 +6,34 @@ repos:
         args: [--fix]
       - id: ruff-format
 
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: detect-private-key
+      - id: check-merge-conflict
+
   - repo: local
     hooks:
       - id: check-forbidden-files
-        name: Check forbidden files
+        name: Check forbidden files and AI traces
         entry: python scripts/check_forbidden_files.py
         language: python
         pass_filenames: false
+        always_run: true
+
+      - id: check-secrets
+        name: Scan for secrets in staged changes
+        entry: python scripts/check_secrets.py
+        language: python
+        pass_filenames: false
+        always_run: true
+        additional_dependencies: ['pyyaml']
+
+      - id: check-commit-message
+        name: Check commit message for AI traces
+        entry: python scripts/check_forbidden_files.py
+        language: python
+        stages: [commit-msg]
         always_run: true

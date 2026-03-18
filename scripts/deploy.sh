@@ -79,25 +79,62 @@ if [[ "$_current_key" == "sk-ant-your-key-here" || -z "$_current_key" ]]; then
 
     # LLM Provider
     echo -e "${BLUE}1/3${NC} LLM Provider"
-    echo "  1) Anthropic Claude (recommended)"
-    echo "  2) OpenAI GPT"
-    echo "  3) Ollama (local, free)"
+    echo "  1) Mistral AI (recommended)"
+    echo "  2) Anthropic Claude"
+    echo "  3) OpenAI GPT"
+    echo "  4) Ollama (local, free)"
+    echo "  5) Google Gemini"
+    echo "  6) Groq (fast, free tier)"
+    echo "  7) DeepSeek"
+    echo "  8) xAI Grok"
     read -rp "Choose [1]: " _provider_choice < /dev/tty
     case "${_provider_choice:-1}" in
         2)
+            sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=anthropic/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=claude-sonnet-4-20250514/' "$INSTALL_DIR/.env"
+            echo -e -n "${BLUE}Anthropic API key: ${NC}"
+            read -r _api_key < /dev/tty
+            ;;
+        3)
             sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=openai/' "$INSTALL_DIR/.env"
             sed -i 's/^LLM_MODEL=.*/LLM_MODEL=gpt-4o/' "$INSTALL_DIR/.env"
             echo -e -n "${BLUE}OpenAI API key: ${NC}"
             read -r _api_key < /dev/tty
             ;;
-        3)
+        4)
             sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=ollama/' "$INSTALL_DIR/.env"
             sed -i 's/^LLM_MODEL=.*/LLM_MODEL=llama3/' "$INSTALL_DIR/.env"
             sed -i 's/^# LLM_BASE_URL=.*/LLM_BASE_URL=http:\/\/localhost:11434\/v1/' "$INSTALL_DIR/.env"
             _api_key="ollama"
             ;;
+        5)
+            sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=gemini/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=gemini-2.0-flash/' "$INSTALL_DIR/.env"
+            echo -e -n "${BLUE}Google Gemini API key: ${NC}"
+            read -r _api_key < /dev/tty
+            ;;
+        6)
+            sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=groq/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=llama-3.3-70b-versatile/' "$INSTALL_DIR/.env"
+            echo -e -n "${BLUE}Groq API key: ${NC}"
+            read -r _api_key < /dev/tty
+            ;;
+        7)
+            sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=deepseek/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=deepseek-chat/' "$INSTALL_DIR/.env"
+            echo -e -n "${BLUE}DeepSeek API key: ${NC}"
+            read -r _api_key < /dev/tty
+            ;;
+        8)
+            sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=xai/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=grok-3-mini/' "$INSTALL_DIR/.env"
+            echo -e -n "${BLUE}xAI API key: ${NC}"
+            read -r _api_key < /dev/tty
+            ;;
         *)
-            echo -e -n "${BLUE}Anthropic API key: ${NC}"
+            sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=mistral/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=mistral-large-latest/' "$INSTALL_DIR/.env"
+            echo -e -n "${BLUE}Mistral API key: ${NC}"
             read -r _api_key < /dev/tty
             ;;
     esac

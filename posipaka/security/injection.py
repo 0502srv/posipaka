@@ -75,6 +75,17 @@ class InjectionDetector:
         (r"игнорируй\s+(предыдущие|все)\s+(инструкции|правила)", 0.95),
         (r"забудь\s+(инструкции|правила|предыдущ)", 0.95),
         (r"(отправь|пошли)\s+(все|мои)\s+(файлы|данные)", 0.85),
+        # Mixed EN/UA/RU attack vectors
+        (
+            r"(ignore|ігноруй|игнорируй).{0,20}"
+            r"(previous|попередні|предыдущие).{0,10}"
+            r"(instructions?|інструкції|инструкции)",
+            0.92,
+        ),
+        (r"(new|нова|новая).{0,10}(system|систем).{0,10}(prompt|промпт)", 0.88),
+        (r"(override|перевизнач|переопредели).{0,10}(rules?|правила)", 0.88),
+        (r"(reveal|покажи|покажи).{0,10}(system|систем).{0,10}(prompt|промпт)", 0.90),
+        (r"(initial|початков|начальн).{0,10}(prompt|промпт|инструкци)", 0.85),
     ]
 
     CONTEXT_MULTIPLIERS: dict[str, float] = {
@@ -84,6 +95,12 @@ class InjectionDetector:
         "file_content": 1.2,
         "api_response": 1.1,
     }
+
+    def __init__(self) -> None:
+        self._compiled_patterns: list[tuple[re.Pattern[str], float]] = [
+            (re.compile(pattern, re.IGNORECASE), score)
+            for pattern, score in self.NORMALIZED_PATTERNS
+        ]
 
     def check(self, text: str, context: str = "direct_message") -> InjectionRisk:
         """Перевірити текст на injection-атаки."""
@@ -129,10 +146,10 @@ class InjectionDetector:
     def _check_patterns(self, normalized: str) -> tuple[float, list[str]]:
         max_score = 0.0
         reasons: list[str] = []
-        for pattern, score in self.NORMALIZED_PATTERNS:
-            if re.search(pattern, normalized, re.IGNORECASE):
+        for compiled_re, score in self._compiled_patterns:
+            if compiled_re.search(normalized):
                 max_score = max(max_score, score)
-                reasons.append(f"Pattern: {pattern[:40]}... ({score})")
+                reasons.append(f"Pattern: {compiled_re.pattern[:40]}... ({score})")
         return max_score, reasons
 
     def _structural_analysis(self, text: str) -> tuple[float, list[str]]:

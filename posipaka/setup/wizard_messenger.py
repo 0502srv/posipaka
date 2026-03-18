@@ -126,9 +126,14 @@ class MessengerSetupWizard:
                 "Оберіть провайдера:"
             ),
             "keyboard": [
-                [("Anthropic Claude (рекомендовано)", "setup_llm_anthropic")],
+                [("Mistral AI (рекомендовано)", "setup_llm_mistral")],
+                [("Anthropic Claude", "setup_llm_anthropic")],
                 [("OpenAI GPT-4o", "setup_llm_openai")],
                 [("Ollama (локально)", "setup_llm_ollama")],
+                [("Google Gemini", "setup_llm_gemini")],
+                [("Groq (швидко)", "setup_llm_groq")],
+                [("DeepSeek", "setup_llm_deepseek")],
+                [("xAI Grok", "setup_llm_xai")],
                 [("Скасувати", "setup_cancel")],
             ],
         }
@@ -142,8 +147,16 @@ class MessengerSetupWizard:
             state.step = 4
             return self._render_step(state)
 
-        provider_name = "Anthropic" if provider == "anthropic" else "OpenAI"
-        site = "console.anthropic.com" if provider == "anthropic" else "platform.openai.com"
+        provider_info = {
+            "anthropic": ("Anthropic", "console.anthropic.com"),
+            "openai": ("OpenAI", "platform.openai.com"),
+            "mistral": ("Mistral", "console.mistral.ai"),
+            "gemini": ("Google Gemini", "aistudio.google.com"),
+            "groq": ("Groq", "console.groq.com"),
+            "deepseek": ("DeepSeek", "platform.deepseek.com"),
+            "xai": ("xAI", "console.x.ai"),
+        }
+        provider_name, site = provider_info.get(provider, (provider, ""))
 
         state.awaiting_input = "llm_api_key"
         return {
@@ -241,12 +254,17 @@ class MessengerSetupWizard:
         if data.startswith("setup_llm_"):
             provider = data.replace("setup_llm_", "")
             state.config["llm_provider"] = provider
-            if provider == "anthropic":
-                state.config["llm_model"] = "claude-sonnet-4-20250514"
-            elif provider == "openai":
-                state.config["llm_model"] = "gpt-4o-mini"
-            else:
-                state.config["llm_model"] = "llama3"
+            model_defaults = {
+                "anthropic": "claude-sonnet-4-20250514",
+                "openai": "gpt-4o-mini",
+                "ollama": "llama3",
+                "mistral": "mistral-large-latest",
+                "gemini": "gemini-2.0-flash",
+                "groq": "llama-3.3-70b-versatile",
+                "deepseek": "deepseek-chat",
+                "xai": "grok-3-mini",
+            }
+            state.config["llm_model"] = model_defaults.get(provider, "llama3")
             state.step = 3
             return self._render_step(state)
 
@@ -307,6 +325,14 @@ class MessengerSetupWizard:
 
     def _test_llm_key(self, provider: str, api_key: str) -> str:
         """Test LLM key. Returns status text."""
+        openai_compatible = {
+            "openai": ("https://api.openai.com/v1/models", "OpenAI"),
+            "mistral": ("https://api.mistral.ai/v1/models", "Mistral"),
+            "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/models", "Gemini"),
+            "groq": ("https://api.groq.com/openai/v1/models", "Groq"),
+            "deepseek": ("https://api.deepseek.com/v1/models", "DeepSeek"),
+            "xai": ("https://api.x.ai/v1/models", "xAI"),
+        }
         try:
             if provider == "anthropic":
                 resp = httpx.post(
@@ -326,14 +352,15 @@ class MessengerSetupWizard:
                 if resp.status_code == 200:
                     return "Підключення успішне! API працює."
                 return f"Помилка підключення (HTTP {resp.status_code}). Перевірте ключ пізніше."
-            elif provider == "openai":
+            elif provider in openai_compatible:
+                base_url, name = openai_compatible[provider]
                 resp = httpx.get(
-                    "https://api.openai.com/v1/models",
+                    base_url,
                     headers={"Authorization": f"Bearer {api_key}"},
                     timeout=10,
                 )
                 if resp.status_code == 200:
-                    return "OpenAI підключено успішно!"
+                    return f"{name} підключено успішно!"
                 return f"Помилка підключення (HTTP {resp.status_code})."
         except Exception as e:
             return f"Помилка підключення: {e}"

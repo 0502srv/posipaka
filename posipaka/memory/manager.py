@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -40,6 +42,9 @@ class MemoryManager:
         # Layer 1: RAM cache
         self._ram: dict[str, list[dict]] = {}
 
+        # Tracked background tasks
+        self._pending_tasks: set[asyncio.Task] = set()
+
     async def init(self) -> None:
         """Ініціалізація всіх backends."""
         await self._sqlite.init()
@@ -53,11 +58,15 @@ class MemoryManager:
             await self._chroma.close()
 
     async def add(self, session_id: str, message: dict) -> None:
-        """Додати повідомлення до всіх шарів."""
+        """Додати повідомлення до всіх шарів.
+
+        RAM — синхронно (миттєво).
+        SQLite + ChromaDB — у фоні (не блокують відповідь).
+        """
         role = message.get("role", "user")
         content = message.get("content", "")
 
-        # Layer 1: RAM
+        # Layer 1: RAM (синхронно, миттєво)
         if session_id not in self._ram:
             self._ram[session_id] = []
         self._ram[session_id].append(
@@ -71,12 +80,48 @@ class MemoryManager:
         if len(self._ram[session_id]) > self._short_term_limit:
             self._ram[session_id] = self._ram[session_id][-self._short_term_limit :]
 
-        # Layer 2: SQLite
-        await self._sqlite.add_message(session_id, role, content)
+        # Layer 2: SQLite (фоновий запис)
+        self._track_task(
+            asyncio.create_task(
+                self._safe_write(
+                    self._sqlite.add_message(session_id, role, content),
+                    "SQLite",
+                )
+            )
+        )
 
-        # Layer 4: ChromaDB
+        # Layer 4: ChromaDB (фоновий запис, найповільніший)
         if self._chroma and self._chroma.available:
-            await self._chroma.add(session_id, content)
+            self._track_task(
+                asyncio.create_task(
+                    self._safe_write(
+                        self._chroma.add(session_id, content),
+                        "ChromaDB",
+                    )
+                )
+            )
+
+    def _track_task(self, task: asyncio.Task) -> None:
+        """Add task to pending set with auto-discard on completion."""
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+
+    @staticmethod
+    async def _safe_write(coro: Any, backend: str) -> None:
+        """Безпечний фоновий запис — помилки логуються, не падають."""
+        try:
+            await coro
+        except Exception as e:
+            logger.warning(f"Memory background write ({backend}): {e}")
+
+    async def flush(self) -> None:
+        """Дочекатись завершення всіх фонових записів.
+
+        Корисно для тестів та graceful shutdown.
+        """
+        pending = [t for t in self._pending_tasks if not t.done()]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
     async def get_recent(self, session_id: str, limit: int = 50) -> list[dict]:
         """Отримати останні повідомлення. RAM first, потім SQLite."""

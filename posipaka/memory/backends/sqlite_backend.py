@@ -21,6 +21,9 @@ class SQLiteBackend:
         """Створити таблиці."""
         self._db = await aiosqlite.connect(str(self._db_path))
         self._db.row_factory = aiosqlite.Row
+        await self._db.execute("PRAGMA journal_mode=WAL")
+        await self._db.execute("PRAGMA synchronous=NORMAL")
+        await self._db.execute("PRAGMA busy_timeout=5000")
         await self._db.executescript("""
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,9 +53,25 @@ class SQLiteBackend:
                 last_active REAL NOT NULL,
                 metadata TEXT DEFAULT '{}'
             );
+
+            CREATE TABLE IF NOT EXISTS embeddings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content_hash TEXT NOT NULL UNIQUE,
+                embedding BLOB NOT NULL,
+                model TEXT NOT NULL,
+                created_at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_embeddings_hash
+                ON embeddings(content_hash);
         """)
         await self._db.commit()
         logger.debug(f"SQLite initialized: {self._db_path}")
+
+    def _ensure_db(self) -> aiosqlite.Connection:
+        """Перевірити що DB ініціалізована."""
+        if self._db is None:
+            raise RuntimeError("SQLiteBackend not initialized. Call init() first.")
+        return self._db
 
     async def close(self) -> None:
         if self._db:
@@ -67,18 +86,18 @@ class SQLiteBackend:
         metadata: dict | None = None,
     ) -> None:
         """Додати повідомлення."""
-        assert self._db is not None
-        await self._db.execute(
+        db = self._ensure_db()
+        await db.execute(
             "INSERT INTO messages (session_id, role, content, metadata, created_at) "
             "VALUES (?, ?, ?, ?, ?)",
             (session_id, role, content, json.dumps(metadata or {}), time.time()),
         )
-        await self._db.commit()
+        await db.commit()
 
     async def get_recent(self, session_id: str, limit: int = 50) -> list[dict]:
         """Отримати останні повідомлення сесії."""
-        assert self._db is not None
-        cursor = await self._db.execute(
+        db = self._ensure_db()
+        cursor = await db.execute(
             "SELECT role, content, metadata, created_at FROM messages "
             "WHERE session_id = ? ORDER BY created_at DESC LIMIT ?",
             (session_id, limit),
@@ -96,14 +115,14 @@ class SQLiteBackend:
 
     async def clear_session(self, session_id: str) -> None:
         """Видалити всі повідомлення сесії."""
-        assert self._db is not None
-        await self._db.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-        await self._db.commit()
+        db = self._ensure_db()
+        await db.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        await db.commit()
 
     async def get_session_list(self) -> list[str]:
         """Список всіх session_id."""
-        assert self._db is not None
-        cursor = await self._db.execute(
+        db = self._ensure_db()
+        cursor = await db.execute(
             "SELECT DISTINCT session_id FROM messages ORDER BY MAX(created_at) DESC"
         )
         rows = await cursor.fetchall()
@@ -111,8 +130,8 @@ class SQLiteBackend:
 
     async def get_stats(self, session_id: str) -> dict:
         """Статистика сесії."""
-        assert self._db is not None
-        cursor = await self._db.execute(
+        db = self._ensure_db()
+        cursor = await db.execute(
             "SELECT COUNT(*) as count, MIN(created_at) as first, MAX(created_at) as last "
             "FROM messages WHERE session_id = ?",
             (session_id,),
@@ -128,24 +147,24 @@ class SQLiteBackend:
 
     async def add_fact(self, session_id: str, fact: str, source: str = "auto") -> None:
         """Додати факт."""
-        assert self._db is not None
-        await self._db.execute(
+        db = self._ensure_db()
+        await db.execute(
             "INSERT INTO facts (session_id, fact, source, created_at) VALUES (?, ?, ?, ?)",
             (session_id, fact, source, time.time()),
         )
-        await self._db.commit()
+        await db.commit()
 
     async def get_facts(self, session_id: str | None = None) -> list[dict]:
         """Отримати факти."""
-        assert self._db is not None
+        db = self._ensure_db()
         if session_id:
-            cursor = await self._db.execute(
+            cursor = await db.execute(
                 "SELECT fact, source, created_at FROM facts "
                 "WHERE session_id = ? ORDER BY created_at",
                 (session_id,),
             )
         else:
-            cursor = await self._db.execute(
+            cursor = await db.execute(
                 "SELECT fact, source, created_at FROM facts ORDER BY created_at"
             )
         rows = await cursor.fetchall()
@@ -153,3 +172,34 @@ class SQLiteBackend:
             {"fact": row["fact"], "source": row["source"], "created_at": row["created_at"]}
             for row in rows
         ]
+
+    async def get_cached_embedding(self, content_hash: str) -> list[float] | None:
+        """Get cached embedding by content hash."""
+        db = self._ensure_db()
+        cursor = await db.execute(
+            "SELECT embedding FROM embeddings WHERE content_hash = ?",
+            (content_hash,),
+        )
+        row = await cursor.fetchone()
+        if row:
+            import struct
+
+            blob = row["embedding"]
+            count = len(blob) // 4  # float32
+            return list(struct.unpack(f"{count}f", blob))
+        return None
+
+    async def cache_embedding(
+        self, content_hash: str, embedding: list[float], model: str,
+    ) -> None:
+        """Cache embedding for future use."""
+        db = self._ensure_db()
+        import struct
+
+        blob = struct.pack(f"{len(embedding)}f", *embedding)
+        await db.execute(
+            "INSERT OR REPLACE INTO embeddings "
+            "(content_hash, embedding, model, created_at) VALUES (?, ?, ?, ?)",
+            (content_hash, blob, model, time.time()),
+        )
+        await db.commit()

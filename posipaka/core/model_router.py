@@ -31,9 +31,9 @@ class ModelRouter:
 
     def __init__(
         self,
-        default_model: str = "claude-sonnet-4-20250514",
-        fast_model: str = "claude-haiku-4-5-20251001",
-        complex_model: str = "claude-sonnet-4-20250514",
+        default_model: str = "mistral-large-latest",
+        fast_model: str = "mistral-small-latest",
+        complex_model: str = "mistral-large-latest",
     ) -> None:
         self.default_model = default_model
         self.fast_model = fast_model

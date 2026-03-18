@@ -66,10 +66,12 @@ class ContextManager:
     @staticmethod
     def _trim_to_token_limit(messages: list[dict], max_tokens: int) -> list[dict]:
         """Обрізати повідомлення до ліміту токенів (приблизно)."""
+        from posipaka.core.cost_guard import CostGuard
+
         total = 0
         result = []
         for msg in reversed(messages):
-            tokens = len(msg.get("content", "")) // 4
+            tokens = CostGuard.estimate_tokens(msg.get("content", ""))
             if total + tokens > max_tokens:
                 break
             result.insert(0, msg)
@@ -78,5 +80,10 @@ class ContextManager:
 
     @staticmethod
     def estimate_tokens(messages: list[dict]) -> int:
-        """Приблизна оцінка токенів."""
-        return sum(len(m.get("content", "")) // 4 for m in messages)
+        """Оцінка токенів через CostGuard."""
+        from posipaka.core.cost_guard import CostGuard
+
+        return sum(
+            CostGuard.estimate_tokens(m.get("content", ""))
+            for m in messages
+        )

@@ -32,7 +32,7 @@ class AuditLogger:
         if not self._path.exists() or self._path.stat().st_size == 0:
             return
         try:
-            with open(self._path) as f:
+            with open(self._path, encoding="utf-8") as f:
                 last_line = ""
                 for line in f:
                     line = line.strip()
@@ -56,7 +56,7 @@ class AuditLogger:
         record["hash"] = hashlib.sha256(record_json.encode()).hexdigest()
         self._prev_hash = record["hash"]
 
-        with open(self._path, "a") as f:
+        with open(self._path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
         return record
@@ -74,7 +74,7 @@ class AuditLogger:
         prev_hash = self.GENESIS_HASH
         count = 0
 
-        with open(self._path) as f:
+        with open(self._path, encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 if not line:
@@ -113,7 +113,7 @@ class AuditLogger:
         writer.writerow(["timestamp", "event", "data", "hash"])
 
         if self._path.exists():
-            with open(self._path) as f:
+            with open(self._path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -130,18 +130,32 @@ class AuditLogger:
 
         return output.getvalue()
 
-    @staticmethod
-    def _sanitize_data(data: dict[str, Any]) -> dict[str, Any]:
-        """Обрізати чутливі дані перед записом."""
-        sanitized = {}
-        for key, value in data.items():
-            if isinstance(value, str):
-                if key in ("content", "text", "body", "message"):
-                    sanitized[key] = value[:50] + ("..." if len(value) > 50 else "")
-                elif key in ("api_key", "token", "password", "secret"):
-                    sanitized[key] = "***REDACTED***"
-                else:
-                    sanitized[key] = value
-            else:
-                sanitized[key] = value
-        return sanitized
+    _REDACT_KEYS = frozenset({
+        "api_key", "token", "password", "secret", "credential",
+        "auth", "jwt", "session_id", "bearer", "access_token",
+        "refresh_token", "private_key", "secret_key", "api_secret",
+    })
+    _TRUNCATE_KEYS = frozenset({
+        "content", "text", "body", "message", "html", "response",
+    })
+
+    @classmethod
+    def _sanitize_data(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Рекурсивна санітизація чутливих даних перед записом."""
+        return cls._sanitize_value(data)
+
+    @classmethod
+    def _sanitize_value(cls, value: Any, key: str = "") -> Any:
+        """Рекурсивна обробка значень."""
+        key_lower = key.lower()
+        if any(k in key_lower for k in cls._REDACT_KEYS):
+            return "***REDACTED***"
+        if isinstance(value, dict):
+            return {k: cls._sanitize_value(v, k) for k, v in value.items()}
+        if isinstance(value, list):
+            return [cls._sanitize_value(item) for item in value[:20]]
+        if isinstance(value, str):
+            if any(k in key_lower for k in cls._TRUNCATE_KEYS):
+                return value[:50] + ("..." if len(value) > 50 else "")
+            return value
+        return value
