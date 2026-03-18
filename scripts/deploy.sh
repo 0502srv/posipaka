@@ -15,6 +15,18 @@ log() { echo -e "${BLUE}[posipaka]${NC} $*"; }
 ok()  { echo -e "${GREEN}[posipaka]${NC} $*"; }
 err() { echo -e "${RED}[posipaka]${NC} $*" >&2; }
 
+# ─── Detect if sudo is needed for docker ────────────────────────────────────
+DOCKER=""
+_detect_docker() {
+    if command -v docker &>/dev/null; then
+        if docker info &>/dev/null 2>&1; then
+            DOCKER="docker"
+        elif sudo docker info &>/dev/null 2>&1; then
+            DOCKER="sudo docker"
+        fi
+    fi
+}
+
 # ─── Banner ──────────────────────────────────────────────────────────────────
 echo -e "${BLUE}${BOLD}"
 cat << 'BANNER'
@@ -28,12 +40,10 @@ BANNER
 echo -e "${NC}"
 
 # ─── Detect deploy method ───────────────────────────────────────────────────
-if command -v docker &>/dev/null && command -v docker compose &>/dev/null; then
+_detect_docker
+if [[ -n "$DOCKER" ]]; then
     DEPLOY_METHOD="docker"
     log "Docker detected — using Docker Compose deployment"
-elif command -v docker &>/dev/null && command -v docker-compose &>/dev/null; then
-    DEPLOY_METHOD="docker-legacy"
-    log "Docker (legacy compose) detected"
 else
     DEPLOY_METHOD="native"
     log "No Docker — using native Python deployment"
@@ -122,39 +132,19 @@ deploy_docker() {
     log "Building and starting containers..."
     cd "$INSTALL_DIR"
 
-    docker compose -f docker/docker-compose.yml down 2>/dev/null || true
-    docker compose -f docker/docker-compose.yml up -d --build
+    $DOCKER compose -f docker/docker-compose.yml down 2>/dev/null || true
+    $DOCKER compose -f docker/docker-compose.yml up -d --build
 
     log "Waiting for health check..."
-    for i in $(seq 1 30); do
-        if docker exec posipaka python -c "import httpx; httpx.get('http://localhost:8080/api/v1/health').raise_for_status()" 2>/dev/null; then
-            ok "Health check passed after ${i}s"
-            return 0
-        fi
-        sleep 2
-    done
-    err "Health check failed after 60s"
-    echo "Check logs: docker logs posipaka"
-    return 1
-}
-
-# ─── Deploy: Docker Legacy ──────────────────────────────────────────────────
-deploy_docker_legacy() {
-    log "Building and starting containers (legacy compose)..."
-    cd "$INSTALL_DIR"
-
-    docker-compose -f docker/docker-compose.yml down 2>/dev/null || true
-    docker-compose -f docker/docker-compose.yml up -d --build
-
-    log "Waiting for health check..."
-    for i in $(seq 1 30); do
+    for i in $(seq 1 45); do
         if curl -sf http://localhost:8080/api/v1/health >/dev/null 2>&1; then
-            ok "Health check passed after ${i}s"
+            ok "Health check passed after $((i*2))s"
             return 0
         fi
         sleep 2
     done
-    err "Health check failed"
+    err "Health check failed after 90s"
+    echo "Check logs: $DOCKER logs posipaka"
     return 1
 }
 
@@ -214,7 +204,7 @@ UNIT
     log "Waiting for health check..."
     for i in $(seq 1 30); do
         if curl -sf http://localhost:8080/api/v1/health >/dev/null 2>&1; then
-            ok "Health check passed after ${i}s"
+            ok "Health check passed after $((i*2))s"
             return 0
         fi
         sleep 2
@@ -223,20 +213,29 @@ UNIT
     return 1
 }
 
+# ─── Open firewall port if ufw is active ────────────────────────────────────
+if command -v ufw &>/dev/null && sudo ufw status | grep -q "active"; then
+    sudo ufw allow 8080/tcp >/dev/null 2>&1 && log "Firewall: opened port 8080"
+fi
+
 # ─── Run deploy ──────────────────────────────────────────────────────────────
 case "$DEPLOY_METHOD" in
-    docker)        deploy_docker ;;
-    docker-legacy) deploy_docker_legacy ;;
-    native)        deploy_native ;;
+    docker) deploy_docker ;;
+    native) deploy_native ;;
 esac
 
 # ─── Done ────────────────────────────────────────────────────────────────────
+_ip=$(hostname -I | awk '{print $1}')
 echo ""
 echo -e "${GREEN}${BOLD}Posipaka deployed successfully!${NC}"
 echo ""
+echo "  Web UI:  http://${_ip}:8080"
 echo "  Health:  curl http://localhost:8080/api/v1/health"
-echo "  Logs:    docker logs posipaka -f  OR  sudo journalctl -u posipaka -f"
+if [[ "$DEPLOY_METHOD" == "docker" ]]; then
+    echo "  Logs:    $DOCKER logs posipaka -f"
+else
+    echo "  Logs:    sudo journalctl -u posipaka -f"
+fi
 echo "  Config:  $INSTALL_DIR/.env"
-echo "  Data:    $DATA_DIR"
 echo ""
 echo "Next: send a message to your Telegram bot!"
