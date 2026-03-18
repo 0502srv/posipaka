@@ -58,24 +58,63 @@ mkdir -p "$DATA_DIR"
 # ─── Setup .env if missing ──────────────────────────────────────────────────
 if [ ! -f "$INSTALL_DIR/.env" ]; then
     cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
+fi
+
+# ─── Interactive config ──────────────────────────────────────────────────────
+_current_key=$(grep "^LLM_API_KEY=" "$INSTALL_DIR/.env" | cut -d= -f2-)
+if [[ "$_current_key" == "sk-ant-your-key-here" || -z "$_current_key" ]]; then
     echo ""
-    echo -e "${YELLOW}${BOLD}IMPORTANT: Configure your .env file${NC}"
-    echo -e "${YELLOW}Edit: ${INSTALL_DIR}/.env${NC}"
+    echo -e "${YELLOW}${BOLD}Configuration${NC}"
     echo ""
-    echo "Required settings:"
-    echo "  LLM_API_KEY     — Your Anthropic/OpenAI API key"
-    echo "  TELEGRAM_TOKEN  — Your Telegram bot token (from @BotFather)"
-    echo ""
-    read -rp "Do you want to configure .env now? [Y/n] " answer < /dev/tty
-    if [[ "${answer:-Y}" =~ ^[Yy]$ ]]; then
-        if command -v nano &>/dev/null; then
-            nano "$INSTALL_DIR/.env" < /dev/tty
-        elif command -v vi &>/dev/null; then
-            vi "$INSTALL_DIR/.env" < /dev/tty
-        else
-            err "No editor found. Edit $INSTALL_DIR/.env manually."
-        fi
+
+    # LLM Provider
+    echo -e "${BLUE}1/3${NC} LLM Provider"
+    echo "  1) Anthropic Claude (recommended)"
+    echo "  2) OpenAI GPT"
+    echo "  3) Ollama (local, free)"
+    read -rp "Choose [1]: " _provider_choice < /dev/tty
+    case "${_provider_choice:-1}" in
+        2)
+            sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=openai/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=gpt-4o/' "$INSTALL_DIR/.env"
+            echo -e -n "${BLUE}OpenAI API key: ${NC}"
+            read -r _api_key < /dev/tty
+            ;;
+        3)
+            sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=ollama/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=llama3/' "$INSTALL_DIR/.env"
+            sed -i 's/^# LLM_BASE_URL=.*/LLM_BASE_URL=http:\/\/localhost:11434\/v1/' "$INSTALL_DIR/.env"
+            _api_key="ollama"
+            ;;
+        *)
+            echo -e -n "${BLUE}Anthropic API key: ${NC}"
+            read -r _api_key < /dev/tty
+            ;;
+    esac
+    if [[ -n "$_api_key" ]]; then
+        sed -i "s/^LLM_API_KEY=.*/LLM_API_KEY=${_api_key}/" "$INSTALL_DIR/.env"
     fi
+
+    # Telegram
+    echo ""
+    echo -e "${BLUE}2/3${NC} Telegram Bot (get token from @BotFather)"
+    echo -e -n "${BLUE}Telegram bot token (or Enter to skip): ${NC}"
+    read -r _tg_token < /dev/tty
+    if [[ -n "$_tg_token" ]]; then
+        sed -i "s/^TELEGRAM_TOKEN=.*/TELEGRAM_TOKEN=${_tg_token}/" "$INSTALL_DIR/.env"
+    fi
+
+    # Agent name
+    echo ""
+    echo -e "${BLUE}3/3${NC} Agent personality"
+    echo -e -n "${BLUE}Agent name [Posipaka]: ${NC}"
+    read -r _name < /dev/tty
+    if [[ -n "$_name" ]]; then
+        sed -i "s/^SOUL_NAME=.*/SOUL_NAME=${_name}/" "$INSTALL_DIR/.env"
+    fi
+
+    echo ""
+    ok "Configuration saved to $INSTALL_DIR/.env"
 fi
 
 # ─── Deploy: Docker ─────────────────────────────────────────────────────────
