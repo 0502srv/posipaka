@@ -197,6 +197,18 @@ def create_app(
         _web_wizard.save(generate_docker=generate_docker)
         return HTMLResponse(_web_wizard.render_step(12))
 
+    def _tool_row(t: dict) -> str:
+        icon = "✅" if t["enabled"] else "❌"
+        name = t["name"]
+        desc = t["description"][:60]
+        return (
+            '<div class="flex items-center gap-2">'
+            f"<span>{icon}</span>"
+            f'<span class="font-mono text-sm">{name}</span>'
+            '<span class="text-gray-400 text-sm">'
+            f"— {desc}</span></div>"
+        )
+
     # ─── Dashboard ───────────────────────────────────────────────────
     @app.get("/", response_class=HTMLResponse)
     async def dashboard(request: Request):
@@ -240,14 +252,7 @@ def create_app(
                     <h2 class="text-xl font-bold mb-4">Інструменти</h2>
                     <div class="space-y-2">
                         {
-            "".join(
-                '<div class="flex items-center gap-2">'
-                f'<span>{"✅" if t["enabled"] else "❌"}</span>'
-                f'<span class="font-mono text-sm">{t["name"]}</span>'
-                '<span class="text-gray-400 text-sm">'
-                f'— {t["description"][:60]}</span></div>'
-                for t in (agent.tools.list_tools() if agent else [])
-            )
+            "".join(_tool_row(t) for t in (agent.tools.list_tools() if agent else []))
             or '<div class="text-gray-500">Немає інструментів</div>'
         }
                     </div>
