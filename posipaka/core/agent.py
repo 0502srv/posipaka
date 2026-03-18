@@ -316,11 +316,7 @@ class Agent:
             warning_threshold=settings.cost.warning_threshold,
         )
         self._pending_approvals: dict[str, PendingAction] = {}
-        self.model_router = ModelRouter(
-            default_model=settings.llm.model,
-            fast_model=getattr(settings.llm, "fast_model", settings.llm.fallback_model),
-            complex_model=settings.llm.model,
-        )
+        self.model_router = self._init_model_router(settings)
         self.semantic_cache = SemanticResponseCache()
         self.output_compressor = ToolOutputCompressor()
 
@@ -438,6 +434,33 @@ class Agent:
             logger.debug(f"Orchestrator: {count} agents registered")
         except Exception as e:
             logger.warning(f"Orchestrator init error: {e}")
+
+    @staticmethod
+    def _init_model_router(settings: Any) -> ModelRouter:
+        """Ініціалізація ModelRouter з файлу або дефолтів."""
+        import json
+
+        config_path = settings.data_dir / "model_router.json"
+        if config_path.exists():
+            try:
+                data = json.loads(config_path.read_text("utf-8"))
+                from posipaka.core.model_router import ModelRouterConfig
+
+                config = ModelRouterConfig.from_dict(data)
+                logger.debug(f"ModelRouter loaded from config: mode={config.mode}")
+                return ModelRouter(config=config)
+            except Exception as e:
+                logger.warning(f"ModelRouter config error: {e}")
+
+        return ModelRouter(
+            default_model=settings.llm.model,
+            fast_model=getattr(
+                settings.llm,
+                "fast_model",
+                settings.llm.fallback_model,
+            ),
+            complex_model=settings.llm.model,
+        )
 
     def _init_personas(self) -> None:
         """Ініціалізація persona manager."""
@@ -728,8 +751,12 @@ class Agent:
             # Get tool schemas
             tool_schemas = self.tools.get_schemas(self.settings.llm.provider)
 
-            # Model routing — вибрати оптимальну модель
-            selected_model = self.model_router.select(content, tools_count=len(tool_schemas))
+            # Model routing — вибрати оптимальну модель + settings
+            selected_profile = self.model_router.select_profile(
+                content,
+                tools_count=len(tool_schemas),
+            )
+            selected_model = selected_profile.model
 
             # Agentic loop
             for _iteration in range(self.MAX_TOOL_LOOPS):
