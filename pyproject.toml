@@ -40,6 +40,7 @@ dependencies = [
     # Web
     "fastapi>=0.111,<1.0",
     "uvicorn[standard]>=0.29,<1.0",
+    "python-multipart>=0.0.9",
     "jinja2>=3.1,<4.0",
     # Security
     "cryptography>=42,<44",
