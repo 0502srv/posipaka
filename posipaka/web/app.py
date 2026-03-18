@@ -115,6 +115,33 @@ def _update_env(data_dir: Path, updates: dict[str, str]) -> None:
     env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _get_runtime_config(agent: Any = None) -> Any:
+    """Get RuntimeConfig instance."""
+    if agent and hasattr(agent, "runtime_config") and agent.runtime_config:
+        return agent.runtime_config
+    from posipaka.config.runtime_config import RuntimeConfig
+
+    data_dir = agent.settings.data_dir if agent else Path.home() / ".posipaka"
+    return RuntimeConfig(data_dir / "config.json")
+
+
+def _save_runtime(updates: dict[str, Any], agent: Any = None) -> None:
+    """Save settings to runtime config (JSON in Docker volume)."""
+    rc = _get_runtime_config(agent)
+    rc.set_many(updates)
+
+
+def _saved_with_restart() -> str:
+    """Return HTML fragment: saved + restart button."""
+    return (
+        '<span class="text-green-400">Збережено!</span> '
+        '<button hx-post="/settings/restart" hx-target="this" '
+        'hx-confirm="Перезапустити агент зараз?" '
+        'class="ml-2 px-3 py-1 bg-yellow-600 rounded text-sm '
+        'hover:bg-yellow-700">Перезапустити</button>'
+    )
+
+
 def create_app(
     agent: Any = None,
     data_dir: Path | None = None,
@@ -1124,20 +1151,21 @@ def create_app(
     @app.post("/settings/llm", response_class=HTMLResponse)
     async def settings_llm(request: Request):
         form = await request.form()
-        data_dir_path = agent.settings.data_dir if agent else _data_dir
-        _update_env(
-            data_dir_path,
+        _save_runtime(
             {
-                "LLM_PROVIDER": str(form.get("provider", "")),
-                "LLM_MODEL": str(form.get("model", "")),
-                "LLM_API_KEY": str(form.get("api_key", "")),
-                "LLM_TEMPERATURE": str(form.get("temperature", "0.7")),
-                "LLM_MAX_TOKENS": str(form.get("max_tokens", "4096")),
-            },
+                "llm.provider": str(form.get("provider", "")),
+                "llm.model": str(form.get("model", "")),
+                "llm.api_key": str(form.get("api_key", "")),
+                "llm.temperature": str(form.get("temperature", "0.7")),
+                "llm.max_tokens": str(form.get("max_tokens", "4096")),
+            }
         )
         if agent:
-            agent.audit.log("settings_llm_updated", {"provider": str(form.get("provider", ""))})
-        return '<span class="text-green-400">Збережено!</span> <button hx-post="/settings/restart" hx-target="this" hx-confirm="Перезапустити агент зараз?" class="ml-2 px-3 py-1 bg-yellow-600 rounded text-sm hover:bg-yellow-700">Перезапустити</button>'
+            agent.audit.log(
+                "settings_llm_updated",
+                {"provider": str(form.get("provider", ""))},
+            )
+        return _saved_with_restart()
 
     @app.post("/settings/soul", response_class=HTMLResponse)
     async def settings_soul(request: Request):
@@ -1210,34 +1238,32 @@ def create_app(
     @app.post("/settings/agent", response_class=HTMLResponse)
     async def settings_agent(request: Request):
         form = await request.form()
-        data_dir_path = agent.settings.data_dir if agent else _data_dir
-        _update_env(
-            data_dir_path,
+        _save_runtime(
             {
-                "SOUL_NAME": str(form.get("name", "")),
-                "SOUL_LANGUAGE": str(form.get("language", "")),
-                "SOUL_TIMEZONE": str(form.get("timezone", "")),
+                "soul.name": str(form.get("name", "")),
+                "soul.language": str(form.get("language", "")),
+                "soul.timezone": str(form.get("timezone", "")),
             },
+            agent,
         )
         if agent:
             agent.audit.log("settings_agent_updated", {"name": str(form.get("name", ""))})
-        return '<span class="text-green-400">Збережено!</span> <button hx-post="/settings/restart" hx-target="this" hx-confirm="Перезапустити агент зараз?" class="ml-2 px-3 py-1 bg-yellow-600 rounded text-sm hover:bg-yellow-700">Перезапустити</button>'
+        return _saved_with_restart()
 
     @app.post("/settings/cost", response_class=HTMLResponse)
     async def settings_cost(request: Request):
         form = await request.form()
-        data_dir_path = agent.settings.data_dir if agent else _data_dir
-        _update_env(
-            data_dir_path,
+        _save_runtime(
             {
-                "COST_DAILY_BUDGET_USD": str(form.get("daily_budget", "5.0")),
-                "COST_PER_REQUEST_MAX_USD": str(form.get("per_request_max", "0.50")),
-                "COST_PER_SESSION_MAX_USD": str(form.get("per_session_max", "2.0")),
+                "cost.daily_budget_usd": str(form.get("daily_budget", "5.0")),
+                "cost.per_request_max_usd": str(form.get("per_request_max", "0.50")),
+                "cost.per_session_max_usd": str(form.get("per_session_max", "2.0")),
             },
+            agent,
         )
         if agent:
             agent.audit.log("settings_cost_updated", {})
-        return '<span class="text-green-400">Збережено!</span> <button hx-post="/settings/restart" hx-target="this" hx-confirm="Перезапустити агент зараз?" class="ml-2 px-3 py-1 bg-yellow-600 rounded text-sm hover:bg-yellow-700">Перезапустити</button>'
+        return _saved_with_restart()
 
     @app.delete("/settings/memory/clear", response_class=HTMLResponse)
     async def settings_memory_clear(request: Request):
@@ -1396,22 +1422,15 @@ def create_app(
         if not channels:
             channels = ["cli"]
 
-        data_dir_path = agent.settings.data_dir if agent else _data_dir
-        _update_env(
-            data_dir_path,
-            {
-                "ENABLED_CHANNELS": json.dumps(channels),
-            },
-        )
-
-        # Save telegram token if provided
+        updates: dict[str, Any] = {"enabled_channels": channels}
         tg_token = str(form.get("telegram_token", ""))
         if tg_token and tg_token != "***":
-            _update_env(data_dir_path, {"TELEGRAM_TOKEN": tg_token})
+            updates["telegram.token"] = tg_token
 
+        _save_runtime(updates, agent)
         if agent:
             agent.audit.log("settings_channels_updated", {"channels": channels})
-        return '<span class="text-green-400">Збережено! Діє після перезапуску.</span>'
+        return _saved_with_restart()
 
     # ─── Soul wizard ───────────────────────────────────────────────────
     @app.post("/settings/soul/wizard", response_class=HTMLResponse)

@@ -300,6 +300,15 @@ class Agent:
     MAX_CONTEXT_MESSAGES = 50
 
     def __init__(self, settings: Settings) -> None:
+        # Apply runtime config (JSON) over env-based settings
+        try:
+            from posipaka.config.runtime_config import RuntimeConfig
+
+            self.runtime_config = RuntimeConfig(settings.data_dir / "config.json")
+            self.runtime_config.apply_to_settings(settings)
+        except Exception as e:
+            logger.debug(f"Runtime config: {e}")
+            self.runtime_config = None
         self.settings = settings
         self.status = AgentStatus.INITIALIZING
         self.llm = LLMClient(settings)
