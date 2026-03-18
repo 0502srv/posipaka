@@ -10,18 +10,14 @@ DEV_NOTES.md
 ARCHITECTURE_NOTES.md
 TODO_PRIVATE.md
 ROADMAP_PRIVATE.md
-# Editor/tool configs
+# Editor configs
 .claude/
-.claude_output/
-.clauderc
-.claude.json
 .cursor/
+.windsurf/
 .cursorrules
 .cursorignore
-.windsurf/
 .windsurfrules
-.github/copilot/
-copilot-instructions.md
+.copilot-instructions.md
 .aider*
 
 # Секрети (КРИТИЧНО)

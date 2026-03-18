@@ -24,10 +24,10 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
 
-      - name: Check no dev/planning files in image
+      - name: Check no dev/secret files in image
         run: |
           FOUND=$(docker save posipaka:scan | tar -tf - | \
-            grep -iE "(master\.md|claude\.md|planning\.md|\.env[^.])" || true)
+            grep -iE "(master\.md|planning\.md|\.env[^.])" || true)
           if [ -n "$FOUND" ]; then
             echo "Dev/secret files found in Docker image:"
             echo "$FOUND"

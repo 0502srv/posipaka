@@ -1,4 +1,4 @@
-"""Vision Handler — обробка зображень через Claude Vision."""
+"""Vision Handler — обробка зображень через LLM Vision."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20MB
 
 def encode_image_for_llm(image_path: Path) -> dict | None:
     """
-    Підготувати зображення для Claude Vision API.
+    Підготувати зображення для LLM Vision API.
 
     Returns: dict для messages content block або None.
     """
@@ -53,7 +53,7 @@ def encode_image_for_llm(image_path: Path) -> dict | None:
 
 def build_vision_message(image_path: Path, question: str = "") -> list[dict]:
     """
-    Побудувати message content для Claude з зображенням.
+    Побудувати message content для LLM з зображенням.
 
     Можливості: аналіз фото, OCR, графіки, скріншоти, фото їжі → КБЖУ.
     """

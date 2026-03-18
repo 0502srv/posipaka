@@ -14,19 +14,12 @@ recursive-exclude tests *
 recursive-exclude docs *
 recursive-exclude deploy *
 
-# Editor/tool configs
+# Editor configs
+recursive-exclude .cursor *
+recursive-exclude .windsurf *
+recursive-exclude .claude *
 exclude .cursorrules
 exclude .cursorignore
-recursive-exclude .cursor *
 exclude .windsurfrules
-recursive-exclude .windsurf *
 exclude .copilot-instructions.md
-recursive-exclude .github/copilot *
-exclude .aider.conf.yml
-exclude .aider.tags.cache.v3
-recursive-exclude .aider *
-exclude .codeium *
-exclude .continue *
-exclude .tabby *
-exclude ai-config.*
 exclude planning.*

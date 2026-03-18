@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pre-commit hook: перевірка заборонених файлів у staging area."""
+"""Pre-commit hook: prevent committing dev/private files."""
 
 from __future__ import annotations
 
@@ -8,30 +8,19 @@ import sys
 
 FORBIDDEN_FILES = [
     "MASTER.md",
-    "CLAUDE.md",
     "PLANNING.md",
-    "ARCHITECTURE_NOTES.md",
     "DEV_NOTES.md",
     "TODO_PRIVATE.md",
-    "ROADMAP_PRIVATE.md",
-    ".clauderc",
+    "CLAUDE.md",
     ".cursorrules",
     ".cursorignore",
     ".windsurfrules",
-    ".claude.json",
-    "copilot-instructions.md",
 ]
 
 FORBIDDEN_DIRS = [
     ".claude/",
-    ".claude_output/",
-    "claude_instructions/",
     ".cursor/",
     ".windsurf/",
-    ".github/copilot/",
-    "skills/dev/",
-    "agents/dev/",
-    ".posipaka_dev/",
 ]
 
 

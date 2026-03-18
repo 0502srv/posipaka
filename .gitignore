@@ -51,18 +51,20 @@ coverage.xml
 # pytest
 .pytest_cache/
 
-# Dev files
+# Dev/private notes
 MASTER.md
 PLANNING.md
 DEV_NOTES.md
 TODO_PRIVATE.md
+
+# Editor configs
+.claude/
 CLAUDE.md
 **/CLAUDE.md
-.claude/
+.cursor/
 .cursorrules
 .cursorignore
-.cursor/
-.windsurfrules
 .windsurf/
+.windsurfrules
 .copilot-instructions.md
 .aider*

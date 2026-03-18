@@ -324,7 +324,7 @@ class MessengerSetupWizard:
                     timeout=15,
                 )
                 if resp.status_code == 200:
-                    return "Підключення успішне! Claude готовий до роботи."
+                    return "Підключення успішне! API працює."
                 return f"Помилка підключення (HTTP {resp.status_code}). Перевірте ключ пізніше."
             elif provider == "openai":
                 resp = httpx.get(
