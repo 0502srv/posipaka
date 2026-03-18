@@ -173,10 +173,10 @@ fi
 # ─── Deploy: Docker ─────────────────────────────────────────────────────────
 deploy_docker() {
     log "Building and starting containers..."
-    cd "$INSTALL_DIR"
+    cd "$INSTALL_DIR/docker"
 
-    $DOCKER compose -f docker/docker-compose.yml down 2>/dev/null || true
-    $DOCKER compose -f docker/docker-compose.yml up -d --build
+    $DOCKER compose down 2>/dev/null || true
+    $DOCKER compose up -d --build
 
     log "Waiting for health check..."
     for i in $(seq 1 45); do
