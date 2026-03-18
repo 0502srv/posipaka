@@ -1,0 +1,107 @@
+# .dockerignore — Posipaka (секція 99 MASTER.md)
+# Синхронізувати з .gitignore при оновленні!
+
+# AI dev файли (КРИТИЧНО — ніколи в image, секція 102.8)
+MASTER.md
+CLAUDE.md
+**/CLAUDE.md
+PLANNING.md
+DEV_NOTES.md
+ARCHITECTURE_NOTES.md
+TODO_PRIVATE.md
+ROADMAP_PRIVATE.md
+# Claude Code
+.claude/
+.claude_output/
+claude_instructions/
+.clauderc
+.claude.json
+.claude_history/
+# Cursor AI
+.cursor/
+.cursorrules
+.cursorignore
+# Windsurf
+.windsurf/
+.windsurfrules
+# Copilot
+.github/copilot/
+copilot-instructions.md
+# Aider
+.aider*
+
+# Секрети (КРИТИЧНО)
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+*_credentials.json
+*_token.json
+google_token.json
+google_credentials.json
+*.pem
+*.key
+
+# Конфіги користувача
+config.yaml
+SOUL.md
+USER.md
+MEMORY.md
+HEARTBEAT.md
+
+# Бази даних та індекси
+*.db
+*.sqlite
+*.sqlite3
+chroma/
+tantivy_index/
+*.db-shm
+*.db-wal
+
+# Логи та audit
+logs/
+*.log
+*.jsonl
+
+# Git
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Тести та docs (не потрібні в prod image)
+tests/
+docs/
+*.md
+!README.md
+
+# Backup
+backups/
+*.tar.gz
+*.bak
+
+# Deploy configs
+deploy/

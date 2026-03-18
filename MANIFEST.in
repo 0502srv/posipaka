@@ -1,0 +1,32 @@
+include README.md
+include pyproject.toml
+include posipaka/utils/i18n/locale/uk/*.json
+include posipaka/utils/i18n/locale/en/*.json
+
+# Exclude dev/AI files from pip package (секція 102.8 MASTER.md)
+exclude MASTER.md
+exclude CLAUDE.md
+recursive-exclude * CLAUDE.md
+exclude PLANNING.md
+exclude DEV_NOTES.md
+recursive-exclude .claude *
+recursive-exclude tests *
+recursive-exclude docs *
+recursive-exclude deploy *
+
+# AI tool artifacts (audit 102.8 — extended coverage)
+exclude .cursorrules
+exclude .cursorignore
+recursive-exclude .cursor *
+exclude .windsurfrules
+recursive-exclude .windsurf *
+exclude .copilot-instructions.md
+recursive-exclude .github/copilot *
+exclude .aider.conf.yml
+exclude .aider.tags.cache.v3
+recursive-exclude .aider *
+exclude .codeium *
+exclude .continue *
+exclude .tabby *
+exclude ai-config.*
+exclude planning.*

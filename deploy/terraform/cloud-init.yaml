@@ -1,0 +1,115 @@
+#cloud-config
+# Phase 43: Auto-provisioning для Posipaka VPS
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - python3.12
+  - python3.12-venv
+  - python3-pip
+  - git
+  - curl
+  - unzip
+  - nginx
+  - certbot
+  - python3-certbot-nginx
+  - fail2ban
+  - ufw
+
+users:
+  - name: posipaka
+    shell: /bin/bash
+    groups: [sudo, docker]
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+write_files:
+  - path: /etc/systemd/system/posipaka.service
+    content: |
+      [Unit]
+      Description=Posipaka AI Agent
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=posipaka
+      Group=posipaka
+      WorkingDirectory=/opt/posipaka/current
+      ExecStart=/opt/posipaka/current/.venv/bin/python -m posipaka start
+      Restart=on-failure
+      RestartSec=10
+      StandardOutput=journal
+      StandardError=journal
+
+      # Security hardening
+      NoNewPrivileges=true
+      ProtectSystem=strict
+      ProtectHome=read-only
+      ReadWritePaths=/home/posipaka/.posipaka /opt/posipaka
+      PrivateTmp=true
+      ProtectKernelTunables=true
+      ProtectControlGroups=true
+
+      # Resource limits
+      MemoryMax=1G
+      CPUQuota=200%
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/nginx/sites-available/posipaka
+    content: |
+      server {
+          listen 80;
+          server_name _;
+
+          location / {
+              proxy_pass http://127.0.0.1:8080;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_read_timeout 300s;
+          }
+
+          location /api/v1/health {
+              proxy_pass http://127.0.0.1:8080/api/v1/health;
+              access_log off;
+          }
+      }
+
+runcmd:
+  # Firewall
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+  # Fail2ban
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
+  # Nginx
+  - ln -sf /etc/nginx/sites-available/posipaka /etc/nginx/sites-enabled/
+  - rm -f /etc/nginx/sites-enabled/default
+  - systemctl enable nginx
+  - systemctl restart nginx
+
+  # Posipaka
+  - mkdir -p /opt/posipaka/{blue,green}
+  - chown -R posipaka:posipaka /opt/posipaka
+  - su - posipaka -c "mkdir -p ~/.posipaka"
+
+  # Install (blue slot)
+  - su - posipaka -c "cd /opt/posipaka/blue && python3.12 -m venv .venv"
+  - su - posipaka -c "cd /opt/posipaka/blue && .venv/bin/pip install posipaka"
+  - ln -sf /opt/posipaka/blue /opt/posipaka/current
+
+  # Start
+  - systemctl daemon-reload
+  - systemctl enable posipaka
+  - systemctl start posipaka

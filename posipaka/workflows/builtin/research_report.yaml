@@ -1,0 +1,46 @@
+# Workflow: Research Report — глибоке дослідження теми
+name: research_report
+description: "Дослідження теми з кількох джерел + зведений звіт"
+version: "1.0.0"
+
+steps:
+  - id: web_search
+    tool: web_search
+    args:
+      query: "{{ topic }}"
+      max_results: 5
+    output: search_results
+
+  - id: wiki_search
+    tool: wikipedia_search
+    args:
+      query: "{{ topic }}"
+    output: wiki_results
+
+  - id: fetch_top_result
+    tool: web_fetch
+    args:
+      url: "{{ search_results.first_url }}"
+    output: article_content
+    condition: "search_results.first_url is not None"
+
+  - id: synthesize
+    type: llm
+    prompt: |
+      Створи детальний дослідницький звіт на тему: {{ topic }}
+
+      Джерела:
+      1. Веб-пошук: {{ search_results }}
+      2. Вікіпедія: {{ wiki_results }}
+      3. Стаття: {{ article_content }}
+
+      Формат:
+      ## Огляд
+      ## Ключові факти
+      ## Джерела
+      ## Висновки
+    input_from:
+      - web_search
+      - wiki_search
+      - fetch_top_result
+    output: report

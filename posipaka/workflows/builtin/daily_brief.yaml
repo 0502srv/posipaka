@@ -1,0 +1,58 @@
+# Workflow: Daily Brief — щоденний звіт
+name: daily_brief
+description: "Щоденний зведений звіт: пошта, календар, погода, новини"
+version: "1.0.0"
+trigger:
+  type: cron
+  cron: "0 8 * * *"  # Щодня о 8:00
+
+steps:
+  - id: check_email
+    tool: gmail_list
+    args:
+      max_results: 5
+    output: emails
+
+  - id: check_calendar
+    tool: calendar_list
+    args:
+      days: 1
+    output: events
+
+  - id: check_weather
+    tool: get_weather
+    args:
+      city: "auto"
+    output: weather
+
+  - id: check_news
+    tool: get_top_headlines
+    args:
+      country: "ua"
+      limit: 5
+    output: news
+
+  - id: summarize
+    type: llm
+    prompt: |
+      Склади щоденний зведений звіт на основі:
+
+      📧 Пошта:
+      {{ emails }}
+
+      📅 Календар:
+      {{ events }}
+
+      🌤 Погода:
+      {{ weather }}
+
+      📰 Новини:
+      {{ news }}
+
+      Формат: короткий, структурований, з emoji.
+    input_from:
+      - check_email
+      - check_calendar
+      - check_weather
+      - check_news
+    output: brief

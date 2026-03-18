@@ -1,0 +1,48 @@
+# Workflow: Meeting Prep — підготовка до зустрічі
+name: meeting_prep
+description: "Підготовка до найближчої зустрічі: контекст, нотатки, питання"
+version: "1.0.0"
+
+steps:
+  - id: get_next_meeting
+    tool: calendar_list
+    args:
+      days: 1
+      limit: 1
+    output: meeting
+
+  - id: search_context
+    tool: gmail_search
+    args:
+      query: "{{ meeting.attendees_emails }}"
+      max_results: 5
+    output: related_emails
+    condition: "meeting is not None"
+
+  - id: web_context
+    tool: web_search
+    args:
+      query: "{{ meeting.title }} {{ meeting.description }}"
+      max_results: 3
+    output: web_info
+    condition: "meeting is not None"
+
+  - id: prepare
+    type: llm
+    prompt: |
+      Підготуй мене до зустрічі:
+
+      📅 Зустріч: {{ meeting }}
+      📧 Попередня переписка: {{ related_emails }}
+      🌐 Контекст: {{ web_info }}
+
+      Склади:
+      1. Короткий контекст зустрічі
+      2. Ключові теми для обговорення
+      3. Підготовлені питання (3-5)
+      4. Можливі action items
+    input_from:
+      - get_next_meeting
+      - search_context
+      - web_context
+    output: prep

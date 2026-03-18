@@ -1,0 +1,47 @@
+# Posipaka — приклад конфігурації
+# Копіюйте в ~/.posipaka/config.yaml
+
+# LLM провайдер
+llm:
+  provider: anthropic       # anthropic | openai | ollama
+  model: claude-sonnet-4-20250514
+  max_tokens: 4096
+  temperature: 0.7
+  # fallback_provider: openai
+  # fallback_model: gpt-4o-mini
+
+# Агент
+soul:
+  name: Posipaka
+  language: auto            # auto | uk | en | ru
+  timezone: Europe/Kyiv
+
+# Безпека
+security:
+  injection_threshold: 0.7
+  max_input_length: 8000
+  approval_timeout_seconds: 300
+
+# Бюджет
+cost:
+  daily_budget_usd: 5.0
+  per_request_max_usd: 0.50
+  per_session_max_usd: 2.0
+  warning_threshold: 0.8
+
+# Пам'ять
+memory:
+  short_term_limit: 50
+  chroma_enabled: true
+
+# Канали (увімкнені)
+enabled_channels:
+  - cli
+  # - telegram
+  # - discord
+  # - slack
+
+# Web UI
+web:
+  host: "127.0.0.1"
+  port: 8080

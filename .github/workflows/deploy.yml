@@ -1,0 +1,104 @@
+# Phase 41: Auto-deploy to staging/production
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.inputs.environment == 'staging'
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: posipaka
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/posipaka
+            bash scripts/blue_green_deploy.sh
+
+      - name: Post-deploy smoke test
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf "${{ vars.STAGING_URL }}/api/v1/health" > /dev/null; then
+              echo "Staging health check passed"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Staging health check failed"
+          exit 1
+
+      - name: Notify Telegram
+        if: always()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_DEPLOY_CHAT }}
+          token: ${{ secrets.TELEGRAM_DEPLOY_BOT }}
+          message: |
+            🚀 Deploy to staging: ${{ job.status }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'production'
+    needs: []
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: posipaka
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/posipaka
+            bash scripts/blue_green_deploy.sh
+
+      - name: Post-deploy smoke test
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf "${{ vars.PRODUCTION_URL }}/api/v1/health" > /dev/null; then
+              echo "Production health check passed"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Production health check failed"
+          exit 1
+
+      - name: Notify Telegram
+        if: always()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_DEPLOY_CHAT }}
+          token: ${{ secrets.TELEGRAM_DEPLOY_BOT }}
+          message: |
+            🚀 Deploy to PRODUCTION: ${{ job.status }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}

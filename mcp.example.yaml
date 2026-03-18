@@ -1,0 +1,29 @@
+# MCP (Model Context Protocol) — конфігурація серверів
+# Копіюйте в ~/.posipaka/mcp.yaml та налаштуйте
+
+servers:
+  # Приклад: файлова система
+  # filesystem:
+  #   command: npx
+  #   args: ["-y", "@anthropic/mcp-filesystem", "/home/user/docs"]
+  #   enabled: true
+
+  # Приклад: базова пам'ять
+  # memory:
+  #   command: npx
+  #   args: ["-y", "@anthropic/mcp-memory"]
+  #   enabled: true
+
+  # Приклад: пошук в інтернеті
+  # web-search:
+  #   command: npx
+  #   args: ["-y", "@anthropic/mcp-web-search"]
+  #   env:
+  #     BRAVE_API_KEY: "your-key-here"
+  #   enabled: false
+
+# Глобальні налаштування
+settings:
+  lazy_loading: true      # Завантажувати tools тільки при потребі
+  timeout_seconds: 30     # Таймаут запуску сервера
+  max_servers: 10         # Максимум одночасних серверів

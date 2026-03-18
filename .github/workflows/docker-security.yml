@@ -1,0 +1,35 @@
+name: Docker Security Scan
+on:
+  push:
+    paths: ["docker/**", "pyproject.toml"]
+  pull_request:
+    paths: ["docker/**", "pyproject.toml"]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t posipaka:scan .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: posipaka:scan
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Check no dev/planning files in image
+        run: |
+          FOUND=$(docker save posipaka:scan | tar -tf - | \
+            grep -iE "(master\.md|claude\.md|planning\.md|\.env[^.])" || true)
+          if [ -n "$FOUND" ]; then
+            echo "Dev/secret files found in Docker image:"
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "Docker image clean"

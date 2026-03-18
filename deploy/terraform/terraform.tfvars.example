@@ -1,0 +1,9 @@
+# Скопіюйте у terraform.tfvars та заповніть значення
+hcloud_token         = "your-hetzner-api-token"
+cloudflare_api_token = ""  # Опціонально
+cloudflare_zone_id   = ""  # Опціонально
+domain               = "posipaka.example.com"
+ssh_key_name         = "posipaka-deploy"
+server_type          = "cx22"   # 2 vCPU, 4GB RAM
+location             = "fsn1"   # Falkenstein, Germany
+environment          = "production"
