@@ -57,7 +57,7 @@ def start(ctx: click.Context) -> None:
             # Start web server
             from posipaka.web.app import create_app
 
-            app = create_app(agent, settings)
+            app = create_app(agent, settings.data_dir)
             import uvicorn
 
             config = uvicorn.Config(
