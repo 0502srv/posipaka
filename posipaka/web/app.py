@@ -26,7 +26,14 @@ def create_app(
 
     # Auth
     _data_dir = data_dir or Path.home() / ".posipaka"
+    _data_dir.mkdir(parents=True, exist_ok=True)
     auth = AuthManager(_data_dir)
+    if not auth.is_configured():
+        password = auth.setup_password()
+        from loguru import logger
+
+        logger.info(f"Web UI password (first run): {password}")
+        logger.info("Save this password! It won't be shown again.")
 
     # Middleware (order: last added = first executed)
     app.add_middleware(RequestValidationMiddleware)
