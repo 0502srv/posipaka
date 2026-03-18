@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 COPY pyproject.toml README.md ./
@@ -7,7 +7,7 @@ COPY posipaka/ ./posipaka/
 RUN pip install --no-cache-dir ".[telegram]"
 
 # ─── Production ──────────────────────────────────────────────────────────────
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 RUN groupadd -r agent && useradd -r -g agent -d /home/agent agent \
     && mkdir -p /home/agent/.posipaka \
