@@ -311,8 +311,9 @@ def db() -> None:
 @click.option("--revision", default="head", help="Target revision")
 def db_upgrade(revision: str) -> None:
     """Застосувати міграції (alembic upgrade)."""
-    from alembic import command as alembic_cmd
     from alembic.config import Config
+
+    from alembic import command as alembic_cmd
 
     alembic_cfg = Config("alembic.ini")
     alembic_cmd.upgrade(alembic_cfg, revision)
@@ -323,8 +324,9 @@ def db_upgrade(revision: str) -> None:
 @click.option("--revision", default="-1", help="Target revision")
 def db_downgrade(revision: str) -> None:
     """Відкотити міграцію (alembic downgrade)."""
-    from alembic import command as alembic_cmd
     from alembic.config import Config
+
+    from alembic import command as alembic_cmd
 
     alembic_cfg = Config("alembic.ini")
     alembic_cmd.downgrade(alembic_cfg, revision)
@@ -334,8 +336,9 @@ def db_downgrade(revision: str) -> None:
 @db.command("current")
 def db_current() -> None:
     """Показати поточну версію бази."""
-    from alembic import command as alembic_cmd
     from alembic.config import Config
+
+    from alembic import command as alembic_cmd
 
     alembic_cfg = Config("alembic.ini")
     alembic_cmd.current(alembic_cfg)

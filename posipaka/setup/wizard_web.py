@@ -77,7 +77,7 @@ class WebSetupWizard:
 
     def _nav_buttons(self, step: int, next_step: int | None = None) -> str:
         prev_step = step - 1 if step > 1 else None
-        nxt = next_step or (step + 1)
+        next_step or (step + 1)
         buttons = '<div class="flex justify-between mt-6">'
         if prev_step:
             buttons += f"""
@@ -88,7 +88,7 @@ class WebSetupWizard:
             </button>"""
         else:
             buttons += "<div></div>"
-        buttons += f"""
+        buttons += """
             <button type="submit"
                     class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-bold">
                 Далі &rarr;

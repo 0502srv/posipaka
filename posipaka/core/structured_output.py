@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from enum import StrEnum
-from typing import Any, TypeVar, Type
+from typing import Any, TypeVar
 
 from loguru import logger
 from pydantic import BaseModel, Field, ValidationError
@@ -90,7 +90,7 @@ class QualityScore(BaseModel):
 
 def parse_structured_output(
     text: str,
-    model: Type[T],
+    model: type[T],
     strategy: ParseStrategy = ParseStrategy.JSON_BLOCK,
 ) -> T | None:
     """

@@ -57,7 +57,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
 
         try:
             await asyncio.wait_for(self._semaphore.acquire(), timeout=0.01)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return JSONResponse(
                 {"detail": "Server overloaded"}, status_code=503
             )

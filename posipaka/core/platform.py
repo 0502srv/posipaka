@@ -5,12 +5,9 @@ from __future__ import annotations
 import os
 import platform
 import subprocess
-import sys
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-
-from loguru import logger
 
 
 @dataclass
@@ -57,9 +54,7 @@ def _is_android() -> bool:
     """Перевірити чи працюємо на Android."""
     if "ANDROID_ROOT" in os.environ:
         return True
-    if Path("/system/build.prop").exists():
-        return True
-    return False
+    return bool(Path("/system/build.prop").exists())
 
 
 def _check_cgroup_docker() -> bool:
@@ -98,7 +93,7 @@ def _check_gpu() -> bool:
         return False
 
 
-class BatteryProfile(str, Enum):
+class BatteryProfile(StrEnum):
     CHARGING = "charging"
     HIGH = "high"        # >60%
     MEDIUM = "medium"    # 30-60%

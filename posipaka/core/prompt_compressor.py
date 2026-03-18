@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from loguru import logger
-
 
 class PromptCompressor:
     """Стиснення контексту для зменшення витрат на LLM.

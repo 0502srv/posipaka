@@ -47,8 +47,8 @@ class TestBackupSecurity:
 
     def test_backup_path_traversal_check(self, tmp_path):
         """Path traversal в архіві блокується."""
-        import tarfile
         import io
+        import tarfile
 
         from posipaka.utils.backup import BackupManager
 

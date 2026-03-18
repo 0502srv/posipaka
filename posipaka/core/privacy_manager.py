@@ -72,7 +72,7 @@ class PrivacyManager:
                         )
                         cols = [d[0] for d in cursor.description] if cursor.description else []
                         rows = await cursor.fetchall()
-                        messages = [dict(zip(cols, row)) for row in rows]
+                        messages = [dict(zip(cols, row, strict=False)) for row in rows]
 
                         # Facts
                         try:
@@ -81,7 +81,7 @@ class PrivacyManager:
                             )
                             cols = [d[0] for d in cursor.description] if cursor.description else []
                             rows = await cursor.fetchall()
-                            facts = [dict(zip(cols, row)) for row in rows]
+                            facts = [dict(zip(cols, row, strict=False)) for row in rows]
                         except Exception:
                             facts = []
 

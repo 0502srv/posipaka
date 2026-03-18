@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 import aiosqlite
 from loguru import logger
 
 
-class PricingTier(str, Enum):
+class PricingTier(StrEnum):
     FREE = "free"
     STARTER = "starter"
     PRO = "pro"

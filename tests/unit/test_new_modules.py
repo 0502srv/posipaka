@@ -527,9 +527,8 @@ class TestJSONLogging:
 
 class TestAuthManagerFixes:
     def test_concurrent_session_limit(self, tmp_path):
-        import time
 
-        from posipaka.web.auth import AuthManager, MAX_CONCURRENT_SESSIONS
+        from posipaka.web.auth import MAX_CONCURRENT_SESSIONS, AuthManager
 
         auth = AuthManager(tmp_path)
         auth.setup_password("test_password_1234")

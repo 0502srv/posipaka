@@ -37,11 +37,6 @@ plugins:
       lang:
         - uk
         - en
-  - i18n:
-      default_language: uk
-      languages:
-        uk: Українська
-        en: English
 
 nav:
   - Головна: index.md

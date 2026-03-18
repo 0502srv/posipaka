@@ -86,10 +86,7 @@ class SLOMonitor:
                 violated = current > slo.target
             elif slo.metric in ("quality", "cost"):
                 current = sum(values) / len(values)
-                if slo.metric == "quality":
-                    violated = current < slo.target
-                else:
-                    violated = current > slo.target
+                violated = current < slo.target if slo.metric == "quality" else current > slo.target
             else:
                 continue
 

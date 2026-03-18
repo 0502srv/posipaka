@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from enum import Enum
+from enum import StrEnum
+
 from loguru import logger
 
 
-class PermissionProfile(str, Enum):
+class PermissionProfile(StrEnum):
     MINIMAL = "minimal"      # Тільки читання
     STANDARD = "standard"    # Базові дії
     DEVELOPER = "developer"  # Shell, GitHub, файли
