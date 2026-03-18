@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,77 @@ from fastapi.staticfiles import StaticFiles
 
 from posipaka.web.auth import AuthManager, AuthMiddleware
 from posipaka.web.middleware import RequestValidationMiddleware
+
+# ─── Model catalog per provider ────────────────────────────────────────
+_PROVIDER_MODELS: dict[str, list[tuple[str, str]]] = {
+    "mistral": [
+        ("mistral-large-latest", "Mistral Large ($2/M in)"),
+        ("mistral-small-latest", "Mistral Small ($0.1/M in)"),
+        ("ministral-8b-latest", "Ministral 8B ($0.1/M in)"),
+        ("ministral-3b-latest", "Ministral 3B ($0.06/M in)"),
+        ("codestral-latest", "Codestral (code, free)"),
+    ],
+    "anthropic": [
+        ("claude-sonnet-4-20250514", "Claude Sonnet 4"),
+        ("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
+        ("claude-opus-4-20250514", "Claude Opus 4"),
+    ],
+    "openai": [
+        ("gpt-4o", "GPT-4o"),
+        ("gpt-4o-mini", "GPT-4o Mini"),
+    ],
+    "gemini": [
+        ("gemini-2.0-flash", "Gemini 2.0 Flash"),
+        ("gemini-2.5-pro-preview-06-05", "Gemini 2.5 Pro"),
+    ],
+    "groq": [
+        ("llama-3.3-70b-versatile", "Llama 3.3 70B"),
+        ("llama-3.1-8b-instant", "Llama 3.1 8B"),
+    ],
+    "deepseek": [
+        ("deepseek-chat", "DeepSeek Chat"),
+        ("deepseek-reasoner", "DeepSeek Reasoner"),
+    ],
+    "xai": [
+        ("grok-3", "Grok 3"),
+        ("grok-3-mini", "Grok 3 Mini"),
+    ],
+    "ollama": [
+        ("llama3", "Llama 3"),
+        ("mistral", "Mistral"),
+    ],
+}
+
+
+def _all_model_options(selected: str = "") -> str:
+    """Build <option> elements for ALL providers combined (for routing selects)."""
+    seen: set[str] = set()
+    opts: list[str] = []
+    for models in _PROVIDER_MODELS.values():
+        for val, label in models:
+            if val not in seen:
+                seen.add(val)
+                sel = " selected" if val == selected else ""
+                opts.append(f'<option value="{val}"{sel}>{label}</option>')
+    return "".join(opts)
+
+
+def _extract_md_field(content: str, field: str, default: str = "") -> str:
+    """Extract a field value from markdown content by heading or pattern."""
+    patterns = {
+        "identity": r"(?:^|\n)##?\s*(?:Identity|Хто я)\s*\n(.*?)(?:\n#|\Z)",
+        "language": r"(?:^|\n)##?\s*(?:Language|Мова)\s*\n(.*?)(?:\n#|\Z)",
+        "style": r"(?:^|\n)##?\s*(?:Style|Стиль)\s*\n(.*?)(?:\n#|\Z)",
+        "extra": r"(?:^|\n)##?\s*(?:Extra|Додатково|Обмеження)\s*\n(.*?)(?:\n#|\Z)",
+        "name": r"(?:^|\n)##?\s*(?:Name|Ім.я|Як вас звати)\s*\n(.*?)(?:\n#|\Z)",
+        "work": r"(?:^|\n)##?\s*(?:Work|Робота|Сфера)\s*\n(.*?)(?:\n#|\Z)",
+        "preferences": r"(?:^|\n)##?\s*(?:Preferences|Вподобання)\s*\n(.*?)(?:\n#|\Z)",
+    }
+    pattern = patterns.get(field)
+    if not pattern:
+        return default
+    m = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
+    return m.group(1).strip() if m else default
 
 
 def _update_env(data_dir: Path, updates: dict[str, str]) -> None:
@@ -459,14 +531,137 @@ def create_app(
             for code, label in languages
         )
 
+        # Build model options for current provider
+        current_provider = llm_provider or "mistral"
+        model_options_list = _PROVIDER_MODELS.get(current_provider, [("custom", "Custom")])
+        model_options_html = "".join(
+            f'<option value="{val}" {"selected" if val == llm_model else ""}>{label}</option>'
+            for val, label in model_options_list
+        )
+
+        # Enabled channels
+        enabled_channels: list[str] = []
+        if agent:
+            enabled_channels = agent.settings.enabled_channels
+        if not enabled_channels:
+            enabled_channels = ["cli"]
+
+        # Telegram token
+        telegram_token_display = ""
+        if agent:
+            try:
+                telegram_token_display = agent.settings.telegram.token.get_secret_value()
+            except Exception:
+                telegram_token_display = ""
+
+        # Channel checkboxes
+        all_channels = ["telegram", "discord", "slack", "whatsapp", "signal"]
+        channel_checkboxes = ""
+        for ch in all_channels:
+            checked = "checked" if ch in enabled_channels else ""
+            label = ch.capitalize()
+            channel_checkboxes += (
+                f'<label class="flex items-center gap-3 cursor-pointer">'
+                f'<input type="checkbox" name="channel_{ch}" value="{ch}" {checked} '
+                f'class="w-4 h-4">'
+                f"<span>{label}</span>"
+                f"</label>"
+            )
+
+        tg_display = "block" if "telegram" in enabled_channels else "none"
+        esc_tg_token = html.escape(telegram_token_display)
+
+        # Model routing config
+        data_dir_path = agent.settings.data_dir if agent else _data_dir
+        routing_config: dict[str, Any] = {"mode": "single", "profiles": {}}
+        router_path = data_dir_path / "model_router.json"
+        if router_path.exists():
+            try:
+                routing_config = json.loads(router_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        routing_mode = routing_config.get("mode", "single")
+        checked_single = "checked" if routing_mode == "single" else ""
+        checked_auto = "checked" if routing_mode == "auto" else ""
+        checked_advanced = "checked" if routing_mode == "advanced" else ""
+        show_auto = "block" if routing_mode == "auto" else "none"
+        show_advanced = "block" if routing_mode == "advanced" else "none"
+
+        routing_profiles = routing_config.get("profiles", {})
+        simple_selected = routing_profiles.get("simple", {}).get("model", "")
+        default_selected = routing_profiles.get("default", {}).get("model", "")
+        complex_selected = routing_profiles.get("complex", {}).get("model", "")
+
+        simple_model_options = _all_model_options(simple_selected)
+        default_model_options = _all_model_options(default_selected)
+        complex_model_options = _all_model_options(complex_selected)
+
+        adv_categories = [
+            ("chat", "Чат (розмова)"),
+            ("code", "Код (програмування)"),
+            ("research", "Дослідження"),
+            ("writing", "Написання текстів"),
+            ("tools", "Використання інструментів"),
+            ("reasoning", "Логіка та аналіз"),
+        ]
+        adv_selects_html = ""
+        for cat_key, cat_name in adv_categories:
+            cat_selected = routing_profiles.get(cat_key, {}).get("model", "")
+            cat_opts = _all_model_options(cat_selected)
+            adv_selects_html += (
+                f"<div>"
+                f'<label class="text-sm text-gray-400">{cat_name}</label>'
+                f'<select name="model_{cat_key}" class="w-full p-2 rounded bg-gray-700 border border-gray-600">'
+                f"{cat_opts}"
+                f"</select>"
+                f"</div>"
+            )
+
+        # SOUL.md structured fields
+        soul_identity = _extract_md_field(soul_md_content, "identity", "")
+        soul_style_value = _extract_md_field(soul_md_content, "style", "concise")
+        soul_extra = _extract_md_field(soul_md_content, "extra", "")
+
+        style_options_list = [
+            ("concise", "Коротко та по суті"),
+            ("detailed", "Розгорнуто і детально"),
+            ("friendly", "Дружній і неформальний"),
+            ("professional", "Професійний і формальний"),
+        ]
+        style_options = "".join(
+            f'<option value="{v}" {"selected" if v == soul_style_value else ""}>{lbl}</option>'
+            for v, lbl in style_options_list
+        )
+
+        soul_lang_options = "".join(
+            f'<option value="{code}" {"selected" if code == soul_language else ""}>{label}</option>'
+            for code, label in [
+                ("uk", "Українська"),
+                ("en", "English"),
+                ("ru", "Русский"),
+                ("auto", "Авто (мова запиту)"),
+            ]
+        )
+
+        # USER.md structured fields
+        user_name_val = _extract_md_field(user_md_content, "name", "")
+        user_lang_val = _extract_md_field(user_md_content, "language", "")
+        user_work_val = _extract_md_field(user_md_content, "work", "")
+        user_prefs_val = _extract_md_field(user_md_content, "preferences", "")
+
         esc_soul = html.escape(soul_md_content)
         esc_user = html.escape(user_md_content)
         esc_memory = html.escape(memory_md_content)
         esc_api_key = html.escape(llm_api_key_raw)
         esc_api_key_display = html.escape(llm_api_key_display)
-        esc_model = html.escape(llm_model)
         esc_name = html.escape(soul_name)
         esc_tz = html.escape(soul_timezone)
+        esc_soul_identity = html.escape(soul_identity)
+        esc_soul_extra = html.escape(soul_extra)
+        esc_user_name = html.escape(user_name_val)
+        esc_user_lang = html.escape(user_lang_val)
+        esc_user_work = html.escape(user_work_val)
+        esc_user_prefs = html.escape(user_prefs_val)
 
         section_cls = "bg-gray-800 p-6 rounded-lg mb-6"
         input_cls = "w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
@@ -504,13 +699,20 @@ def create_app(
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label class="block text-sm text-gray-400 mb-1">Provider</label>
-                                <select name="provider" class="{input_cls}">
+                                <select name="provider" id="llm-provider"
+                                        hx-get="/api/v1/models/{current_provider}"
+                                        hx-target="#llm-model"
+                                        hx-trigger="change"
+                                        onchange="this.setAttribute('hx-get', '/api/v1/models/' + this.value); htmx.process(this);"
+                                        class="{input_cls}">
                                     {provider_options}
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-400 mb-1">Model</label>
-                                <input type="text" name="model" value="{esc_model}" class="{input_cls}">
+                                <select name="model" id="llm-model" class="{input_cls}">
+                                    {model_options_html}
+                                </select>
                             </div>
                         </div>
                         <div class="mb-4">
@@ -548,12 +750,112 @@ def create_app(
                     </form>
                 </div>
 
+                <!-- Section: Model Routing -->
+                <div class="{section_cls}">
+                    <h2 class="text-xl font-bold mb-4">Розподіл моделей по задачах</h2>
+                    <p class="text-gray-400 text-sm mb-4">
+                        Виберіть режим: одна модель для всього, автоматичний вибір, або окрема модель для кожної категорії.
+                    </p>
+                    <form hx-post="/settings/routing" hx-target="#routing-result" hx-swap="innerHTML">
+                        <div class="flex gap-4 mb-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="routing_mode" value="single"
+                                       onchange="toggleRouting(this.value)" {checked_single}>
+                                <span>Одна модель</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="routing_mode" value="auto"
+                                       onchange="toggleRouting(this.value)" {checked_auto}>
+                                <span>Автоматично</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="routing_mode" value="advanced"
+                                       onchange="toggleRouting(this.value)" {checked_advanced}>
+                                <span>Розширений</span>
+                            </label>
+                        </div>
+
+                        <div id="routing-auto" style="display: {show_auto}">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="text-sm text-gray-400">Прості запити (привіт, погода)</label>
+                                    <select name="model_simple" class="w-full p-2 rounded bg-gray-700 border border-gray-600">
+                                        {simple_model_options}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-400">Стандартні запити</label>
+                                    <select name="model_default" class="w-full p-2 rounded bg-gray-700 border border-gray-600">
+                                        {default_model_options}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-400">Складні (код, аналіз)</label>
+                                    <select name="model_complex" class="w-full p-2 rounded bg-gray-700 border border-gray-600">
+                                        {complex_model_options}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="routing-advanced" style="display: {show_advanced}">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {adv_selects_html}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-4 mt-4">
+                            <button type="submit" class="{btn_save}">Зберегти</button>
+                            <span id="routing-result"></span>
+                        </div>
+                    </form>
+                </div>
+
                 <!-- Section 2: SOUL.md -->
                 <div class="{section_cls}">
-                    <h2 class="text-xl font-bold mb-4">SOUL.md (Особистість агента)</h2>
+                    <h2 class="text-xl font-bold mb-4">Особистість агента</h2>
+
+                    <button type="button" hx-post="/settings/soul/wizard" hx-target="#soul-wizard-result"
+                            class="mb-4 px-4 py-2 bg-purple-600 rounded hover:bg-purple-700 text-sm font-bold">
+                        Налаштувати через діалог
+                    </button>
+                    <div id="soul-wizard-result" class="mb-4"></div>
+
                     <form hx-post="/settings/soul" hx-target="#soul-result" hx-swap="innerHTML">
-                        <textarea name="content" rows="10"
-                                  class="{input_cls} mb-4 font-mono text-sm">{esc_soul}</textarea>
+                        <div class="space-y-4 mb-4">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Як агент себе називає</label>
+                                <input type="text" name="soul_identity"
+                                       value="{esc_soul_identity}"
+                                       placeholder="Я Posipaka — персональний AI-асистент"
+                                       class="{input_cls}">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Мова за замовчуванням</label>
+                                <select name="soul_language" class="{input_cls}">
+                                    {soul_lang_options}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Стиль відповідей</label>
+                                <select name="soul_style" class="{input_cls}">
+                                    {style_options}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Додаткові інструкції (вільний текст)</label>
+                                <textarea name="soul_extra" rows="4"
+                                          placeholder="Наприклад: Завжди пропонуй альтернативи. Не використовуй емодзі."
+                                          class="{input_cls}">{esc_soul_extra}</textarea>
+                            </div>
+                        </div>
+
+                        <details class="mb-4">
+                            <summary class="text-sm text-gray-400 cursor-pointer">Редагувати SOUL.md напряму (для досвідчених)</summary>
+                            <textarea name="soul_raw" rows="10"
+                                      class="{input_cls} mt-2 font-mono text-sm">{esc_soul}</textarea>
+                        </details>
+
                         <div class="flex items-center gap-4">
                             <button type="submit" class="{btn_save}">Зберегти</button>
                             <span id="soul-result"></span>
@@ -563,10 +865,53 @@ def create_app(
 
                 <!-- Section 3: USER.md -->
                 <div class="{section_cls}">
-                    <h2 class="text-xl font-bold mb-4">USER.md (Профіль користувача)</h2>
+                    <h2 class="text-xl font-bold mb-4">Профіль користувача</h2>
+
+                    <button type="button" hx-post="/settings/user/wizard" hx-target="#user-wizard-result"
+                            class="mb-4 px-4 py-2 bg-purple-600 rounded hover:bg-purple-700 text-sm font-bold">
+                        Заповнити через діалог
+                    </button>
+                    <div id="user-wizard-result" class="mb-4"></div>
+
                     <form hx-post="/settings/user" hx-target="#user-result" hx-swap="innerHTML">
-                        <textarea name="content" rows="10"
-                                  class="{input_cls} mb-4 font-mono text-sm">{esc_user}</textarea>
+                        <div class="space-y-4 mb-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Ваше ім'я</label>
+                                    <input type="text" name="user_name"
+                                           value="{esc_user_name}"
+                                           placeholder="Як до вас звертатися"
+                                           class="{input_cls}">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Мова спілкування</label>
+                                    <input type="text" name="user_language"
+                                           value="{esc_user_lang}"
+                                           placeholder="Українська"
+                                           class="{input_cls}">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Сфера діяльності</label>
+                                <input type="text" name="user_work"
+                                       value="{esc_user_work}"
+                                       placeholder="Наприклад: розробник, маркетолог, студент"
+                                       class="{input_cls}">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Вподобання та особливості</label>
+                                <textarea name="user_preferences" rows="3"
+                                          placeholder="Наприклад: люблю каву, працюю вночі, вивчаю Python"
+                                          class="{input_cls}">{esc_user_prefs}</textarea>
+                            </div>
+                        </div>
+
+                        <details class="mb-4">
+                            <summary class="text-sm text-gray-400 cursor-pointer">Редагувати USER.md напряму</summary>
+                            <textarea name="user_raw" rows="8"
+                                      class="{input_cls} mt-2 font-mono text-sm">{esc_user}</textarea>
+                        </details>
+
                         <div class="flex items-center gap-4">
                             <button type="submit" class="{btn_save}">Зберегти</button>
                             <span id="user-result"></span>
@@ -597,6 +942,32 @@ def create_app(
                         <div class="flex items-center gap-4">
                             <button type="submit" class="{btn_save}">Зберегти</button>
                             <span id="agent-result"></span>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Section: Messengers -->
+                <div class="{section_cls}">
+                    <h2 class="text-xl font-bold mb-4">Месенджери</h2>
+                    <p class="text-gray-400 text-sm mb-4">
+                        Виберіть через які месенджери буде працювати агент.
+                    </p>
+                    <form hx-post="/settings/channels" hx-target="#channels-result" hx-swap="innerHTML">
+                        <div class="space-y-3 mb-4">
+                            {channel_checkboxes}
+                        </div>
+
+                        <div class="p-3 bg-gray-700 rounded mb-4" id="telegram-config"
+                             style="display: {tg_display}">
+                            <label class="block text-sm text-gray-400 mb-1">Telegram Bot Token</label>
+                            <input type="password" name="telegram_token"
+                                   value="{esc_tg_token}"
+                                   class="{input_cls}">
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <button type="submit" class="{btn_save}">Зберегти</button>
+                            <span id="channels-result"></span>
                         </div>
                     </form>
                 </div>
@@ -674,6 +1045,21 @@ def create_app(
                         txt.textContent = 'Показати';
                     }}
                 }}
+
+                function toggleRouting(mode) {{
+                    document.getElementById('routing-auto').style.display =
+                        (mode === 'auto') ? 'block' : 'none';
+                    document.getElementById('routing-advanced').style.display =
+                        (mode === 'advanced') ? 'block' : 'none';
+                }}
+
+                // Show/hide telegram config based on checkbox
+                document.addEventListener('change', function(e) {{
+                    if (e.target && e.target.name === 'channel_telegram') {{
+                        document.getElementById('telegram-config').style.display =
+                            e.target.checked ? 'block' : 'none';
+                    }}
+                }});
             </script>
         </body>
         </html>
@@ -702,7 +1088,37 @@ def create_app(
     @app.post("/settings/soul", response_class=HTMLResponse)
     async def settings_soul(request: Request):
         form = await request.form()
-        content = str(form.get("content", ""))
+        soul_raw = str(form.get("soul_raw", "")).strip()
+        if soul_raw:
+            content = soul_raw
+        else:
+            # Build from structured fields
+            identity = str(form.get("soul_identity", "")).strip()
+            language = str(form.get("soul_language", "auto")).strip()
+            style = str(form.get("soul_style", "concise")).strip()
+            extra = str(form.get("soul_extra", "")).strip()
+
+            lang_map = {
+                "uk": "Українська",
+                "en": "English",
+                "ru": "Русский",
+                "auto": "Авто (мова запиту)",
+            }
+            style_map = {
+                "concise": "Коротко та по суті",
+                "detailed": "Розгорнуто і детально",
+                "friendly": "Дружній і неформальний",
+                "professional": "Професійний і формальний",
+            }
+
+            parts = [f"# {html.escape(identity or 'Posipaka')} — Особистість\n"]
+            parts.append(f"## Хто я\n{identity or 'Я Posipaka — персональний AI-асистент.'}\n")
+            parts.append(f"## Мова\n{lang_map.get(language, language)}\n")
+            parts.append(f"## Стиль\n{style_map.get(style, style)}\n")
+            if extra:
+                parts.append(f"## Обмеження\n{extra}\n")
+            content = "\n".join(parts)
+
         if agent:
             agent.settings.soul_md_path.write_text(content, encoding="utf-8")
             agent.audit.log("settings_soul_md_updated", {})
@@ -711,7 +1127,27 @@ def create_app(
     @app.post("/settings/user", response_class=HTMLResponse)
     async def settings_user(request: Request):
         form = await request.form()
-        content = str(form.get("content", ""))
+        user_raw = str(form.get("user_raw", "")).strip()
+        if user_raw:
+            content = user_raw
+        else:
+            # Build from structured fields
+            name = str(form.get("user_name", "")).strip()
+            language = str(form.get("user_language", "")).strip()
+            work = str(form.get("user_work", "")).strip()
+            preferences = str(form.get("user_preferences", "")).strip()
+
+            parts = ["# Профіль користувача\n"]
+            if name:
+                parts.append(f"## Ім'я\n{name}\n")
+            if language:
+                parts.append(f"## Мова\n{language}\n")
+            if work:
+                parts.append(f"## Сфера\n{work}\n")
+            if preferences:
+                parts.append(f"## Вподобання\n{preferences}\n")
+            content = "\n".join(parts)
+
         if agent:
             agent.settings.user_md_path.write_text(content, encoding="utf-8")
             agent.audit.log("settings_user_md_updated", {})
@@ -830,6 +1266,211 @@ def create_app(
         return (
             f'<span class="text-red-400">ПОРУШЕННЯ: {esc_msg} ({count} записів до помилки)</span>'
         )
+
+    # ─── Models API ───────────────────────────────────────────────────
+    @app.get("/api/v1/models/{provider}", response_class=HTMLResponse)
+    async def get_models(provider: str):
+        """Return model <option> elements for a provider (htmx partial)."""
+        opts = _PROVIDER_MODELS.get(provider, [("custom", "Custom")])
+        return "".join(f'<option value="{val}">{label}</option>' for val, label in opts)
+
+    # ─── Routing settings ─────────────────────────────────────────────
+    @app.post("/settings/routing", response_class=HTMLResponse)
+    async def save_routing(request: Request):
+        form = await request.form()
+        mode = str(form.get("routing_mode", "single"))
+
+        profiles: dict[str, dict[str, Any]] = {}
+        if mode == "single":
+            model_val = str(form.get("model", "mistral-large-latest"))
+            profiles["default"] = {
+                "model": model_val,
+                "temperature": 0.7,
+                "max_tokens": 4096,
+            }
+        elif mode == "auto":
+            for tier in ("simple", "default", "complex"):
+                model_val = str(form.get(f"model_{tier}", ""))
+                if model_val:
+                    profiles[tier] = {"model": model_val, "temperature": 0.7, "max_tokens": 4096}
+        elif mode == "advanced":
+            for cat in ("chat", "code", "research", "writing", "tools", "reasoning"):
+                model_val = str(form.get(f"model_{cat}", ""))
+                if model_val:
+                    profiles[cat] = {"model": model_val, "temperature": 0.7, "max_tokens": 4096}
+
+        config = {"mode": mode, "profiles": profiles}
+        data_dir_path = agent.settings.data_dir if agent else _data_dir
+        config_path = data_dir_path / "model_router.json"
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+        if agent:
+            agent.audit.log("settings_routing_updated", {"mode": mode})
+        return '<span class="text-green-400">Збережено! Діє після перезапуску.</span>'
+
+    # ─── Channels settings ─────────────────────────────────────────────
+    @app.post("/settings/channels", response_class=HTMLResponse)
+    async def save_channels(request: Request):
+        form = await request.form()
+        channels = []
+        for ch in ("telegram", "discord", "slack", "whatsapp", "signal"):
+            if form.get(f"channel_{ch}"):
+                channels.append(ch)
+        if not channels:
+            channels = ["cli"]
+
+        data_dir_path = agent.settings.data_dir if agent else _data_dir
+        _update_env(
+            data_dir_path,
+            {
+                "ENABLED_CHANNELS": json.dumps(channels),
+            },
+        )
+
+        # Save telegram token if provided
+        tg_token = str(form.get("telegram_token", ""))
+        if tg_token and tg_token != "***":
+            _update_env(data_dir_path, {"TELEGRAM_TOKEN": tg_token})
+
+        if agent:
+            agent.audit.log("settings_channels_updated", {"channels": channels})
+        return '<span class="text-green-400">Збережено! Діє після перезапуску.</span>'
+
+    # ─── Soul wizard ───────────────────────────────────────────────────
+    @app.post("/settings/soul/wizard", response_class=HTMLResponse)
+    async def soul_wizard(request: Request):
+        """Start AI-guided personality setup."""
+        nonce = getattr(request.state, "csp_nonce", "")
+        return f'''
+        <div class="bg-gray-700 p-4 rounded space-y-3">
+            <p class="text-sm">Відповідайте на питання, і я налаштую особистість агента:</p>
+            <div id="wizard-chat" class="space-y-2">
+                <div class="text-blue-400 text-sm">Як ви хочете щоб агент до вас звертався? (на "ти" чи на "ви"?)</div>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="wizard-input"
+                       placeholder="Ваша відповідь..."
+                       class="flex-1 p-2 rounded bg-gray-600 border border-gray-500 text-sm"
+                       onkeypress="if(event.key===\'Enter\') sendSoulWizard()">
+                <button type="button" onclick="sendSoulWizard()"
+                        class="px-3 py-2 bg-purple-600 rounded hover:bg-purple-700 text-sm">
+                    Далі
+                </button>
+            </div>
+        </div>
+        <script nonce="{nonce}">
+        var soulWizardStep = 0;
+        var soulWizardQuestions = [
+            "Як ви хочете щоб агент до вас звертався? (на \\"ти\\" чи на \\"ви\\"?)",
+            "Який стиль відповідей вам подобається? (коротко / детально / дружній / професійний)",
+            "Чи є щось, що агент НЕ повинен робити? (наприклад: не використовувати емодзі)",
+            "Як звати агента? (або залишіть поточне ім\\'я)"
+        ];
+        var soulWizardAnswers = [];
+        function sendSoulWizard() {{
+            var input = document.getElementById("wizard-input");
+            var answer = input.value.trim();
+            if (!answer) return;
+            soulWizardAnswers.push(answer);
+            var chat = document.getElementById("wizard-chat");
+            chat.innerHTML += "<div class=\\"text-gray-300 text-sm\\">Ви: " + answer + "</div>";
+            input.value = "";
+            soulWizardStep++;
+            if (soulWizardStep < soulWizardQuestions.length) {{
+                chat.innerHTML += "<div class=\\"text-blue-400 text-sm\\">" + soulWizardQuestions[soulWizardStep] + "</div>";
+            }} else {{
+                var formality = soulWizardAnswers[0];
+                var style = soulWizardAnswers[1];
+                var restrictions = soulWizardAnswers[2];
+                var name = soulWizardAnswers[3];
+
+                var soul = "# " + (name || "Posipaka") + " — Особистість\\n\\n"
+                    + "## Хто я\\nЯ " + (name || "Posipaka") + " — персональний AI-асистент.\\n\\n"
+                    + "## Звернення\\n" + formality + "\\n\\n"
+                    + "## Стиль\\n" + style + "\\n\\n"
+                    + "## Обмеження\\n" + (restrictions || "Немає додаткових обмежень") + "\\n";
+
+                fetch("/settings/soul", {{
+                    method: "POST",
+                    headers: {{"Content-Type": "application/x-www-form-urlencoded",
+                               "X-CSRF-Token": document.body.getAttribute("hx-headers") ? JSON.parse(document.body.getAttribute("hx-headers"))["X-CSRF-Token"] : ""}},
+                    body: "soul_raw=" + encodeURIComponent(soul)
+                }}).then(function(r) {{ return r.text(); }}).then(function() {{
+                    chat.innerHTML += "<div class=\\"text-green-400 text-sm\\">Готово! Особистість налаштована.</div>";
+                }});
+            }}
+            chat.scrollTop = chat.scrollHeight;
+        }}
+        </script>
+        '''
+
+    # ─── User wizard ───────────────────────────────────────────────────
+    @app.post("/settings/user/wizard", response_class=HTMLResponse)
+    async def user_wizard(request: Request):
+        """Start AI-guided user profile setup."""
+        nonce = getattr(request.state, "csp_nonce", "")
+        return f'''
+        <div class="bg-gray-700 p-4 rounded space-y-3">
+            <p class="text-sm">Відповідайте на питання, і я заповню ваш профіль:</p>
+            <div id="user-wizard-chat" class="space-y-2">
+                <div class="text-blue-400 text-sm">Як вас звати?</div>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="user-wizard-input"
+                       placeholder="Ваша відповідь..."
+                       class="flex-1 p-2 rounded bg-gray-600 border border-gray-500 text-sm"
+                       onkeypress="if(event.key===\'Enter\') sendUserWizard()">
+                <button type="button" onclick="sendUserWizard()"
+                        class="px-3 py-2 bg-purple-600 rounded hover:bg-purple-700 text-sm">
+                    Далі
+                </button>
+            </div>
+        </div>
+        <script nonce="{nonce}">
+        var userWizardStep = 0;
+        var userWizardQuestions = [
+            "Як вас звати?",
+            "Чим ви займаєтесь?",
+            "Яка ваша мова спілкування?",
+            "Що вам подобається? (хобі, інтереси)"
+        ];
+        var userWizardAnswers = [];
+        function sendUserWizard() {{
+            var input = document.getElementById("user-wizard-input");
+            var answer = input.value.trim();
+            if (!answer) return;
+            userWizardAnswers.push(answer);
+            var chat = document.getElementById("user-wizard-chat");
+            chat.innerHTML += "<div class=\\"text-gray-300 text-sm\\">Ви: " + answer + "</div>";
+            input.value = "";
+            userWizardStep++;
+            if (userWizardStep < userWizardQuestions.length) {{
+                chat.innerHTML += "<div class=\\"text-blue-400 text-sm\\">" + userWizardQuestions[userWizardStep] + "</div>";
+            }} else {{
+                var uName = userWizardAnswers[0];
+                var uWork = userWizardAnswers[1];
+                var uLang = userWizardAnswers[2];
+                var uPrefs = userWizardAnswers[3];
+
+                var userMd = "# Профіль користувача\\n\\n"
+                    + "## Ім\\'я\\n" + uName + "\\n\\n"
+                    + "## Сфера\\n" + uWork + "\\n\\n"
+                    + "## Мова\\n" + uLang + "\\n\\n"
+                    + "## Вподобання\\n" + uPrefs + "\\n";
+
+                fetch("/settings/user", {{
+                    method: "POST",
+                    headers: {{"Content-Type": "application/x-www-form-urlencoded",
+                               "X-CSRF-Token": document.body.getAttribute("hx-headers") ? JSON.parse(document.body.getAttribute("hx-headers"))["X-CSRF-Token"] : ""}},
+                    body: "user_raw=" + encodeURIComponent(userMd)
+                }}).then(function(r) {{ return r.text(); }}).then(function() {{
+                    chat.innerHTML += "<div class=\\"text-green-400 text-sm\\">Готово! Профіль збережено.</div>";
+                }});
+            }}
+            chat.scrollTop = chat.scrollHeight;
+        }}
+        </script>
+        '''
 
     # ─── Metrics ─────────────────────────────────────────────────────
     @app.get("/api/v1/metrics")
