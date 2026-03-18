@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Posipaka data
+*.db
+*.log
+chroma/
+google_credentials.json
+google_token.json
+.secrets.enc
+.web_password
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# mypy
+.mypy_cache/
+
+# ruff
+.ruff_cache/
+
+# pytest
+.pytest_cache/
+
+# Dev files
+MASTER.md
+PLANNING.md
+DEV_NOTES.md
+TODO_PRIVATE.md
+CLAUDE.md
+**/CLAUDE.md
+.claude/
+.cursorrules
+.cursorignore
+.cursor/
+.windsurfrules
+.windsurf/
+.copilot-instructions.md
+.aider*

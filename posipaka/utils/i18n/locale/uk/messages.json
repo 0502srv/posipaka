@@ -1,0 +1,59 @@
+{
+  "_meta": {"language": "uk", "completeness": 100},
+  "welcome": {
+    "greeting": "Привіт, {name}!",
+    "intro": "Я {agent_name} — ваш персональний AI-агент."
+  },
+  "approval": {
+    "request": "Потрібне підтвердження\n\nАгент хоче:\n{action}\n\nВідповісти так або ні",
+    "confirmed": "Виконую: {action}",
+    "denied": "Дію скасовано.",
+    "timeout": "Час підтвердження вичерпано. Скасовано."
+  },
+  "heartbeat": {
+    "started": "Heartbeat увімкнено. Інтервал: {interval}.",
+    "alert": "Heartbeat Alert\n\n{content}",
+    "outside_active_hours": "Поза активними годинами ({start}–{end})."
+  },
+  "cron": {
+    "created": "Завдання {name} створено. Розклад: {schedule}",
+    "deleted": "Завдання {name} видалено.",
+    "list_empty": "Немає запланованих завдань."
+  },
+  "errors": {
+    "injection_blocked": "Запит заблоковано: виявлено маніпуляцію інструкціями.",
+    "budget_exceeded": "Денний бюджет {budget} вичерпано (витрачено: {spent}).",
+    "llm_unavailable": "AI-модель недоступна. Пробую запасний варіант...",
+    "rate_limit": "Занадто багато запитів. Зачекайте {seconds} секунд.",
+    "input_too_long": "Повідомлення занадто довге: {length} символів (максимум {max}).",
+    "general": "Виникла помилка. Спробуйте ще раз."
+  },
+  "commands": {
+    "help": "Команди:\n/start — привітання\n/help — довідка\n/reset — скинути сесію\n/status — статус\n/memory — пам'ять\n/skills — навички\n/cost — витрати\n/persona — персони",
+    "reset": "Сесію скинуто.",
+    "no_tools": "Немає зареєстрованих інструментів.",
+    "memory_empty": "Пам'ять порожня."
+  },
+  "persona": {
+    "activated": "Персона {name} активована.",
+    "deactivated": "Повернення до звичайного режиму.",
+    "not_found": "Персона {name} не знайдена.",
+    "list_header": "Доступні персони:"
+  },
+  "system": {
+    "status_ok": "Система працює нормально.",
+    "status_degraded": "Система працює з обмеженнями.",
+    "welcome_new_user": "Привіт! Я Posipaka — ваш AI-асистент.",
+    "data_exported": "Ваші дані експортовано.",
+    "data_deleted": "Всі ваші дані видалено.",
+    "webhook_recovered": "Webhook автоматично відновлено.",
+    "backup_created": "Резервну копію створено.",
+    "permission_denied": "У вас немає дозволу на цю дію.",
+    "voice_not_configured": "Обробка голосових повідомлень не налаштована.",
+    "voice_failed": "Не вдалося розпізнати мовлення.",
+    "file_too_large": "Файл занадто великий (макс {max_mb} MB).",
+    "file_processing_error": "Помилка обробки файлу.",
+    "photo_processing_error": "Помилка обробки зображення.",
+    "unsupported_file_type": "Тип файлу {ext} не підтримується."
+  }
+}

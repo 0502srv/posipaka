@@ -1,0 +1,46 @@
+# Workflow: Weekly Review — тижневий огляд
+name: weekly_review
+description: "Тижневий огляд: витрати, активність, рекомендації"
+version: "1.0.0"
+trigger:
+  type: cron
+  cron: "0 18 * * 5"  # П'ятниця о 18:00
+
+steps:
+  - id: cost_report
+    type: llm
+    prompt: "Покажи звіт витрат за тиждень."
+    output: costs
+
+  - id: calendar_week
+    tool: calendar_list
+    args:
+      days: 7
+    output: week_events
+
+  - id: email_stats
+    tool: gmail_list
+    args:
+      query: "newer_than:7d"
+      max_results: 50
+    output: week_emails
+
+  - id: review
+    type: llm
+    prompt: |
+      Тижневий огляд:
+
+      💰 Витрати: {{ costs }}
+      📅 Зустрічі цього тижня: {{ week_events }}
+      📧 Листи: {{ week_emails }}
+
+      Склади:
+      1. Підсумок тижня (3-5 пунктів)
+      2. Що пішло добре
+      3. Що можна покращити
+      4. Рекомендації на наступний тиждень
+    input_from:
+      - cost_report
+      - calendar_week
+      - email_stats
+    output: review

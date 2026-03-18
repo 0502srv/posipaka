@@ -1,0 +1,59 @@
+{
+  "_meta": {"language": "en", "completeness": 100},
+  "welcome": {
+    "greeting": "Hello, {name}!",
+    "intro": "I'm {agent_name} — your personal AI agent."
+  },
+  "approval": {
+    "request": "Approval required\n\nAgent wants to:\n{action}\n\nReply yes or no",
+    "confirmed": "Executing: {action}",
+    "denied": "Action cancelled.",
+    "timeout": "Approval timeout. Cancelled."
+  },
+  "heartbeat": {
+    "started": "Heartbeat enabled. Interval: {interval}.",
+    "alert": "Heartbeat Alert\n\n{content}",
+    "outside_active_hours": "Outside active hours ({start}–{end})."
+  },
+  "cron": {
+    "created": "Job {name} created. Schedule: {schedule}",
+    "deleted": "Job {name} deleted.",
+    "list_empty": "No scheduled jobs."
+  },
+  "errors": {
+    "injection_blocked": "Request blocked: instruction manipulation detected.",
+    "budget_exceeded": "Daily budget {budget} exhausted (spent: {spent}).",
+    "llm_unavailable": "AI model unavailable. Trying fallback...",
+    "rate_limit": "Too many requests. Wait {seconds} seconds.",
+    "input_too_long": "Message too long: {length} chars (max {max}).",
+    "general": "An error occurred. Please try again."
+  },
+  "commands": {
+    "help": "Commands:\n/start — greeting\n/help — help\n/reset — reset session\n/status — status\n/memory — memory\n/skills — skills\n/cost — costs\n/persona — personas",
+    "reset": "Session reset.",
+    "no_tools": "No registered tools.",
+    "memory_empty": "Memory is empty."
+  },
+  "persona": {
+    "activated": "Persona {name} activated.",
+    "deactivated": "Returned to normal mode.",
+    "not_found": "Persona {name} not found.",
+    "list_header": "Available personas:"
+  },
+  "system": {
+    "status_ok": "System is operating normally.",
+    "status_degraded": "System is operating with limitations.",
+    "welcome_new_user": "Hello! I'm Posipaka — your AI assistant.",
+    "data_exported": "Your data has been exported.",
+    "data_deleted": "All your data has been deleted.",
+    "webhook_recovered": "Webhook automatically recovered.",
+    "backup_created": "Backup created successfully.",
+    "permission_denied": "You don't have permission for this action.",
+    "voice_not_configured": "Voice processing is not configured.",
+    "voice_failed": "Could not recognize speech.",
+    "file_too_large": "File is too large (max {max_mb} MB).",
+    "file_processing_error": "File processing error.",
+    "photo_processing_error": "Image processing error.",
+    "unsupported_file_type": "File type {ext} is not supported."
+  }
+}

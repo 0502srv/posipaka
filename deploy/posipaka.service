@@ -1,0 +1,33 @@
+[Unit]
+Description=Posipaka AI Agent
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=posipaka
+Group=posipaka
+WorkingDirectory=/home/posipaka
+ExecStart=/usr/local/bin/posipaka start
+Restart=on-failure
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/home/posipaka/.posipaka /tmp
+PrivateTmp=true
+
+# Resource limits
+MemoryLimit=1G
+CPUQuota=200%
+TasksMax=256
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=posipaka
+
+[Install]
+WantedBy=multi-user.target

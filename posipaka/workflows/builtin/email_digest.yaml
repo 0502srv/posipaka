@@ -1,0 +1,38 @@
+# Workflow: Email Digest — дайджест непрочитаних листів
+name: email_digest
+description: "Збирає непрочитані листи та створює стислий дайджест"
+version: "1.0.0"
+
+steps:
+  - id: fetch_unread
+    tool: gmail_list
+    args:
+      query: "is:unread"
+      max_results: 20
+    output: unread_emails
+
+  - id: read_important
+    tool: gmail_read
+    args:
+      message_ids: "{{ unread_emails.important_ids }}"
+    output: email_contents
+    condition: "unread_emails.count > 0"
+
+  - id: create_digest
+    type: llm
+    prompt: |
+      Створи стислий дайджест непрочитаних листів:
+
+      {{ email_contents }}
+
+      Для кожного листа:
+      - Від кого
+      - Тема
+      - Суть (1-2 речення)
+      - Чи потрібна дія? (так/ні)
+
+      Сортуй за важливістю.
+    input_from:
+      - fetch_unread
+      - read_important
+    output: digest

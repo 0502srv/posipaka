@@ -1,0 +1,79 @@
+#cloud-config
+# Auto-provisioning for Posipaka VPS
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - docker.io
+  - docker-compose-v2
+  - fail2ban
+  - ufw
+  - unattended-upgrades
+  - apt-listchanges
+  - curl
+  - git
+
+users:
+  - name: posipaka
+    groups: docker, sudo
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ${deploy_key}
+
+write_files:
+  - path: /home/posipaka/.env
+    permissions: "0600"
+    owner: posipaka:posipaka
+    encoding: b64
+    content: ${env_file}
+
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = 3600
+      findtime = 600
+      maxretry = 3
+
+      [sshd]
+      enabled = true
+      port = 22
+      filter = sshd
+      logpath = /var/log/auth.log
+      maxretry = 3
+
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+
+runcmd:
+  # Firewall
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+  # Docker setup
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Clone and deploy
+  - su - posipaka -c "git clone https://github.com/0502srv/posipaka.git /home/posipaka/posipaka"
+  - su - posipaka -c "cp /home/posipaka/.env /home/posipaka/posipaka/.env"
+  - su - posipaka -c "cd /home/posipaka/posipaka && docker compose -f docker/docker-compose.yml up -d"
+
+  # Enable fail2ban
+  - systemctl enable fail2ban
+  - systemctl restart fail2ban
+
+  # Data volume mount
+  - mkdir -p /mnt/data
+  - echo "/dev/disk/by-id/scsi-0HC_Volume_${volume_id} /mnt/data ext4 defaults 0 2" >> /etc/fstab
+  - mount -a
+  - chown posipaka:posipaka /mnt/data
+  - ln -sf /mnt/data /home/posipaka/.posipaka

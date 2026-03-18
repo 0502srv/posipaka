@@ -1,0 +1,8 @@
+# Default
+* @ruslan
+
+# Security-critical
+posipaka/security/ @ruslan
+posipaka/web/auth.py @ruslan
+posipaka/web/middleware.py @ruslan
+docker/ @ruslan

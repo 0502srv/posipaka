@@ -1,0 +1,86 @@
+# MkDocs configuration для docs.posipaka.dev
+site_name: Posipaka Documentation
+site_url: https://docs.posipaka.dev
+site_description: "Posipaka — персональний AI-агент для месенджерів"
+repo_url: https://github.com/0502srv/posipaka
+repo_name: posipaka
+
+theme:
+  name: material
+  language: uk
+  palette:
+    - scheme: default
+      primary: deep-purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Темна тема
+    - scheme: slate
+      primary: deep-purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Світла тема
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search:
+      lang:
+        - uk
+        - en
+  - i18n:
+      default_language: uk
+      languages:
+        uk: Українська
+        en: English
+
+nav:
+  - Головна: index.md
+  - Встановлення:
+    - Швидкий старт: install/quickstart.md
+    - Docker: install/docker.md
+    - VPS: install/vps.md
+    - Android/Termux: install/android.md
+  - Налаштування:
+    - Setup Wizard: config/wizard.md
+    - Конфігурація: config/settings.md
+    - Месенджери: config/messengers.md
+    - Інтеграції: config/integrations.md
+  - Використання:
+    - Команди: usage/commands.md
+    - Skills: usage/skills.md
+    - Personas: usage/personas.md
+    - Workflows: usage/workflows.md
+  - Безпека:
+    - Огляд: security/overview.md
+    - Audit Log: security/audit.md
+    - Approval Gates: security/approvals.md
+  - Розробка:
+    - Contributing: dev/contributing.md
+    - Architecture: dev/architecture.md
+    - API Reference: dev/api.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/0502srv/posipaka
