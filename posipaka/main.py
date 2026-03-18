@@ -52,10 +52,31 @@ def start(ctx: click.Context) -> None:
         agent = Agent(settings)
         await agent.initialize()
         try:
+            tasks = []
+
+            # Start web server
+            from posipaka.web.app import create_app
+
+            app = create_app(agent, settings)
+            import uvicorn
+
+            config = uvicorn.Config(
+                app,
+                host=settings.web.host,
+                port=settings.web.port,
+                log_level="warning",
+            )
+            server = uvicorn.Server(config)
+            tasks.append(asyncio.create_task(server.serve()))
+            logger.info(f"Web UI: http://{settings.web.host}:{settings.web.port}")
+
+            # Start messenger channels
             from posipaka.core.gateway import MessageGateway
 
             gateway = MessageGateway(agent, settings)
-            await gateway.start()
+            tasks.append(asyncio.create_task(gateway.start()))
+
+            await asyncio.gather(*tasks)
         except KeyboardInterrupt:
             logger.info("Зупинка...")
         finally:

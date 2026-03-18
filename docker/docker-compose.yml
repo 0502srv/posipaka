@@ -6,7 +6,6 @@ services:
       dockerfile: docker/Dockerfile
     container_name: posipaka
     restart: unless-stopped
-    # user: "1000:1000"  # uncomment if UID matches
     env_file:
       - ../.env
     deploy:
@@ -18,15 +17,6 @@ services:
           memory: 256M
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
-    read_only: true
-    tmpfs:
-      - /tmp:size=256m,noexec,nosuid
     volumes:
       - posipaka_data:/home/agent/.posipaka:rw
     ports:
@@ -35,27 +25,10 @@ services:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/api/v1/health').raise_for_status()"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 30s
     networks:
       - posipaka_net
-
-  posipaka_sandbox:
-    image: python:3.12-slim
-    network_mode: none
-    read_only: true
-    user: "65534"
-    tmpfs:
-      - /tmp:size=64m
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    profiles: ["sandbox"]
 
 volumes:
   posipaka_data:

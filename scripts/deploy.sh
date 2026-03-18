@@ -112,6 +112,12 @@ if [[ "$_current_key" == "sk-ant-your-key-here" || -z "$_current_key" ]]; then
     read -r _tg_token < /dev/tty
     if [[ -n "$_tg_token" ]]; then
         sed -i "s/^TELEGRAM_TOKEN=.*/TELEGRAM_TOKEN=${_tg_token}/" "$INSTALL_DIR/.env"
+        # Enable telegram channel
+        if grep -q "^ENABLED_CHANNELS=" "$INSTALL_DIR/.env"; then
+            sed -i 's/^ENABLED_CHANNELS=.*/ENABLED_CHANNELS=["telegram"]/' "$INSTALL_DIR/.env"
+        else
+            echo 'ENABLED_CHANNELS=["telegram"]' >> "$INSTALL_DIR/.env"
+        fi
     fi
 
     # Agent name
