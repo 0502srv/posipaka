@@ -55,9 +55,7 @@ class SLOMonitor:
         """Записати метрику."""
         if metric not in self._metrics:
             self._metrics[metric] = deque(maxlen=10000)
-        self._metrics[metric].append(
-            MetricSample(time.time(), value, metadata)
-        )
+        self._metrics[metric].append(MetricSample(time.time(), value, metadata))
 
     def check_slos(self) -> list[dict]:
         """Перевірити всі SLO та повернути порушення."""
@@ -66,9 +64,7 @@ class SLOMonitor:
 
         for slo in self._slos:
             samples = self._metrics.get(slo.metric, deque())
-            window_samples = [
-                s for s in samples if now - s.timestamp < slo.window_seconds
-            ]
+            window_samples = [s for s in samples if now - s.timestamp < slo.window_seconds]
 
             if not window_samples:
                 continue
@@ -100,9 +96,7 @@ class SLOMonitor:
                 }
                 violations.append(violation)
                 self._violations.append(violation)
-                logger.warning(
-                    f"SLO порушення: {slo.name} = {current:.4f} (target: {slo.target})"
-                )
+                logger.warning(f"SLO порушення: {slo.name} = {current:.4f} (target: {slo.target})")
 
         return violations
 
@@ -113,9 +107,7 @@ class SLOMonitor:
 
         for slo in self._slos:
             samples = self._metrics.get(slo.metric, deque())
-            window_samples = [
-                s for s in samples if now - s.timestamp < slo.window_seconds
-            ]
+            window_samples = [s for s in samples if now - s.timestamp < slo.window_seconds]
             values = [s.value for s in window_samples]
 
             slo_report: dict = {
@@ -174,10 +166,7 @@ class DriftDetector:
 
         # Автоматична побудова baseline після достатньої кількості зразків
         if not self._baseline:
-            all_enough = all(
-                len(v) >= self.BASELINE_SIZE
-                for v in self._current_samples.values()
-            )
+            all_enough = all(len(v) >= self.BASELINE_SIZE for v in self._current_samples.values())
             if all_enough and self._current_samples:
                 self._build_baseline()
 
@@ -188,7 +177,7 @@ class DriftDetector:
             baseline_values = values[: self.BASELINE_SIZE]
             mean = sum(baseline_values) / len(baseline_values)
             variance = sum((v - mean) ** 2 for v in baseline_values) / len(baseline_values)
-            std = variance ** 0.5
+            std = variance**0.5
             self._baseline[metric] = {
                 "mean": mean,
                 "std": max(std, 0.001),  # уникнути ділення на нуль
@@ -264,8 +253,17 @@ class QualityMonitor:
 
         # Helpfulness: чи використовували інструменти коли потрібно?
         question_words = {
-            "як", "що", "де", "коли", "чому", "скільки",
-            "how", "what", "where", "when", "why",
+            "як",
+            "що",
+            "де",
+            "коли",
+            "чому",
+            "скільки",
+            "how",
+            "what",
+            "where",
+            "when",
+            "why",
         }
         is_question = any(w in query.lower().split() for w in question_words)
         if is_question and tool_calls > 0:

@@ -64,8 +64,7 @@ def register(registry: Any) -> None:
                     "datetime_str": {
                         "type": "string",
                         "description": (
-                            "When to remind (ISO datetime or "
-                            "relative like '2026-03-18T10:00')"
+                            "When to remind (ISO datetime or relative like '2026-03-18T10:00')"
                         ),
                     },
                     "user_id": {"type": "string"},

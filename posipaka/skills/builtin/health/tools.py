@@ -9,10 +9,7 @@ from typing import Any
 import aiosqlite
 
 _DB_PATH: Path | None = None
-_INS = (
-    "INSERT INTO health_log (ts, metric, value, unit, note) "
-    "VALUES (?, ?, ?, ?, ?)"
-)
+_INS = "INSERT INTO health_log (ts, metric, value, unit, note) VALUES (?, ?, ?, ?, ?)"
 
 
 def _get_db_path() -> Path:
@@ -233,8 +230,7 @@ def register(registry: Any) -> None:
                     "exercise_type": {
                         "type": "string",
                         "description": (
-                            "Type: running, cycling, gym, yoga, "
-                            "swimming, walking, other"
+                            "Type: running, cycling, gym, yoga, swimming, walking, other"
                         ),
                     },
                     "duration_min": {

@@ -47,9 +47,7 @@ class BackupManager:
             # Security: check for path traversal in archive
             for member in tar.getmembers():
                 if member.name.startswith("/") or ".." in member.name:
-                    raise ValueError(
-                        f"Небезпечний шлях в архіві: {member.name}"
-                    )
+                    raise ValueError(f"Небезпечний шлях в архіві: {member.name}")
 
             # Python 3.12+: filter='data' для безпечного extract
             import sys
@@ -60,16 +58,10 @@ class BackupManager:
                 # Python 3.11: ручна валідація (CVE-2007-4559)
                 for member in tar.getmembers():
                     member_path = (self._data_dir / member.name).resolve()
-                    if not str(member_path).startswith(
-                        str(self._data_dir.resolve())
-                    ):
-                        raise ValueError(
-                            f"Path traversal: {member.name} resolves outside data_dir"
-                        )
+                    if not str(member_path).startswith(str(self._data_dir.resolve())):
+                        raise ValueError(f"Path traversal: {member.name} resolves outside data_dir")
                     if member.issym() or member.islnk():
-                        raise ValueError(
-                            f"Symlink/hardlink blocked: {member.name}"
-                        )
+                        raise ValueError(f"Symlink/hardlink blocked: {member.name}")
                     if member.mode & 0o7000:
                         member.mode = member.mode & 0o0777
                 tar.extractall(path=str(self._data_dir))  # noqa: S202
@@ -88,9 +80,7 @@ class BackupManager:
                     "name": f.stem.replace(".tar", ""),
                     "path": str(f),
                     "size_mb": f.stat().st_size / (1024 * 1024),
-                    "created": datetime.fromtimestamp(
-                        f.stat().st_mtime
-                    ).isoformat(),
+                    "created": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
                 }
             )
         return backups

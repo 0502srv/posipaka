@@ -82,9 +82,7 @@ class UsageTracker:
             """)
             await db.commit()
 
-    async def record_usage(
-        self, user_id: str, usage_type: str, amount: float = 1.0
-    ) -> None:
+    async def record_usage(self, user_id: str, usage_type: str, amount: float = 1.0) -> None:
         """Записати факт використання."""
         await self._init_db()
         async with aiosqlite.connect(self._db_path) as db:
@@ -95,9 +93,7 @@ class UsageTracker:
             )
             await db.commit()
 
-    async def get_usage(
-        self, user_id: str, period: str = "day"
-    ) -> dict[str, float]:
+    async def get_usage(self, user_id: str, period: str = "day") -> dict[str, float]:
         """Отримати використання за період."""
         await self._init_db()
         seconds = {"day": 86400, "week": 604800, "month": 2592000}.get(period, 86400)
@@ -150,9 +146,7 @@ class PaymentManager:
     Потребує API ключі для реальної роботи.
     """
 
-    async def create_checkout_session(
-        self, user_id: str, tier: PricingTier
-    ) -> str:
+    async def create_checkout_session(self, user_id: str, tier: PricingTier) -> str:
         """Створити URL для оплати (stub)."""
         logger.info(f"Payment checkout requested: {user_id} → {tier.value}")
         return f"https://pay.posipaka.dev/checkout?user={user_id}&tier={tier.value}"

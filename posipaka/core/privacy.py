@@ -27,7 +27,6 @@ class PrivacyManager:
             db_path = self._data_dir / "memory.db"
             if db_path.exists():
                 try:
-
                     # Sync fallback for export
                     import sqlite3
 

@@ -61,9 +61,7 @@ class I18nTranslator:
         for key, value in fallback.items():
             if key not in self._messages:
                 self._messages[key] = value
-            elif isinstance(value, dict) and isinstance(
-                self._messages[key], dict
-            ):
+            elif isinstance(value, dict) and isinstance(self._messages[key], dict):
                 for k, v in value.items():
                     if k not in self._messages[key]:
                         self._messages[key][k] = v

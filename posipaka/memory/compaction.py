@@ -46,9 +46,7 @@ class ContextCompactor:
         stats = await self._sqlite.get_stats(session_id)
         return stats.get("count", 0) > self.COMPACTION_THRESHOLD
 
-    async def compact(
-        self, session_id: str, llm_complete_fn=None
-    ) -> str:
+    async def compact(self, session_id: str, llm_complete_fn=None) -> str:
         """
         Стиснути старі повідомлення.
 
@@ -57,9 +55,7 @@ class ContextCompactor:
             llm_complete_fn: async fn(system, messages) -> str
                              для генерації summary через LLM
         """
-        messages = await self._sqlite.get_recent(
-            session_id, limit=self.COMPACTION_THRESHOLD + 50
-        )
+        messages = await self._sqlite.get_recent(session_id, limit=self.COMPACTION_THRESHOLD + 50)
 
         if len(messages) <= self.COMPACTION_THRESHOLD:
             return "Стиснення не потрібне."
@@ -69,9 +65,7 @@ class ContextCompactor:
         to_keep = messages[-self.KEEP_RECENT :]
 
         # Build conversation text
-        conversation = "\n".join(
-            f"[{m['role']}]: {m['content'][:200]}" for m in to_compact
-        )
+        conversation = "\n".join(f"[{m['role']}]: {m['content'][:200]}" for m in to_compact)
 
         # Generate summary
         if llm_complete_fn:
@@ -100,19 +94,12 @@ class ContextCompactor:
 
         # Re-add recent messages
         for msg in to_keep:
-            await self._sqlite.add_message(
-                session_id, msg["role"], msg["content"]
-            )
+            await self._sqlite.add_message(session_id, msg["role"], msg["content"])
 
         compacted = len(to_compact)
         kept = len(to_keep)
-        logger.info(
-            f"Compacted session {session_id}: {compacted} → summary + {kept} recent"
-        )
-        return (
-            f"Стиснуто {compacted} повідомлень у summary. "
-            f"Збережено {kept} останніх."
-        )
+        logger.info(f"Compacted session {session_id}: {compacted} → summary + {kept} recent")
+        return f"Стиснуто {compacted} повідомлень у summary. Збережено {kept} останніх."
 
     @staticmethod
     def _simple_summary(messages: list[dict]) -> str:

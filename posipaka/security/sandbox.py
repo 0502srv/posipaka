@@ -222,10 +222,7 @@ class ShellSandbox:
         stderr = stderr_bytes.decode("utf-8", errors="replace")
 
         if len(stdout) > self.max_output:
-            stdout = (
-                stdout[: self.max_output]
-                + f"\n...[TRUNCATED: {len(stdout)} chars]"
-            )
+            stdout = stdout[: self.max_output] + f"\n...[TRUNCATED: {len(stdout)} chars]"
         if len(stderr) > 5000:
             stderr = stderr[:5000] + "\n...[TRUNCATED]"
 
@@ -243,9 +240,7 @@ class ShellSandbox:
             import resource
 
             # 256MB RAM
-            resource.setrlimit(
-                resource.RLIMIT_AS, (256 * 1024 * 1024, 256 * 1024 * 1024)
-            )
+            resource.setrlimit(resource.RLIMIT_AS, (256 * 1024 * 1024, 256 * 1024 * 1024))
             # 30s CPU
             resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
             # 1000 open files
@@ -253,8 +248,6 @@ class ShellSandbox:
             # 100 processes
             resource.setrlimit(resource.RLIMIT_NPROC, (100, 100))
             # 100MB max file size
-            resource.setrlimit(
-                resource.RLIMIT_FSIZE, (100 * 1024 * 1024, 100 * 1024 * 1024)
-            )
+            resource.setrlimit(resource.RLIMIT_FSIZE, (100 * 1024 * 1024, 100 * 1024 * 1024))
         except (ImportError, OSError):
             pass  # Windows or unsupported platform

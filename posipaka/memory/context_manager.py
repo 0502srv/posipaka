@@ -38,14 +38,10 @@ class ContextManager:
         context: list[dict] = []
 
         # Recent messages
-        recent = await self._memory.get_recent(
-            session_id, limit=self.KEEP_RECENT_MESSAGES
-        )
+        recent = await self._memory.get_recent(session_id, limit=self.KEEP_RECENT_MESSAGES)
 
         # Semantic search для релевантних старих повідомлень
-        relevant = await self._memory.search_relevant(
-            session_id, current_message, limit=3
-        )
+        relevant = await self._memory.search_relevant(session_id, current_message, limit=3)
         if relevant:
             combined = "\n".join(relevant)
             context.append(
@@ -68,9 +64,7 @@ class ContextManager:
         return stats.get("db_messages", 0) > self.SUMMARIZE_THRESHOLD
 
     @staticmethod
-    def _trim_to_token_limit(
-        messages: list[dict], max_tokens: int
-    ) -> list[dict]:
+    def _trim_to_token_limit(messages: list[dict], max_tokens: int) -> list[dict]:
         """Обрізати повідомлення до ліміту токенів (приблизно)."""
         total = 0
         result = []

@@ -67,9 +67,9 @@ class PromptCompressor:
                 and len(content) > self.TOOL_OUTPUT_MAX
             ):
                 compressed = (
-                    content[:self.TOOL_OUTPUT_HEAD]
+                    content[: self.TOOL_OUTPUT_HEAD]
                     + f"\n... [{len(content) - self.TOOL_OUTPUT_HEAD - self.TOOL_OUTPUT_TAIL} chars truncated] ...\n"
-                    + content[-self.TOOL_OUTPUT_TAIL:]
+                    + content[-self.TOOL_OUTPUT_TAIL :]
                 )
                 self._stats["tool_outputs_compressed"] += 1
                 self._stats["tokens_saved_estimate"] += (len(content) - len(compressed)) // 4
@@ -85,10 +85,7 @@ class PromptCompressor:
         result = [messages[0]]
         for msg in messages[1:]:
             prev = result[-1]
-            if (
-                msg.get("role") == prev.get("role")
-                and msg.get("content") == prev.get("content")
-            ):
+            if msg.get("role") == prev.get("role") and msg.get("content") == prev.get("content"):
                 self._stats["duplicates_removed"] += 1
                 continue
             result.append(msg)

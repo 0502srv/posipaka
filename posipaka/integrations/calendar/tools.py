@@ -39,12 +39,8 @@ async def calendar_list(days_ahead: int = 7, calendar_id: str = "primary") -> st
 
         lines = [f"📅 Календар на {days_ahead} днів:\n"]
         for event in events:
-            start = event["start"].get(
-                "dateTime", event["start"].get("date")
-            )
-            summary = sanitize_external_content(
-                event.get("summary", "(без назви)"), "calendar"
-            )
+            start = event["start"].get("dateTime", event["start"].get("date"))
+            summary = sanitize_external_content(event.get("summary", "(без назви)"), "calendar")
             location = event.get("location", "")
             line = f"• {start[:16]} — {summary}"
             if location:

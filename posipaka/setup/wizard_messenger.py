@@ -177,10 +177,7 @@ class MessengerSetupWizard:
     def _step_agent_name(self, state: MessengerSetupState) -> dict[str, Any]:
         state.awaiting_input = "soul_name"
         return {
-            "text": (
-                "Крок 4/5: Як мене називати?\n\n"
-                "Надішліть ім'я агента або натисніть кнопку:"
-            ),
+            "text": ("Крок 4/5: Як мене називати?\n\nНадішліть ім'я агента або натисніть кнопку:"),
             "keyboard": [
                 [("Posipaka (за замовчуванням)", "setup_name_default")],
                 [("Скасувати", "setup_cancel")],
@@ -364,9 +361,7 @@ class MessengerSetupWizard:
 
         # Preserve existing telegram token if set
         if self.settings.telegram.token.get_secret_value():
-            env_lines.append(
-                f"TELEGRAM_TOKEN={self.settings.telegram.token.get_secret_value()}"
-            )
+            env_lines.append(f"TELEGRAM_TOKEN={self.settings.telegram.token.get_secret_value()}")
             env_lines.append(f"TELEGRAM_OWNER_ID={self.settings.telegram.owner_id}")
 
         env_path = self.data_dir / ".env"
@@ -383,10 +378,7 @@ class MessengerSetupWizard:
                 path.write_text(content, encoding="utf-8")
 
         # config.yaml
-        safe_config = {
-            k: v for k, v in config.items()
-            if "key" not in k and "token" not in k
-        }
+        safe_config = {k: v for k, v in config.items() if "key" not in k and "token" not in k}
         config_yaml = self.data_dir / "config.yaml"
         config_yaml.write_text(yaml.dump(safe_config, allow_unicode=True), encoding="utf-8")
 
@@ -412,9 +404,6 @@ def build_telegram_keyboard(keyboard_data: list[list[tuple[str, str]]] | None):
 
     rows = []
     for row in keyboard_data:
-        buttons = [
-            InlineKeyboardButton(text=text, callback_data=data)
-            for text, data in row
-        ]
+        buttons = [InlineKeyboardButton(text=text, callback_data=data) for text, data in row]
         rows.append(buttons)
     return InlineKeyboardMarkup(rows)

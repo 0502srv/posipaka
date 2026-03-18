@@ -35,9 +35,7 @@ class SemanticResponseCache:
         self._chroma = chroma
         self._memory_cache: dict[str, tuple[str, float, int]] = {}  # key → (response, ts, ttl)
 
-    async def check(
-        self, query: str, session_id: str = ""
-    ) -> str | None:
+    async def check(self, query: str, session_id: str = "") -> str | None:
         """Перевірити чи є cached відповідь. None якщо немає."""
         # Simple in-memory cache first
         key = self._cache_key(query, session_id)
@@ -79,11 +77,7 @@ class SemanticResponseCache:
     def invalidate(self, session_id: str = "") -> None:
         """Інвалідувати кеш для сесії."""
         if session_id:
-            keys = [
-                k
-                for k in self._memory_cache
-                if k.startswith(f"{session_id}:")
-            ]
+            keys = [k for k in self._memory_cache if k.startswith(f"{session_id}:")]
             for k in keys:
                 del self._memory_cache[k]
         else:
@@ -92,11 +86,7 @@ class SemanticResponseCache:
     def _evict_expired(self) -> None:
         """Видалити expired entries."""
         now = time.time()
-        expired = [
-            k
-            for k, (_, ts, ttl) in self._memory_cache.items()
-            if now - ts > ttl
-        ]
+        expired = [k for k, (_, ts, ttl) in self._memory_cache.items() if now - ts > ttl]
         for k in expired:
             del self._memory_cache[k]
 

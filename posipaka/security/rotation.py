@@ -48,8 +48,7 @@ class SecretsRotationPolicy:
                         "age_days": age_days,
                         "max_days": max_days,
                         "message": (
-                            f"{key_name}: {age_days} днів з ротації "
-                            f"(рекомендовано: {max_days})"
+                            f"{key_name}: {age_days} днів з ротації (рекомендовано: {max_days})"
                         ),
                     }
                 )
@@ -61,9 +60,7 @@ class SecretsRotationPolicy:
         if self._file.exists():
             data = json.loads(self._file.read_text(encoding="utf-8"))
         data[key_name] = datetime.now(UTC).isoformat()
-        self._file.write_text(
-            json.dumps(data, indent=2), encoding="utf-8"
-        )
+        self._file.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     def get_report(self) -> str:
         warnings = self.check_rotation_needed()

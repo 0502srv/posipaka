@@ -49,7 +49,4 @@ def get_profile(name: str) -> dict:
 
 def list_profiles() -> list[dict]:
     """Список всіх профілів."""
-    return [
-        {"name": name, **profile}
-        for name, profile in RESOURCE_PROFILES.items()
-    ]
+    return [{"name": name, **profile} for name, profile in RESOURCE_PROFILES.items()]

@@ -55,8 +55,7 @@ class SkillVersion:
         if cls.compare(version, constraint.min_version) < 0:
             return False
         return not (
-            constraint.max_version is not None
-            and cls.compare(version, constraint.max_version) > 0
+            constraint.max_version is not None and cls.compare(version, constraint.max_version) > 0
         )
 
     @classmethod

@@ -9,35 +9,53 @@ from loguru import logger
 
 
 class PermissionProfile(StrEnum):
-    MINIMAL = "minimal"      # Тільки читання
-    STANDARD = "standard"    # Базові дії
+    MINIMAL = "minimal"  # Тільки читання
+    STANDARD = "standard"  # Базові дії
     DEVELOPER = "developer"  # Shell, GitHub, файли
-    FULL = "full"            # Все
-    DOCKER = "docker"        # Docker-safe підмножина
+    FULL = "full"  # Все
+    DOCKER = "docker"  # Docker-safe підмножина
 
 
 PROFILE_PERMISSIONS: dict[PermissionProfile, set[str]] = {
     PermissionProfile.MINIMAL: {
-        "VIEW_AUDIT", "USE_PERSONAS",
+        "VIEW_AUDIT",
+        "USE_PERSONAS",
     },
     PermissionProfile.STANDARD: {
-        "VIEW_AUDIT", "USE_PERSONAS", "USE_VOICE",
-        "EMAIL_SEND", "CALENDAR_WRITE",
+        "VIEW_AUDIT",
+        "USE_PERSONAS",
+        "USE_VOICE",
+        "EMAIL_SEND",
+        "CALENDAR_WRITE",
     },
     PermissionProfile.DEVELOPER: {
-        "VIEW_AUDIT", "USE_PERSONAS", "USE_VOICE",
-        "EMAIL_SEND", "CALENDAR_WRITE",
-        "SHELL_EXEC", "FILE_WRITE", "INSTALL_SKILLS",
+        "VIEW_AUDIT",
+        "USE_PERSONAS",
+        "USE_VOICE",
+        "EMAIL_SEND",
+        "CALENDAR_WRITE",
+        "SHELL_EXEC",
+        "FILE_WRITE",
+        "INSTALL_SKILLS",
     },
     PermissionProfile.FULL: {
-        "VIEW_AUDIT", "USE_PERSONAS", "USE_VOICE",
-        "EMAIL_SEND", "CALENDAR_WRITE",
-        "SHELL_EXEC", "FILE_WRITE", "INSTALL_SKILLS",
-        "MANAGE_USERS", "MANAGE_CONFIG",
+        "VIEW_AUDIT",
+        "USE_PERSONAS",
+        "USE_VOICE",
+        "EMAIL_SEND",
+        "CALENDAR_WRITE",
+        "SHELL_EXEC",
+        "FILE_WRITE",
+        "INSTALL_SKILLS",
+        "MANAGE_USERS",
+        "MANAGE_CONFIG",
     },
     PermissionProfile.DOCKER: {
-        "VIEW_AUDIT", "USE_PERSONAS", "USE_VOICE",
-        "EMAIL_SEND", "CALENDAR_WRITE",
+        "VIEW_AUDIT",
+        "USE_PERSONAS",
+        "USE_VOICE",
+        "EMAIL_SEND",
+        "CALENDAR_WRITE",
         "FILE_WRITE",
         # No SHELL_EXEC, no MANAGE_CONFIG in Docker
     },

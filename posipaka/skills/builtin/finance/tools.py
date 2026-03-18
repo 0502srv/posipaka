@@ -123,10 +123,7 @@ async def finance_balance(currency: str = "UAH") -> str:
     income = totals.get("income", 0)
     expenses = totals.get("expense", 0)
     balance = income - expenses
-    return (
-        f"Баланс: {balance:,.2f} {currency} "
-        f"(дохід: {income:,.2f}, витрати: {expenses:,.2f})"
-    )
+    return f"Баланс: {balance:,.2f} {currency} (дохід: {income:,.2f}, витрати: {expenses:,.2f})"
 
 
 def register(registry: Any) -> None:

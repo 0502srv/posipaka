@@ -13,10 +13,10 @@ from loguru import logger
 
 
 class SystemMode(StrEnum):
-    FULL = "full"           # Всі системи працюють
-    DEGRADED = "degraded"   # Деякі некритичні системи недоступні
-    MINIMAL = "minimal"     # Тільки базова функціональність
-    EMERGENCY = "emergency" # Read-only, без виконання інструментів
+    FULL = "full"  # Всі системи працюють
+    DEGRADED = "degraded"  # Деякі некритичні системи недоступні
+    MINIMAL = "minimal"  # Тільки базова функціональність
+    EMERGENCY = "emergency"  # Read-only, без виконання інструментів
 
 
 @dataclass
@@ -147,9 +147,7 @@ class DegradationManager:
     def _recalculate_mode(self) -> None:
         """Перерахувати режим системи на основі стану компонентів."""
         old_mode = self._mode
-        failed = [
-            name for name, s in self._components.items() if not s.healthy
-        ]
+        failed = [name for name, s in self._components.items() if not s.healthy]
 
         if not failed:
             self._mode = SystemMode.FULL
@@ -190,7 +188,9 @@ async def run_in_mode(
         )
     """
     try:
-        result = await primary(**kwargs) if asyncio.iscoroutinefunction(primary) else primary(**kwargs)
+        result = (
+            await primary(**kwargs) if asyncio.iscoroutinefunction(primary) else primary(**kwargs)
+        )
         degradation.report_recovery(component)
         return result
     except Exception as e:
@@ -198,7 +198,11 @@ async def run_in_mode(
         if fallback:
             logger.info(f"Використовую фолбек для {component}")
             try:
-                return await fallback(**kwargs) if asyncio.iscoroutinefunction(fallback) else fallback(**kwargs)
+                return (
+                    await fallback(**kwargs)
+                    if asyncio.iscoroutinefunction(fallback)
+                    else fallback(**kwargs)
+                )
             except Exception as fe:
                 logger.error(f"Фолбек для {component} також не спрацював: {fe}")
                 raise

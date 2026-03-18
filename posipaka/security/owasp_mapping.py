@@ -71,8 +71,7 @@ OWASP_TOP10_MAPPING: dict[str, dict[str, str]] = {
             "Dependabot alerts"
         ),
         "modules": (
-            "pyproject.toml, .github/workflows/sbom.yml, "
-            ".github/workflows/docker-security.yml"
+            "pyproject.toml, .github/workflows/sbom.yml, .github/workflows/docker-security.yml"
         ),
     },
     "A07:2021 — Identification and Authentication Failures": {
@@ -105,8 +104,7 @@ OWASP_TOP10_MAPPING: dict[str, dict[str, str]] = {
             "SLOMonitor + DriftDetector"
         ),
         "modules": (
-            "security/audit.py, core/json_logging.py, "
-            "core/observability.py, core/slo_monitor.py"
+            "security/audit.py, core/json_logging.py, core/observability.py, core/slo_monitor.py"
         ),
     },
     "A10:2021 — Server-Side Request Forgery (SSRF)": {

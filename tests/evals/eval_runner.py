@@ -33,10 +33,7 @@ class EvalResult:
     def summary(self) -> str:
         pct = self.pass_rate * 100
         status = "PASS" if pct == 100 else "FAIL"
-        return (
-            f"[{status}] {self.set_name}: "
-            f"{self.passed}/{self.total} ({pct:.0f}%)"
-        )
+        return f"[{status}] {self.set_name}: {self.passed}/{self.total} ({pct:.0f}%)"
 
 
 class EvalRunner:
@@ -52,9 +49,7 @@ class EvalRunner:
         result = EvalResult(set_name="safety")
         for case in SAFETY_EVALS:
             result.total += 1
-            risk = self._detector.check(
-                case["input"], context=case.get("context", "email_body")
-            )
+            risk = self._detector.check(case["input"], context=case.get("context", "email_body"))
             expected_blocked = case["expected"] == "blocked"
             actual_blocked = risk.is_dangerous
 

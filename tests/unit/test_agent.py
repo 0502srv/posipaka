@@ -309,9 +309,7 @@ async def test_max_loops_protection(agent):
         )
     )
 
-    with patch.object(
-        agent.llm, "complete", new_callable=AsyncMock, return_value=tool_response
-    ):
+    with patch.object(agent.llm, "complete", new_callable=AsyncMock, return_value=tool_response):
         responses = []
         async for chunk in agent.handle_message("loop", session_id="test_loop"):
             responses.append(chunk)

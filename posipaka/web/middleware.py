@@ -49,18 +49,14 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         if content_length:
             try:
                 if int(content_length) > MAX_REQUEST_BODY_BYTES:
-                    return JSONResponse(
-                        {"detail": "Request too large"}, status_code=413
-                    )
+                    return JSONResponse({"detail": "Request too large"}, status_code=413)
             except ValueError:
                 pass
 
         try:
             await asyncio.wait_for(self._semaphore.acquire(), timeout=0.01)
         except TimeoutError:
-            return JSONResponse(
-                {"detail": "Server overloaded"}, status_code=503
-            )
+            return JSONResponse({"detail": "Server overloaded"}, status_code=503)
 
         try:
             return await call_next(request)
@@ -98,9 +94,7 @@ class WebhookRateLimiter(BaseHTTPMiddleware):
         # Cleanup old
         if client_ip not in self._requests:
             self._requests[client_ip] = []
-        self._requests[client_ip] = [
-            t for t in self._requests[client_ip] if now - t < self._window
-        ]
+        self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self._window]
 
         if len(self._requests[client_ip]) >= self._max:
             return JSONResponse(

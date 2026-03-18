@@ -67,18 +67,14 @@ class PrivacyManager:
 
                     async with aiosqlite.connect(str(db_path)) as db:
                         # Messages
-                        cursor = await db.execute(
-                            "SELECT * FROM messages ORDER BY created_at"
-                        )
+                        cursor = await db.execute("SELECT * FROM messages ORDER BY created_at")
                         cols = [d[0] for d in cursor.description] if cursor.description else []
                         rows = await cursor.fetchall()
                         messages = [dict(zip(cols, row, strict=False)) for row in rows]
 
                         # Facts
                         try:
-                            cursor = await db.execute(
-                                "SELECT * FROM facts ORDER BY created_at"
-                            )
+                            cursor = await db.execute("SELECT * FROM facts ORDER BY created_at")
                             cols = [d[0] for d in cursor.description] if cursor.description else []
                             rows = await cursor.fetchall()
                             facts = [dict(zip(cols, row, strict=False)) for row in rows]
@@ -127,12 +123,19 @@ class PrivacyManager:
         report: dict[str, list] = {"deleted_files": [], "deleted_dirs": [], "errors": []}
 
         files_to_delete = [
-            "memory.db", "MEMORY.md", "USER.md",
-            "audit.jsonl", "audit.log",
-            ".secrets_rotation.json", ".privacy_consent.json",
+            "memory.db",
+            "MEMORY.md",
+            "USER.md",
+            "audit.jsonl",
+            "audit.log",
+            ".secrets_rotation.json",
+            ".privacy_consent.json",
         ]
         dirs_to_delete = [
-            "chroma", "tantivy_index", "logs", "export",
+            "chroma",
+            "tantivy_index",
+            "logs",
+            "export",
         ]
 
         for f in files_to_delete:
@@ -156,9 +159,7 @@ class PrivacyManager:
         logger.warning(f"Дані користувача видалено: {report}")
         return report
 
-    async def apply_retention_policy(
-        self, custom_days: dict[str, int] | None = None
-    ) -> dict:
+    async def apply_retention_policy(self, custom_days: dict[str, int] | None = None) -> dict:
         """
         Застосувати retention policy. Видалити дані старіші за поріг.
         Призначено для scheduled execution (щоденний cron job).

@@ -89,15 +89,11 @@ class HeartbeatEngine:
     ) -> HeartbeatResult:
         """Один цикл heartbeat."""
         if not self._is_active_hours():
-            return HeartbeatResult(
-                action="silent", reason="outside_active_hours"
-            )
+            return HeartbeatResult(action="silent", reason="outside_active_hours")
 
         hb_md = self._load_heartbeat_md()
         if not hb_md:
-            return HeartbeatResult(
-                action="silent", reason="no_heartbeat_md"
-            )
+            return HeartbeatResult(action="silent", reason="no_heartbeat_md")
 
         # Quick checks (no LLM)
         quick = QuickCheckResult()
@@ -109,15 +105,11 @@ class HeartbeatEngine:
 
         if not quick.has_potential_alerts:
             self._last_tick = time.time()
-            return HeartbeatResult(
-                action="silent", reason=HEARTBEAT_OK_TOKEN
-            )
+            return HeartbeatResult(action="silent", reason=HEARTBEAT_OK_TOKEN)
 
         # LLM evaluation
         if not llm:
-            return HeartbeatResult(
-                action="silent", reason="no_llm"
-            )
+            return HeartbeatResult(action="silent", reason="no_llm")
 
         try:
             system = f"{HEARTBEAT_SYSTEM}\n\n# User Heartbeat Config\n{hb_md}"
@@ -129,9 +121,7 @@ class HeartbeatEngine:
 
             if HEARTBEAT_OK_TOKEN in content:
                 self._last_tick = time.time()
-                return HeartbeatResult(
-                    action="silent", reason=HEARTBEAT_OK_TOKEN
-                )
+                return HeartbeatResult(action="silent", reason=HEARTBEAT_OK_TOKEN)
 
             # Notify
             self._notifications_today += 1
@@ -140,9 +130,7 @@ class HeartbeatEngine:
             if send_fn:
                 await send_fn(content)
 
-            return HeartbeatResult(
-                action="notified", content=content
-            )
+            return HeartbeatResult(action="notified", content=content)
         except Exception as e:
             logger.error(f"Heartbeat LLM error: {e}")
             return HeartbeatResult(action="silent", reason=f"error: {e}")
@@ -169,11 +157,7 @@ class HeartbeatEngine:
         return ""
 
     def get_status(self) -> str:
-        last = (
-            f"{time.time() - self._last_tick:.0f}s ago"
-            if self._last_tick
-            else "never"
-        )
+        last = f"{time.time() - self._last_tick:.0f}s ago" if self._last_tick else "never"
         active = "ACTIVE" if self._is_active_hours() else "SLEEPING"
         return (
             f"Heartbeat: {active}\n"

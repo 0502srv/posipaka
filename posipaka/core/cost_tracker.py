@@ -91,8 +91,7 @@ class CostTracker:
     async def get_session_cost(self, session_id: str) -> float:
         assert self._db is not None
         cursor = await self._db.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM cost_records "
-            "WHERE session_id = ?",
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM cost_records WHERE session_id = ?",
             (session_id,),
         )
         row = await cursor.fetchone()
@@ -100,9 +99,7 @@ class CostTracker:
 
     async def get_total_cost(self) -> float:
         assert self._db is not None
-        cursor = await self._db.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM cost_records"
-        )
+        cursor = await self._db.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM cost_records")
         row = await cursor.fetchone()
         return row[0] if row else 0.0
 
@@ -110,8 +107,7 @@ class CostTracker:
         assert self._db is not None
         start = time.time() - 7 * 86400
         cursor = await self._db.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM cost_records "
-            "WHERE timestamp >= ?",
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM cost_records WHERE timestamp >= ?",
             (start,),
         )
         row = await cursor.fetchone()
@@ -121,8 +117,7 @@ class CostTracker:
         assert self._db is not None
         start = time.time() - 60
         cursor = await self._db.execute(
-            "SELECT COALESCE(SUM(cost_usd), 0) FROM cost_records "
-            "WHERE timestamp >= ?",
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM cost_records WHERE timestamp >= ?",
             (start,),
         )
         row = await cursor.fetchone()

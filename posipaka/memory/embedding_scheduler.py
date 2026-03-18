@@ -39,9 +39,7 @@ class EmbeddingScheduler:
         self._sqlite: SQLiteBackend | None = None
         self._chroma: ChromaBackend | None = None
 
-    def set_backends(
-        self, sqlite: SQLiteBackend, chroma: ChromaBackend
-    ) -> None:
+    def set_backends(self, sqlite: SQLiteBackend, chroma: ChromaBackend) -> None:
         self._sqlite = sqlite
         self._chroma = chroma
 
@@ -57,8 +55,7 @@ class EmbeddingScheduler:
                 cron_expression=f"*/{self.interval_minutes} * * * *",
             )
             logger.info(
-                f"Scheduled embedding: every {self.interval_minutes} min, "
-                f"batch={self.batch_size}"
+                f"Scheduled embedding: every {self.interval_minutes} min, batch={self.batch_size}"
             )
 
     async def _run_batch_wrapper(self) -> None:

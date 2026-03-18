@@ -9,19 +9,49 @@ from pathlib import Path
 from loguru import logger
 
 ALLOWED_IMPORTS = {
-    "json", "re", "datetime", "math", "collections",
-    "urllib.parse", "hashlib", "base64", "csv", "io",
-    "typing", "dataclasses", "enum", "pathlib",
-    "asyncio", "httpx", "aiofiles",
+    "json",
+    "re",
+    "datetime",
+    "math",
+    "collections",
+    "urllib.parse",
+    "hashlib",
+    "base64",
+    "csv",
+    "io",
+    "typing",
+    "dataclasses",
+    "enum",
+    "pathlib",
+    "asyncio",
+    "httpx",
+    "aiofiles",
     "posipaka",
 }
 
 DENIED_IMPORTS = {
-    "os", "sys", "subprocess", "shutil", "ctypes", "importlib",
-    "socket", "http.server", "xmlrpc", "multiprocessing",
-    "signal", "resource", "pty", "fcntl", "termios",
-    "code", "codeop", "compile", "compileall",
-    "pickle", "shelve", "marshal",
+    "os",
+    "sys",
+    "subprocess",
+    "shutil",
+    "ctypes",
+    "importlib",
+    "socket",
+    "http.server",
+    "xmlrpc",
+    "multiprocessing",
+    "signal",
+    "resource",
+    "pty",
+    "fcntl",
+    "termios",
+    "code",
+    "codeop",
+    "compile",
+    "compileall",
+    "pickle",
+    "shelve",
+    "marshal",
 }
 
 
@@ -49,8 +79,7 @@ class SkillSandbox:
                     module = alias.name.split(".")[0]
                     if module in DENIED_IMPORTS:
                         violations.append(
-                            f"Заборонений import: '{alias.name}' "
-                            f"(рядок {node.lineno})"
+                            f"Заборонений import: '{alias.name}' (рядок {node.lineno})"
                         )
 
             elif isinstance(node, ast.ImportFrom):
@@ -58,8 +87,7 @@ class SkillSandbox:
                     module = node.module.split(".")[0]
                     if module in DENIED_IMPORTS:
                         violations.append(
-                            f"Заборонений from import: '{node.module}' "
-                            f"(рядок {node.lineno})"
+                            f"Заборонений from import: '{node.module}' (рядок {node.lineno})"
                         )
 
             elif (
@@ -67,10 +95,7 @@ class SkillSandbox:
                 and isinstance(node.func, ast.Name)
                 and node.func.id in ("eval", "exec", "compile", "__import__")
             ):
-                violations.append(
-                    f"Заборонена функція: '{node.func.id}()' "
-                    f"(рядок {node.lineno})"
-                )
+                violations.append(f"Заборонена функція: '{node.func.id}()' (рядок {node.lineno})")
 
             elif (
                 isinstance(node, ast.Attribute)
@@ -78,10 +103,7 @@ class SkillSandbox:
                 and node.attr.endswith("__")
                 and node.attr not in ("__init__", "__str__", "__repr__", "__len__")
             ):
-                violations.append(
-                    f"Підозрілий dunder: '{node.attr}' "
-                    f"(рядок {node.lineno})"
-                )
+                violations.append(f"Підозрілий dunder: '{node.attr}' (рядок {node.lineno})")
 
         return violations
 

@@ -253,6 +253,7 @@ class TelegramChannel(BaseChannel):
 
         if self._setup_wizard is None:
             from posipaka.setup.wizard_messenger import MessengerSetupWizard
+
             self._setup_wizard = MessengerSetupWizard(self.settings)
 
         result = self._setup_wizard.start_setup(user_id)
@@ -335,6 +336,7 @@ class TelegramChannel(BaseChannel):
             and self._setup_wizard.get_state(user_id).awaiting_input
         ):
             from posipaka.setup.wizard_messenger import build_telegram_keyboard
+
             result = self._setup_wizard.handle_text_input(user_id, update.message.text)
             keyboard = build_telegram_keyboard(result.get("keyboard"))
             await update.message.reply_text(result["text"], reply_markup=keyboard)
@@ -357,9 +359,7 @@ class TelegramChannel(BaseChannel):
         try:
             from posipaka.core.voice import VoiceProcessor
         except ImportError:
-            await update.message.reply_text(
-                self._t("system.voice_not_configured")
-            )
+            await update.message.reply_text(self._t("system.voice_not_configured"))
             return
 
         await update.message.chat.send_action("typing")
@@ -428,6 +428,7 @@ class TelegramChannel(BaseChannel):
 
             # Sanitize external content
             from posipaka.security.injection import sanitize_external_content
+
             safe_text = sanitize_external_content(extracted[:4000], source="telegram_file")
 
             caption = update.message.caption or ""
@@ -466,6 +467,7 @@ class TelegramChannel(BaseChannel):
 
             try:
                 from posipaka.core.vision import VisionProcessor
+
                 processor = VisionProcessor()
                 analysis = await processor.analyze_image(tmp_path)
             except ImportError:
@@ -491,6 +493,7 @@ class TelegramChannel(BaseChannel):
         try:
             if mime_type == "application/pdf" or file_path.suffix == ".pdf":
                 from posipaka.core.documents import DocumentProcessor
+
                 proc = DocumentProcessor()
                 return await proc.process_pdf(file_path)
 
@@ -499,6 +502,7 @@ class TelegramChannel(BaseChannel):
                 "application/msword",
             ) or file_path.suffix in (".docx", ".doc"):
                 from posipaka.core.documents import DocumentProcessor
+
                 proc = DocumentProcessor()
                 return await proc.process_docx(file_path)
 
@@ -507,21 +511,34 @@ class TelegramChannel(BaseChannel):
                 "application/vnd.ms-excel",
             ) or file_path.suffix in (".xlsx", ".xls"):
                 from posipaka.core.documents import DocumentProcessor
+
                 proc = DocumentProcessor()
                 return await proc.process_xlsx(file_path)
 
             elif mime_type.startswith("image/") or file_path.suffix in (
-                ".jpg", ".jpeg", ".png", ".gif", ".webp",
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".gif",
+                ".webp",
             ):
                 try:
                     from posipaka.core.vision import VisionProcessor
+
                     proc = VisionProcessor()
                     return await proc.analyze_image(file_path)
                 except ImportError:
                     return "[Зображення: Vision API не налаштовано]"
 
             elif mime_type.startswith("text/") or file_path.suffix in (
-                ".txt", ".md", ".csv", ".json", ".yaml", ".yml", ".py", ".js",
+                ".txt",
+                ".md",
+                ".csv",
+                ".json",
+                ".yaml",
+                ".yml",
+                ".py",
+                ".js",
             ):
                 return file_path.read_text(encoding="utf-8", errors="replace")[:4000]
 
@@ -535,6 +552,7 @@ class TelegramChannel(BaseChannel):
     async def _send_setup_response(self, update, result: dict) -> None:
         """Send setup wizard response with inline keyboard."""
         from posipaka.setup.wizard_messenger import build_telegram_keyboard
+
         keyboard = build_telegram_keyboard(result.get("keyboard"))
         await update.message.reply_text(
             result["text"],
@@ -552,11 +570,10 @@ class TelegramChannel(BaseChannel):
         if query.data and query.data.startswith("setup_"):
             if self._setup_wizard and self._setup_wizard.is_in_setup(user_id):
                 from posipaka.setup.wizard_messenger import build_telegram_keyboard
+
                 result = self._setup_wizard.handle_callback(user_id, query.data)
                 keyboard = build_telegram_keyboard(result.get("keyboard"))
-                await query.edit_message_text(
-                    result["text"], reply_markup=keyboard
-                )
+                await query.edit_message_text(result["text"], reply_markup=keyboard)
                 return
 
         session = self.agent.sessions.get_or_create(user_id, "telegram")

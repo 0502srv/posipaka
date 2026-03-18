@@ -47,7 +47,8 @@ class ContainerSandbox:
         """Перевірити чи Docker доступний."""
         try:
             proc = await asyncio.create_subprocess_exec(
-                "docker", "version",
+                "docker",
+                "version",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -62,9 +63,7 @@ class ContainerSandbox:
 
         start = time.monotonic()
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(code)
             code_file = f.name
 
@@ -120,9 +119,7 @@ class ContainerSandbox:
                 )
                 timed_out = False
             except TimeoutError:
-                await asyncio.create_subprocess_exec(
-                    "docker", "kill", container_name
-                )
+                await asyncio.create_subprocess_exec("docker", "kill", container_name)
                 timed_out = True
                 stdout_bytes, stderr_bytes = b"", b"[killed: timeout]"
 

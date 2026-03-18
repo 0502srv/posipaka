@@ -57,12 +57,8 @@ def validate_path(
                 dirs.append(Path(data_dir).expanduser().resolve())
             dirs.append(Path("/tmp").resolve())
 
-            if not any(
-                resolved_str.startswith(str(d)) for d in dirs
-            ):
-                return False, (
-                    f"Шлях {resolved} поза дозволеними директоріями"
-                )
+            if not any(resolved_str.startswith(str(d)) for d in dirs):
+                return False, (f"Шлях {resolved} поза дозволеними директоріями")
 
         return True, "ok"
 

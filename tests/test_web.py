@@ -117,10 +117,10 @@ class TestStructuredOutput:
             parse_structured_output,
         )
 
-        text = '''Here is my decision:
+        text = """Here is my decision:
 ```json
 {"action": "respond", "reasoning": "simple question", "confidence": 0.9}
-```'''
+```"""
         result = parse_structured_output(text, AgentDecision)
         assert result is not None
         assert result.action == "respond"

@@ -103,14 +103,13 @@ COMMON_ALIASES: dict[str, str] = {
 }
 
 # Pattern for explicit tz mentions like "UTC+3", "GMT-5"
-_UTC_OFFSET_RE = re.compile(
-    r"\b(?:utc|gmt)\s*([+-])\s*(\d{1,2})(?::(\d{2}))?\b", re.IGNORECASE
-)
+_UTC_OFFSET_RE = re.compile(r"\b(?:utc|gmt)\s*([+-])\s*(\d{1,2})(?::(\d{2}))?\b", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
 # Dataclass for stored timezone entry
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TimezoneEntry:
@@ -122,6 +121,7 @@ class TimezoneEntry:
 # ---------------------------------------------------------------------------
 # UserTimezoneManager
 # ---------------------------------------------------------------------------
+
 
 class UserTimezoneManager:
     """
@@ -165,8 +165,7 @@ class UserTimezoneManager:
             resolved = self._fuzzy_match(tz_name)
         if resolved is None:
             raise ValueError(
-                f"Unknown timezone: {tz_name!r}. "
-                f"Use IANA name like 'Europe/Kyiv' or city name."
+                f"Unknown timezone: {tz_name!r}. Use IANA name like 'Europe/Kyiv' or city name."
             )
 
         self._cache[user_id] = resolved
@@ -259,9 +258,10 @@ class UserTimezoneManager:
         # Merge from DB (DB is source of truth, cache may be stale)
         if self._db_path and self._db_path.exists():
             await self._ensure_db()
-            async with aiosqlite.connect(str(self._db_path)) as db, db.execute(
-                "SELECT user_id, tz_name FROM user_timezones"
-            ) as cursor:
+            async with (
+                aiosqlite.connect(str(self._db_path)) as db,
+                db.execute("SELECT user_id, tz_name FROM user_timezones") as cursor,
+            ):
                 async for row in cursor:
                     result.setdefault(row[0], row[1])
 
@@ -330,9 +330,7 @@ class UserTimezoneManager:
                 return tz
 
         # Try as-is with prefix guessing: "kyiv" -> "Europe/Kyiv"
-        capitalized = "/".join(
-            part.capitalize() for part in normalized.split("/")
-        )
+        capitalized = "/".join(part.capitalize() for part in normalized.split("/"))
         if UserTimezoneManager._validate_tz(capitalized):
             return capitalized
 
@@ -374,10 +372,13 @@ class UserTimezoneManager:
         if not self._db_path or not self._db_path.exists():
             return None
         await self._ensure_db()
-        async with aiosqlite.connect(str(self._db_path)) as db, db.execute(
-            "SELECT tz_name FROM user_timezones WHERE user_id = ?",
-            (user_id,),
-        ) as cursor:
+        async with (
+            aiosqlite.connect(str(self._db_path)) as db,
+            db.execute(
+                "SELECT tz_name FROM user_timezones WHERE user_id = ?",
+                (user_id,),
+            ) as cursor,
+        ):
             row = await cursor.fetchone()
             return row[0] if row else None
 
@@ -385,6 +386,7 @@ class UserTimezoneManager:
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
 
 def _offset_to_iana(hours: int, minutes: int = 0) -> str | None:
     """

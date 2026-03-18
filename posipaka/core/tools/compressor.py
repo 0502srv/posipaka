@@ -61,9 +61,7 @@ class ToolOutputCompressor:
             text = text[:max_chars] + "\n...[truncated]"
         return text
 
-    def compress_file_output(
-        self, output: str, max_lines: int = 50
-    ) -> str:
+    def compress_file_output(self, output: str, max_lines: int = 50) -> str:
         """Показати перші/останні рядки великого файлу."""
         lines = output.splitlines()
         if len(lines) <= max_lines:

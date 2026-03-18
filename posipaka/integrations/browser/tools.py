@@ -152,8 +152,7 @@ def register(registry: Any) -> None:
         ToolDefinition(
             name="web_search",
             description=(
-                "Search the internet using DuckDuckGo."
-                " Use for finding information, news, answers."
+                "Search the internet using DuckDuckGo. Use for finding information, news, answers."
             ),
             category="integration",
             handler=web_search,
@@ -176,8 +175,7 @@ def register(registry: Any) -> None:
         ToolDefinition(
             name="web_fetch",
             description=(
-                "Fetch and read a web page."
-                " Use to read articles, documentation, web content."
+                "Fetch and read a web page. Use to read articles, documentation, web content."
             ),
             category="integration",
             handler=web_fetch,

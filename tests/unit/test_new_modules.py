@@ -108,10 +108,7 @@ class TestPersonaManager:
 
         pm = PersonaManager(
             data_dir=Path(tempfile.mkdtemp()),
-            builtin_dir=Path(__file__).parent.parent.parent
-            / "posipaka"
-            / "personas"
-            / "builtin",
+            builtin_dir=Path(__file__).parent.parent.parent / "posipaka" / "personas" / "builtin",
         )
         personas = pm.scan()
         assert len(personas) >= 3  # trainer, dietitian, coach, tutor, senior_dev
@@ -121,10 +118,7 @@ class TestPersonaManager:
 
         pm = PersonaManager(
             data_dir=Path(tempfile.mkdtemp()),
-            builtin_dir=Path(__file__).parent.parent.parent
-            / "posipaka"
-            / "personas"
-            / "builtin",
+            builtin_dir=Path(__file__).parent.parent.parent / "posipaka" / "personas" / "builtin",
         )
         pm.scan()
         names = [p["name"] for p in pm.list_personas()]
@@ -139,10 +133,7 @@ class TestPersonaManager:
 
         pm = PersonaManager(
             data_dir=Path(tempfile.mkdtemp()),
-            builtin_dir=Path(__file__).parent.parent.parent
-            / "posipaka"
-            / "personas"
-            / "builtin",
+            builtin_dir=Path(__file__).parent.parent.parent / "posipaka" / "personas" / "builtin",
         )
         pm.scan()
         match = pm.match_keywords("хочу тренування")

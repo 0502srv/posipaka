@@ -120,14 +120,10 @@ class MCPToolLoader:
                 "id": 1,
                 "method": "tools/list",
             }
-            proc.stdin.write(
-                (json.dumps(request) + "\n").encode()
-            )
+            proc.stdin.write((json.dumps(request) + "\n").encode())
             await proc.stdin.drain()
 
-            line = await asyncio.wait_for(
-                proc.stdout.readline(), timeout=10
-            )
+            line = await asyncio.wait_for(proc.stdout.readline(), timeout=10)
             response = json.loads(line.decode())
             tools = response.get("result", {}).get("tools", [])
             self._tool_cache[server_name] = tools
@@ -136,9 +132,7 @@ class MCPToolLoader:
             logger.error(f"MCP get_tools error ({server_name}): {e}")
             return []
 
-    async def call_tool(
-        self, server_name: str, tool_name: str, arguments: dict
-    ) -> str:
+    async def call_tool(self, server_name: str, tool_name: str, arguments: dict) -> str:
         """Викликати MCP tool."""
         proc = self._processes.get(server_name)
         if not proc or not proc.stdin or not proc.stdout:
@@ -154,14 +148,10 @@ class MCPToolLoader:
                     "arguments": arguments,
                 },
             }
-            proc.stdin.write(
-                (json.dumps(request) + "\n").encode()
-            )
+            proc.stdin.write((json.dumps(request) + "\n").encode())
             await proc.stdin.drain()
 
-            line = await asyncio.wait_for(
-                proc.stdout.readline(), timeout=30
-            )
+            line = await asyncio.wait_for(proc.stdout.readline(), timeout=30)
             response = json.loads(line.decode())
 
             if "error" in response:
@@ -176,9 +166,7 @@ class MCPToolLoader:
         except Exception as e:
             return f"MCP call error: {e}"
 
-    async def search_tools(
-        self, query: str, limit: int = 5
-    ) -> list[dict]:
+    async def search_tools(self, query: str, limit: int = 5) -> list[dict]:
         """Знайти релевантні MCP tools за запитом (keyword match)."""
         query_lower = query.lower()
         all_tools = []

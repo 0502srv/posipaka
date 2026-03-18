@@ -117,13 +117,9 @@ class ToolRegistry:
 
         # Permission check
         if self._permission_checker and user_id:
-            allowed = await self._permission_checker.check(
-                user_id, "TOOL_EXEC", resource=name
-            )
+            allowed = await self._permission_checker.check(user_id, "TOOL_EXEC", resource=name)
             if not allowed:
-                raise ToolPermissionError(
-                    f"Tool '{name}' not permitted for user {user_id}"
-                )
+                raise ToolPermissionError(f"Tool '{name}' not permitted for user {user_id}")
 
         handler = tool_def.handler
         if inspect.iscoroutinefunction(handler):

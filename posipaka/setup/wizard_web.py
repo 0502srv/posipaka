@@ -223,7 +223,7 @@ class WebSetupWizard:
             <label class="block mb-2 text-sm text-gray-300">Bot Token</label>
             <input type="text" name="telegram_token" placeholder="123456789:ABCdef..."
                    class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4"
-                   value="{self.config.get('telegram_token', '')}">
+                   value="{self.config.get("telegram_token", "")}">
 
             <div id="tg-test-result" class="mb-4"></div>
             <button type="button"
@@ -238,7 +238,7 @@ class WebSetupWizard:
             </label>
             <input type="number" name="telegram_owner_id" placeholder="123456789"
                    class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4"
-                   value="{self.config.get('telegram_owner_id', '')}">
+                   value="{self.config.get("telegram_owner_id", "")}">
 
             {self._nav_buttons(4)}
         </form>
@@ -256,12 +256,12 @@ class WebSetupWizard:
             <label class="block mb-2 text-sm text-gray-300">Bot Token</label>
             <input type="password" name="discord_token"
                    class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4"
-                   value="{self.config.get('discord_token', '')}">
+                   value="{self.config.get("discord_token", "")}">
 
             <label class="block mb-2 text-sm text-gray-300">Server (Guild) ID</label>
             <input type="text" name="discord_guild_id" placeholder="(опційно)"
                    class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4"
-                   value="{self.config.get('discord_guild_id', '')}">
+                   value="{self.config.get("discord_guild_id", "")}">
 
             {self._nav_buttons(5)}
         </form>
@@ -279,12 +279,12 @@ class WebSetupWizard:
             <label class="block mb-2 text-sm text-gray-300">Bot Token (xoxb-...)</label>
             <input type="password" name="slack_bot_token"
                    class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4"
-                   value="{self.config.get('slack_bot_token', '')}">
+                   value="{self.config.get("slack_bot_token", "")}">
 
             <label class="block mb-2 text-sm text-gray-300">App Token (xapp-...)</label>
             <input type="password" name="slack_app_token"
                    class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4"
-                   value="{self.config.get('slack_app_token', '')}">
+                   value="{self.config.get("slack_app_token", "")}">
 
             {self._nav_buttons(6)}
         </form>
@@ -411,8 +411,8 @@ class WebSetupWizard:
             <table class="w-full text-sm mb-6">
                 <tr class="border-b border-gray-700">
                     <td class="py-2 text-gray-400">LLM</td>
-                    <td class="py-2">{self.config.get('llm_provider', 'anthropic')} /
-                        {self.config.get('llm_model', 'claude-sonnet-4-20250514')}</td>
+                    <td class="py-2">{self.config.get("llm_provider", "anthropic")} /
+                        {self.config.get("llm_model", "claude-sonnet-4-20250514")}</td>
                 </tr>
                 <tr class="border-b border-gray-700">
                     <td class="py-2 text-gray-400">Месенджери</td>
@@ -420,30 +420,33 @@ class WebSetupWizard:
                 </tr>
                 <tr class="border-b border-gray-700">
                     <td class="py-2 text-gray-400">Ім'я агента</td>
-                    <td class="py-2">{self.config.get('soul_name', 'Posipaka')}</td>
+                    <td class="py-2">{self.config.get("soul_name", "Posipaka")}</td>
                 </tr>
                 <tr class="border-b border-gray-700">
                     <td class="py-2 text-gray-400">Мова</td>
-                    <td class="py-2">{self.config.get('soul_language', 'auto')}</td>
+                    <td class="py-2">{self.config.get("soul_language", "auto")}</td>
                 </tr>
                 <tr class="border-b border-gray-700">
                     <td class="py-2 text-gray-400">Часовий пояс</td>
-                    <td class="py-2">{self.config.get('soul_timezone', 'Europe/Kyiv')}</td>
+                    <td class="py-2">{self.config.get("soul_timezone", "Europe/Kyiv")}</td>
                 </tr>
                 <tr class="border-b border-gray-700">
                     <td class="py-2 text-gray-400">Telegram</td>
-                    <td class="py-2">{"налаштовано" if self.config.get('telegram_token')
-                        else "---"}</td>
+                    <td class="py-2">{
+            "налаштовано" if self.config.get("telegram_token") else "---"
+        }</td>
                 </tr>
                 <tr class="border-b border-gray-700">
                     <td class="py-2 text-gray-400">Discord</td>
-                    <td class="py-2">{"налаштовано" if self.config.get('discord_token')
-                        else "---"}</td>
+                    <td class="py-2">{
+            "налаштовано" if self.config.get("discord_token") else "---"
+        }</td>
                 </tr>
                 <tr class="border-b border-gray-700">
                     <td class="py-2 text-gray-400">Google</td>
-                    <td class="py-2">{"налаштовано" if self.config.get('google_credentials_path')
-                        else "---"}</td>
+                    <td class="py-2">{
+            "налаштовано" if self.config.get("google_credentials_path") else "---"
+        }</td>
                 </tr>
             </table>
 
@@ -529,17 +532,11 @@ class WebSetupWizard:
         elif step == 8:
             # Signal
             self.config["signal_phone_number"] = form_data.get("signal_phone_number", "")
-            self.config["signal_cli_url"] = form_data.get(
-                "signal_cli_url", "http://localhost:8080"
-            )
+            self.config["signal_cli_url"] = form_data.get("signal_cli_url", "http://localhost:8080")
         elif step == 9:
             # Google
-            self.config["google_credentials_path"] = form_data.get(
-                "google_credentials_path", ""
-            )
-            services = form_data.getlist("google_services") if hasattr(
-                form_data, "getlist"
-            ) else []
+            self.config["google_credentials_path"] = form_data.get("google_credentials_path", "")
+            services = form_data.getlist("google_services") if hasattr(form_data, "getlist") else []
             self.config["google_services"] = services
         elif step == 10:
             # Agent
@@ -591,18 +588,14 @@ class WebSetupWizard:
         if self.config.get("whatsapp_account_sid"):
             env_lines.append(f"WHATSAPP_ACCOUNT_SID={self.config['whatsapp_account_sid']}")
             env_lines.append(f"WHATSAPP_AUTH_TOKEN={self.config.get('whatsapp_auth_token', '')}")
-            env_lines.append(
-                f"WHATSAPP_FROM_NUMBER={self.config.get('whatsapp_from_number', '')}"
-            )
+            env_lines.append(f"WHATSAPP_FROM_NUMBER={self.config.get('whatsapp_from_number', '')}")
         if self.config.get("signal_phone_number"):
             env_lines.append(f"SIGNAL_PHONE_NUMBER={self.config['signal_phone_number']}")
             env_lines.append(
                 f"SIGNAL_CLI_URL={self.config.get('signal_cli_url', 'http://localhost:8080')}"
             )
         if self.config.get("google_credentials_path"):
-            env_lines.append(
-                f"GOOGLE_CREDENTIALS_PATH={self.config['google_credentials_path']}"
-            )
+            env_lines.append(f"GOOGLE_CREDENTIALS_PATH={self.config['google_credentials_path']}")
 
         env_lines.append(f"SOUL_NAME={self.config.get('soul_name', 'Posipaka')}")
         env_lines.append(f"SOUL_LANGUAGE={self.config.get('soul_language', 'auto')}")
@@ -627,9 +620,13 @@ class WebSetupWizard:
 
         # config.yaml (no secrets)
         safe_config = {
-            k: v for k, v in self.config.items()
-            if "key" not in k and "token" not in k and "secret" not in k
-            and "sid" not in k and "content" not in k
+            k: v
+            for k, v in self.config.items()
+            if "key" not in k
+            and "token" not in k
+            and "secret" not in k
+            and "sid" not in k
+            and "content" not in k
         }
         config_yaml = self.data_dir / "config.yaml"
         config_yaml.write_text(yaml.dump(safe_config, allow_unicode=True), encoding="utf-8")
@@ -700,7 +697,9 @@ class WebSetupWizard:
                 return f'<p class="text-red-400">&#10007; Помилка: {resp.status_code}</p>'
             elif provider == "ollama":
                 self.config["llm_model"] = "llama3"
-                return '<p class="text-yellow-400">&#9888; Ollama — перевірте що сервер запущено</p>'
+                return (
+                    '<p class="text-yellow-400">&#9888; Ollama — перевірте що сервер запущено</p>'
+                )
         except Exception as e:
             return f'<p class="text-red-400">&#10007; {e}</p>'
         return '<p class="text-red-400">&#10007; Невідомий провайдер</p>'
@@ -708,16 +707,12 @@ class WebSetupWizard:
     def test_telegram(self, token: str) -> str:
         """Test Telegram bot token. Returns HTML fragment."""
         try:
-            resp = httpx.get(
-                f"https://api.telegram.org/bot{token}/getMe", timeout=10
-            )
+            resp = httpx.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("ok"):
                     username = data["result"].get("username", "")
-                    return (
-                        f'<p class="text-green-400">&#10003; Бот: @{username}</p>'
-                    )
+                    return f'<p class="text-green-400">&#10003; Бот: @{username}</p>'
             return '<p class="text-red-400">&#10007; Невірний токен</p>'
         except Exception as e:
             return f'<p class="text-red-400">&#10007; {e}</p>'

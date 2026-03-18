@@ -134,8 +134,7 @@ class MemoryManager:
         size = self._memory_md_path.stat().st_size
         if size > self.COMPACTION_TRIGGER_BYTES:
             logger.info(
-                f"MEMORY.md needs compaction: "
-                f"{size} bytes > {self.COMPACTION_TRIGGER_BYTES}"
+                f"MEMORY.md needs compaction: {size} bytes > {self.COMPACTION_TRIGGER_BYTES}"
             )
             return True
         return False
@@ -166,10 +165,7 @@ class MemoryManager:
         self.update_memory_md(compacted)
 
         saved = original_size - new_size
-        return (
-            f"MEMORY.md стиснено: {original_size} → {new_size} "
-            f"байт (збережено {saved} байт)"
-        )
+        return f"MEMORY.md стиснено: {original_size} → {new_size} байт (збережено {saved} байт)"
 
     async def clear_session(self, session_id: str) -> None:
         """Очистити сесію з усіх шарів."""

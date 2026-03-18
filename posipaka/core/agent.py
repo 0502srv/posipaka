@@ -347,13 +347,9 @@ class Agent:
                     try:
                         from posipaka.security.skill_sandbox import SkillSandbox
 
-                        violations = SkillSandbox.validate_skill_source(
-                            skill_dir / "tools.py"
-                        )
+                        violations = SkillSandbox.validate_skill_source(skill_dir / "tools.py")
                         if violations:
-                            logger.warning(
-                                f"Skill '{skill_dir.name}' blocked: {violations}"
-                            )
+                            logger.warning(f"Skill '{skill_dir.name}' blocked: {violations}")
                             continue
                     except Exception:
                         pass
@@ -457,9 +453,7 @@ class Agent:
         try:
             from posipaka.core.timezone_manager import UserTimezoneManager
 
-            self.timezone_manager = UserTimezoneManager(
-                default_tz=self.settings.soul.timezone
-            )
+            self.timezone_manager = UserTimezoneManager(default_tz=self.settings.soul.timezone)
             logger.debug("UserTimezoneManager initialized")
         except Exception as e:
             logger.debug(f"UserTimezoneManager not available: {e}")
@@ -632,16 +626,13 @@ class Agent:
             tool_schemas = self.tools.get_schemas(self.settings.llm.provider)
 
             # Model routing — вибрати оптимальну модель
-            selected_model = self.model_router.select(
-                content, tools_count=len(tool_schemas)
-            )
+            selected_model = self.model_router.select(content, tools_count=len(tool_schemas))
 
             # Agentic loop
             for _iteration in range(self.MAX_TOOL_LOOPS):
                 # CostGuard check
                 estimated_tokens = (
-                    sum(len(m["content"]) // 4 for m in messages)
-                    + len(system_prompt) // 4
+                    sum(len(m["content"]) // 4 for m in messages) + len(system_prompt) // 4
                 )
                 allowed, reason = self.cost_guard.check_before_call(
                     model=selected_model,
@@ -687,9 +678,7 @@ class Agent:
                     text = response["content"]
                     if text:
                         response_time = time.time() - msg_start_time
-                        await self.memory.add(
-                            session_id, {"role": "assistant", "content": text}
-                        )
+                        await self.memory.add(session_id, {"role": "assistant", "content": text})
                         await self.memory.maybe_extract_facts(session_id, content)
                         # Cache response for similar future queries
                         await self.semantic_cache.store(content, text, session_id)
@@ -765,9 +754,7 @@ class Agent:
                         result = await self.tools.execute(tool_name, tool_input)
                         result_str = str(result)
                         # Compress large tool outputs to save tokens
-                        result_str = self.output_compressor.compress(
-                            tool_name, result_str
-                        )
+                        result_str = self.output_compressor.compress(tool_name, result_str)
                     except Exception as e:
                         result_str = f"Error: {e}"
                         await self.hooks.emit(
@@ -852,8 +839,7 @@ class Agent:
             if not tools:
                 return "Немає зареєстрованих інструментів."
             return "\n".join(
-                f"{'✅' if t['enabled'] else '❌'} {t['name']} — {t['description']}"
-                for t in tools
+                f"{'✅' if t['enabled'] else '❌'} {t['name']} — {t['description']}" for t in tools
             )
         if command == "persona":
             if not self.persona_manager:
@@ -904,9 +890,7 @@ class Agent:
                 info = await updater.check_for_updates()
                 if info.update_available:
                     return updater.format_update_message(info)
-                return (
-                    f"Posipaka актуальна (v{info.current_version})."
-                )
+                return f"Posipaka актуальна (v{info.current_version})."
             except Exception as e:
                 return f"Помилка перевірки оновлень: {e}"
         if command == "complexity":
@@ -1010,9 +994,7 @@ class Agent:
             if relevant:
                 dynamic_parts.append("\n".join(relevant))
         if dynamic_parts:
-            blocks.append(
-                {"type": "text", "text": f"# Context\n{''.join(dynamic_parts)}"}
-            )
+            blocks.append({"type": "text", "text": f"# Context\n{''.join(dynamic_parts)}"})
 
         return blocks
 

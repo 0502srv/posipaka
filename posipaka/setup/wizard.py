@@ -1,6 +1,4 @@
-"""SetupWizard — інтерактивне налаштування через Rich TUI (12 кроків).
-
-"""
+"""SetupWizard — інтерактивне налаштування через Rich TUI (12 кроків)."""
 
 from __future__ import annotations
 
@@ -35,19 +33,19 @@ class SetupWizard:
 
     def run(self) -> None:
         """Запустити wizard."""
-        self._step_welcome()        # 1
-        self._step_llm_provider()   # 2
-        self._step_messengers()     # 3
-        self._step_telegram()       # 4
-        self._step_discord()        # 5
-        self._step_slack()          # 6
-        self._step_whatsapp()       # 7
-        self._step_signal()         # 8
-        self._step_google()         # 9
-        self._step_agent_settings() # 10
-        self._step_summary()        # 11
-        self._step_save()           # 11 (save)
-        self._step_launch()         # 12
+        self._step_welcome()  # 1
+        self._step_llm_provider()  # 2
+        self._step_messengers()  # 3
+        self._step_telegram()  # 4
+        self._step_discord()  # 5
+        self._step_slack()  # 6
+        self._step_whatsapp()  # 7
+        self._step_signal()  # 8
+        self._step_google()  # 9
+        self._step_agent_settings()  # 10
+        self._step_summary()  # 11
+        self._step_save()  # 11 (save)
+        self._step_launch()  # 12
 
     # ─── Step 1: Welcome ──────────────────────────────────────────
 
@@ -267,9 +265,7 @@ class SetupWizard:
         )
         self.config["whatsapp_account_sid"] = Prompt.ask("Account SID", password=True)
         self.config["whatsapp_auth_token"] = Prompt.ask("Auth Token", password=True)
-        self.config["whatsapp_from_number"] = Prompt.ask(
-            "Номер (whatsapp:+...)", default=""
-        )
+        self.config["whatsapp_from_number"] = Prompt.ask("Номер (whatsapp:+...)", default="")
 
     # ─── Step 8: Signal ───────────────────────────────────────────
 
@@ -291,6 +287,7 @@ class SetupWizard:
 
         # Check if signal-cli is installed
         import shutil as sh
+
         if sh.which("signal-cli"):
             self.console.print("[green]signal-cli знайдено[/green]")
         else:
@@ -307,8 +304,7 @@ class SetupWizard:
         """Крок 9: Google інтеграції (опційно)."""
         self.console.print(
             Panel(
-                "Google інтеграції (опційно):\n"
-                "Gmail, Calendar, Drive",
+                "Google інтеграції (опційно):\nGmail, Calendar, Drive",
                 title=f"Крок 9/{TOTAL_STEPS} — Google",
                 border_style="blue",
             )
@@ -345,9 +341,7 @@ class SetupWizard:
             if Confirm.ask("Авторизуватись зараз (відкриє браузер)?", default=True):
                 self._run_google_oauth(cred_file)
         else:
-            self.console.print(
-                "[yellow]Файл не знайдено. Додайте його пізніше.[/yellow]"
-            )
+            self.console.print("[yellow]Файл не знайдено. Додайте його пізніше.[/yellow]")
 
     def _run_google_oauth(self, cred_path: Path) -> None:
         """Run Google OAuth flow (opens browser)."""
@@ -459,8 +453,13 @@ class SetupWizard:
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
         for subdir in (
-            "logs", "skills", "chroma", "tantivy", "backups",
-            "personas", "workflows",
+            "logs",
+            "skills",
+            "chroma",
+            "tantivy",
+            "backups",
+            "personas",
+            "workflows",
         ):
             (self.data_dir / subdir).mkdir(exist_ok=True)
 
@@ -476,9 +475,7 @@ class SetupWizard:
 
         if self.config.get("telegram_token"):
             env_lines.append(f"TELEGRAM_TOKEN={self.config['telegram_token']}")
-            env_lines.append(
-                f"TELEGRAM_OWNER_ID={self.config.get('telegram_owner_id', 0)}"
-            )
+            env_lines.append(f"TELEGRAM_OWNER_ID={self.config.get('telegram_owner_id', 0)}")
 
         if self.config.get("discord_token"):
             env_lines.append(f"DISCORD_TOKEN={self.config['discord_token']}")
@@ -487,43 +484,27 @@ class SetupWizard:
 
         if self.config.get("slack_bot_token"):
             env_lines.append(f"SLACK_BOT_TOKEN={self.config['slack_bot_token']}")
-            env_lines.append(
-                f"SLACK_APP_TOKEN={self.config.get('slack_app_token', '')}"
-            )
+            env_lines.append(f"SLACK_APP_TOKEN={self.config.get('slack_app_token', '')}")
 
         if self.config.get("whatsapp_account_sid"):
-            env_lines.append(
-                f"WHATSAPP_ACCOUNT_SID={self.config['whatsapp_account_sid']}"
-            )
-            env_lines.append(
-                f"WHATSAPP_AUTH_TOKEN={self.config.get('whatsapp_auth_token', '')}"
-            )
-            env_lines.append(
-                f"WHATSAPP_FROM_NUMBER={self.config.get('whatsapp_from_number', '')}"
-            )
+            env_lines.append(f"WHATSAPP_ACCOUNT_SID={self.config['whatsapp_account_sid']}")
+            env_lines.append(f"WHATSAPP_AUTH_TOKEN={self.config.get('whatsapp_auth_token', '')}")
+            env_lines.append(f"WHATSAPP_FROM_NUMBER={self.config.get('whatsapp_from_number', '')}")
 
         if self.config.get("signal_phone_number"):
-            env_lines.append(
-                f"SIGNAL_PHONE_NUMBER={self.config['signal_phone_number']}"
-            )
+            env_lines.append(f"SIGNAL_PHONE_NUMBER={self.config['signal_phone_number']}")
             env_lines.append(
                 f"SIGNAL_CLI_URL={self.config.get('signal_cli_url', 'http://localhost:8080')}"
             )
 
         if self.config.get("google_credentials_path"):
-            env_lines.append(
-                f"GOOGLE_CREDENTIALS_PATH={self.config['google_credentials_path']}"
-            )
+            env_lines.append(f"GOOGLE_CREDENTIALS_PATH={self.config['google_credentials_path']}")
             if self.config.get("google_token_path"):
-                env_lines.append(
-                    f"GOOGLE_TOKEN_PATH={self.config['google_token_path']}"
-                )
+                env_lines.append(f"GOOGLE_TOKEN_PATH={self.config['google_token_path']}")
 
         env_lines.append(f"SOUL_NAME={self.config.get('soul_name', 'Posipaka')}")
         env_lines.append(f"SOUL_LANGUAGE={self.config.get('soul_language', 'auto')}")
-        env_lines.append(
-            f"SOUL_TIMEZONE={self.config.get('soul_timezone', 'Europe/Kyiv')}"
-        )
+        env_lines.append(f"SOUL_TIMEZONE={self.config.get('soul_timezone', 'Europe/Kyiv')}")
 
         channels = self.config.get("enabled_channels", ["cli"])
         env_lines.append(f"ENABLED_CHANNELS={channels}")
@@ -543,22 +524,18 @@ class SetupWizard:
 
         # config.yaml (no secrets)
         safe_config = {
-            k: v for k, v in self.config.items()
-            if "key" not in k and "token" not in k and "secret" not in k
-            and "sid" not in k
+            k: v
+            for k, v in self.config.items()
+            if "key" not in k and "token" not in k and "secret" not in k and "sid" not in k
         }
         config_yaml = self.data_dir / "config.yaml"
-        config_yaml.write_text(
-            yaml.dump(safe_config, allow_unicode=True), encoding="utf-8"
-        )
+        config_yaml.write_text(yaml.dump(safe_config, allow_unicode=True), encoding="utf-8")
 
         # docker-compose.yml (optional)
         if Confirm.ask("Згенерувати docker-compose.yml?", default=False):
             self._generate_docker_compose()
 
-        self.console.print(
-            f"[green]Конфігурація збережена в {self.data_dir}[/green]"
-        )
+        self.console.print(f"[green]Конфігурація збережена в {self.data_dir}[/green]")
 
     def _generate_docker_compose(self) -> None:
         """Generate docker-compose.yml."""
@@ -577,12 +554,8 @@ class SetupWizard:
             },
         }
         compose_path = self.data_dir / "docker-compose.yml"
-        compose_path.write_text(
-            yaml.dump(compose, default_flow_style=False), encoding="utf-8"
-        )
-        self.console.print(
-            f"[green]docker-compose.yml збережено в {compose_path}[/green]"
-        )
+        compose_path.write_text(yaml.dump(compose, default_flow_style=False), encoding="utf-8")
+        self.console.print(f"[green]docker-compose.yml збережено в {compose_path}[/green]")
 
     # ─── Step 12: Launch ──────────────────────────────────────────
 
@@ -628,19 +601,13 @@ class SetupWizard:
                     timeout=10,
                 )
                 if resp.status_code == 200:
-                    self.console.print(
-                        "[green]Тестове повідомлення надіслано в Telegram![/green]"
-                    )
+                    self.console.print("[green]Тестове повідомлення надіслано в Telegram![/green]")
                 else:
-                    self.console.print(
-                        f"[yellow]Помилка відправки: {resp.status_code}[/yellow]"
-                    )
+                    self.console.print(f"[yellow]Помилка відправки: {resp.status_code}[/yellow]")
             except Exception as e:
                 self.console.print(f"[yellow]Помилка: {e}[/yellow]")
         else:
-            self.console.print(
-                "[dim]Telegram не налаштовано — тест пропущено[/dim]"
-            )
+            self.console.print("[dim]Telegram не налаштовано — тест пропущено[/dim]")
 
     # ─── Test Helpers ─────────────────────────────────────────────
 
@@ -680,9 +647,7 @@ class SetupWizard:
     def _test_telegram_token(self, token: str) -> str | None:
         """Тест Telegram bot token."""
         try:
-            resp = httpx.get(
-                f"https://api.telegram.org/bot{token}/getMe", timeout=10
-            )
+            resp = httpx.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("ok"):

@@ -35,11 +35,7 @@ def run_doctor(data_dir: Path | None = None) -> list[DoctorCheck]:
         checks.append(DoctorCheck("Python", "error", f"{ver} (потрібен 3.11+)"))
 
     # OS
-    checks.append(
-        DoctorCheck(
-            "OS", "ok", f"{platform.system()} {platform.release()}"
-        )
-    )
+    checks.append(DoctorCheck("OS", "ok", f"{platform.system()} {platform.release()}"))
 
     # Disk space
     disk = shutil.disk_usage(Path.home())
@@ -47,15 +43,9 @@ def run_doctor(data_dir: Path | None = None) -> list[DoctorCheck]:
     if free_gb > 5:
         checks.append(DoctorCheck("Disk", "ok", f"{free_gb:.1f} GB free"))
     elif free_gb > 1:
-        checks.append(
-            DoctorCheck("Disk", "warning", f"{free_gb:.1f} GB free (low)")
-        )
+        checks.append(DoctorCheck("Disk", "warning", f"{free_gb:.1f} GB free (low)"))
     else:
-        checks.append(
-            DoctorCheck(
-                "Disk", "error", f"{free_gb:.1f} GB free (critical!)"
-            )
-        )
+        checks.append(DoctorCheck("Disk", "error", f"{free_gb:.1f} GB free (critical!)"))
 
     # RAM
     try:
@@ -94,9 +84,7 @@ def run_doctor(data_dir: Path | None = None) -> list[DoctorCheck]:
         path = data_dir / filename
         if path.exists():
             size = path.stat().st_size
-            checks.append(
-                DoctorCheck(name, "ok", f"{size} bytes")
-            )
+            checks.append(DoctorCheck(name, "ok", f"{size} bytes"))
         else:
             checks.append(DoctorCheck(name, "warning", "not found"))
 
@@ -120,9 +108,7 @@ def run_doctor(data_dir: Path | None = None) -> list[DoctorCheck]:
             __import__(pkg_name)
             checks.append(DoctorCheck(f"pkg:{pkg_name}", "ok", "installed"))
         except ImportError:
-            checks.append(
-                DoctorCheck(f"pkg:{pkg_name}", "error", "not installed")
-            )
+            checks.append(DoctorCheck(f"pkg:{pkg_name}", "error", "not installed"))
 
     # Optional packages
     for pkg_name in [
@@ -133,13 +119,9 @@ def run_doctor(data_dir: Path | None = None) -> list[DoctorCheck]:
     ]:
         try:
             __import__(pkg_name)
-            checks.append(
-                DoctorCheck(f"opt:{pkg_name}", "ok", "installed")
-            )
+            checks.append(DoctorCheck(f"opt:{pkg_name}", "ok", "installed"))
         except ImportError:
-            checks.append(
-                DoctorCheck(f"opt:{pkg_name}", "warning", "not installed")
-            )
+            checks.append(DoctorCheck(f"opt:{pkg_name}", "warning", "not installed"))
 
     # .env file
     env_path = data_dir / ".env"
@@ -151,16 +133,11 @@ def run_doctor(data_dir: Path | None = None) -> list[DoctorCheck]:
         checks.append(DoctorCheck(".env", "warning", "not found"))
 
     # LLM API key
-    has_key = bool(
-        os.environ.get("LLM_API_KEY")
-        or os.environ.get("ANTHROPIC_API_KEY")
-    )
+    has_key = bool(os.environ.get("LLM_API_KEY") or os.environ.get("ANTHROPIC_API_KEY"))
     if has_key:
         checks.append(DoctorCheck("LLM API key", "ok", "set"))
     else:
-        checks.append(
-            DoctorCheck("LLM API key", "warning", "not set in env")
-        )
+        checks.append(DoctorCheck("LLM API key", "warning", "not set in env"))
 
     return checks
 

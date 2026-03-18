@@ -16,6 +16,7 @@ from loguru import logger
 # ModuleType
 # ---------------------------------------------------------------------------
 
+
 class ModuleType(StrEnum):
     """Типи модулів системи."""
 
@@ -31,6 +32,7 @@ class ModuleType(StrEnum):
 # ---------------------------------------------------------------------------
 # ModuleInfo
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ModuleInfo:
@@ -48,6 +50,7 @@ class ModuleInfo:
 # ---------------------------------------------------------------------------
 # BaseModule ABC
 # ---------------------------------------------------------------------------
+
 
 class BaseModule(ABC):
     """Базовий клас для всіх модулів Posipaka."""
@@ -85,6 +88,7 @@ class BaseModule(ABC):
 # Errors
 # ---------------------------------------------------------------------------
 
+
 class ModuleLookupError(Exception):
     """Module not found in registry."""
 
@@ -96,6 +100,7 @@ class ModuleDependencyError(Exception):
 # ---------------------------------------------------------------------------
 # EventBus — inter-module communication
 # ---------------------------------------------------------------------------
+
 
 class EventBus:
     """Pub/sub шина подій для комунікації між модулями."""
@@ -127,9 +132,7 @@ class EventBus:
                 else:
                     callback(payload)
             except Exception as e:
-                logger.error(
-                    f"EventBus error [{event}] in {callback.__qualname__}: {e}"
-                )
+                logger.error(f"EventBus error [{event}] in {callback.__qualname__}: {e}")
 
     def list_events(self) -> dict[str, int]:
         """Кількість subscribers per event."""
@@ -139,6 +142,7 @@ class EventBus:
 # ---------------------------------------------------------------------------
 # ModuleRegistry
 # ---------------------------------------------------------------------------
+
 
 class ModuleRegistry:
     """Центральний реєстр модулів Posipaka."""
@@ -153,20 +157,13 @@ class ModuleRegistry:
         """Зареєструвати модуль."""
         name = module.info.name
         # Перевірка залежностей
-        missing = [
-            dep for dep in module.info.dependencies if dep not in self._modules
-        ]
+        missing = [dep for dep in module.info.dependencies if dep not in self._modules]
         if missing:
-            raise ModuleDependencyError(
-                f"Module '{name}' requires missing dependencies: {missing}"
-            )
+            raise ModuleDependencyError(f"Module '{name}' requires missing dependencies: {missing}")
         if name in self._modules:
             logger.warning(f"Module '{name}' already registered, overwriting")
         self._modules[name] = module
-        logger.info(
-            f"Registered module: {name} [{module.info.module_type}] "
-            f"v{module.info.version}"
-        )
+        logger.info(f"Registered module: {name} [{module.info.module_type}] v{module.info.version}")
 
     def unregister(self, name: str) -> None:
         """Видалити модуль з реєстру."""
@@ -179,9 +176,7 @@ class ModuleRegistry:
             if name in m.info.dependencies and m.info.name != name
         ]
         if dependents:
-            logger.warning(
-                f"Unregistering '{name}' which is depended on by: {dependents}"
-            )
+            logger.warning(f"Unregistering '{name}' which is depended on by: {dependents}")
         del self._modules[name]
         logger.info(f"Unregistered module: {name}")
 
@@ -191,9 +186,7 @@ class ModuleRegistry:
         """Отримати модуль за ім'ям."""
         return self._modules.get(name)
 
-    def list_modules(
-        self, module_type: ModuleType | None = None
-    ) -> list[ModuleInfo]:
+    def list_modules(self, module_type: ModuleType | None = None) -> list[ModuleInfo]:
         """Список модулів, опціонально фільтр по типу."""
         modules = self._modules.values()
         if module_type is not None:
@@ -238,9 +231,7 @@ class ModuleRegistry:
                 await module.initialize()
                 results[name] = True
                 logger.info(f"Module initialized: {name}")
-                await self.event_bus.publish(
-                    "module.initialized", {"module": name}
-                )
+                await self.event_bus.publish("module.initialized", {"module": name})
             except Exception as e:
                 results[name] = False
                 logger.error(f"Module init failed [{name}]: {e}")

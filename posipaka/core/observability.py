@@ -52,8 +52,19 @@ class _HistogramState:
 # ── Default histogram buckets ──────────────────────────────────
 
 DEFAULT_BUCKETS: tuple[float, ...] = (
-    0.005, 0.01, 0.025, 0.05, 0.1, 0.25,
-    0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0,
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
+    30.0,
+    60.0,
 )
 
 
@@ -92,9 +103,7 @@ class MetricsRegistry:
         self._lock = threading.Lock()
         self._counters: dict[str, dict[str, float]] = {}
         self._gauges: dict[str, dict[str, float]] = {}
-        self._histograms: dict[
-            str, dict[str, _HistogramState]
-        ] = {}
+        self._histograms: dict[str, dict[str, _HistogramState]] = {}
         self._buckets = histogram_buckets
         logger.debug("MetricsRegistry initialized")
 
@@ -162,31 +171,37 @@ class MetricsRegistry:
         with self._lock:
             for name, series in self._counters.items():
                 for lk, val in series.items():
-                    result.append(Metric(
-                        name=name,
-                        metric_type=MetricType.COUNTER,
-                        value=val,
-                        labels=_parse_labels(lk),
-                        timestamp=now,
-                    ))
+                    result.append(
+                        Metric(
+                            name=name,
+                            metric_type=MetricType.COUNTER,
+                            value=val,
+                            labels=_parse_labels(lk),
+                            timestamp=now,
+                        )
+                    )
             for name, series in self._gauges.items():
                 for lk, val in series.items():
-                    result.append(Metric(
-                        name=name,
-                        metric_type=MetricType.GAUGE,
-                        value=val,
-                        labels=_parse_labels(lk),
-                        timestamp=now,
-                    ))
+                    result.append(
+                        Metric(
+                            name=name,
+                            metric_type=MetricType.GAUGE,
+                            value=val,
+                            labels=_parse_labels(lk),
+                            timestamp=now,
+                        )
+                    )
             for name, series in self._histograms.items():
                 for lk, state in series.items():
-                    result.append(Metric(
-                        name=name,
-                        metric_type=MetricType.HISTOGRAM,
-                        value=state.total,
-                        labels=_parse_labels(lk),
-                        timestamp=now,
-                    ))
+                    result.append(
+                        Metric(
+                            name=name,
+                            metric_type=MetricType.HISTOGRAM,
+                            value=state.total,
+                            labels=_parse_labels(lk),
+                            timestamp=now,
+                        )
+                    )
         return result
 
     # ── Prometheus export ──────────────────────────────────
@@ -212,9 +227,7 @@ class MetricsRegistry:
                     lines.append(f"{name}{lbl} {_fmt(val)}")
 
             # Histograms
-            for name, series in sorted(
-                self._histograms.items()
-            ):
+            for name, series in sorted(self._histograms.items()):
                 lines.append(f"# HELP {name} histogram")
                 lines.append(f"# TYPE {name} histogram")
                 for lk, state in sorted(series.items()):
@@ -224,24 +237,15 @@ class MetricsRegistry:
                         cumulative += state.buckets[b]
                         bl = {**labels, "le": _fmt(b)}
                         lbl = _prom_labels(bl)
-                        lines.append(
-                            f"{name}_bucket{lbl} {cumulative}"
-                        )
+                        lines.append(f"{name}_bucket{lbl} {cumulative}")
                     # +Inf bucket
                     bl_inf = {**labels, "le": "+Inf"}
                     lbl_inf = _prom_labels(bl_inf)
-                    lines.append(
-                        f"{name}_bucket{lbl_inf}"
-                        f" {state.count}"
-                    )
+                    lines.append(f"{name}_bucket{lbl_inf} {state.count}")
                     # sum and count
                     lbl = _prom_labels(labels)
-                    lines.append(
-                        f"{name}_sum{lbl} {_fmt(state.total)}"
-                    )
-                    lines.append(
-                        f"{name}_count{lbl} {state.count}"
-                    )
+                    lines.append(f"{name}_sum{lbl} {_fmt(state.total)}")
+                    lines.append(f"{name}_count{lbl} {state.count}")
 
         lines.append("")
         return "\n".join(lines)
@@ -279,10 +283,7 @@ class MetricsRegistry:
                         "labels": _parse_labels(lk),
                         "count": state.count,
                         "sum": state.total,
-                        "buckets": {
-                            str(b): state.buckets[b]
-                            for b in sorted(state.buckets)
-                        },
+                        "buckets": {str(b): state.buckets[b] for b in sorted(state.buckets)},
                     }
                     for lk, state in series.items()
                 ]
@@ -336,9 +337,11 @@ def record_llm_call(
     registry.histogram(LLM_LATENCY_SECONDS, latency, labels)
     registry.counter(COST_USD_TOTAL, increment=cost)
     logger.debug(
-        "LLM call recorded: model={} latency={:.3f}s "
-        "tokens={} cost=${:.6f}",
-        model, latency, tokens, cost,
+        "LLM call recorded: model={} latency={:.3f}s tokens={} cost=${:.6f}",
+        model,
+        latency,
+        tokens,
+        cost,
     )
 
 

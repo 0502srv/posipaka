@@ -31,8 +31,7 @@ def register(registry: Any) -> None:
         ToolDefinition(
             name="summarize_text",
             description=(
-                "Summarize a long text into key points."
-                " Use when user asks for TL;DR or summary."
+                "Summarize a long text into key points. Use when user asks for TL;DR or summary."
             ),
             category="skill",
             handler=summarize_text,

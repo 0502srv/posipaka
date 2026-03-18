@@ -62,8 +62,13 @@ class FeatureFlagManager:
                     """INSERT OR IGNORE INTO feature_flags
                        (name, description, enabled, percentage, created_at)
                        VALUES (?, ?, ?, ?, ?)""",
-                    (flag.name, flag.description, int(flag.enabled),
-                     flag.percentage, flag.created_at),
+                    (
+                        flag.name,
+                        flag.description,
+                        int(flag.enabled),
+                        flag.percentage,
+                        flag.created_at,
+                    ),
                 )
             await db.commit()
         self._initialized = True
@@ -99,18 +104,14 @@ class FeatureFlagManager:
     async def enable(self, name: str) -> None:
         await self._init_db()
         async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                "UPDATE feature_flags SET enabled = 1 WHERE name = ?", (name,)
-            )
+            await db.execute("UPDATE feature_flags SET enabled = 1 WHERE name = ?", (name,))
             await db.commit()
         logger.info(f"Feature flag enabled: {name}")
 
     async def disable(self, name: str) -> None:
         await self._init_db()
         async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                "UPDATE feature_flags SET enabled = 0 WHERE name = ?", (name,)
-            )
+            await db.execute("UPDATE feature_flags SET enabled = 0 WHERE name = ?", (name,))
             await db.commit()
         logger.info(f"Feature flag disabled: {name}")
 
@@ -126,9 +127,7 @@ class FeatureFlagManager:
             await db.commit()
         logger.info(f"Feature flag rollout: {name} = {percentage}%")
 
-    async def create_flag(
-        self, name: str, description: str = "", enabled: bool = False
-    ) -> None:
+    async def create_flag(self, name: str, description: str = "", enabled: bool = False) -> None:
         await self._init_db()
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute(
@@ -142,9 +141,7 @@ class FeatureFlagManager:
     async def delete_flag(self, name: str) -> None:
         await self._init_db()
         async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                "DELETE FROM feature_flags WHERE name = ?", (name,)
-            )
+            await db.execute("DELETE FROM feature_flags WHERE name = ?", (name,))
             await db.commit()
 
     async def list_flags(self) -> list[FeatureFlag]:

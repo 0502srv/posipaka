@@ -57,9 +57,7 @@ class AuthManager:
     def create_session(self, client_ip: str) -> str:
         # Enforce concurrent session limit per IP
         self._cleanup_expired_sessions()
-        ip_sessions = [
-            tok for tok, s in self._sessions.items() if s["ip"] == client_ip
-        ]
+        ip_sessions = [tok for tok, s in self._sessions.items() if s["ip"] == client_ip]
         if len(ip_sessions) >= MAX_CONCURRENT_SESSIONS:
             # Evict oldest session for this IP
             oldest = min(ip_sessions, key=lambda t: self._sessions[t]["created_at"])
@@ -77,8 +75,7 @@ class AuthManager:
         """Видалити прострочені сесії."""
         now = time.time()
         expired = [
-            tok for tok, s in self._sessions.items()
-            if now - s["created_at"] > SESSION_TTL_SECONDS
+            tok for tok, s in self._sessions.items() if now - s["created_at"] > SESSION_TTL_SECONDS
         ]
         for tok in expired:
             self._sessions.pop(tok, None)

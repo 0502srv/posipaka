@@ -70,6 +70,7 @@ def _check_cgroup_docker() -> bool:
 def _get_ram_mb() -> int:
     try:
         import psutil
+
         return int(psutil.virtual_memory().total / (1024 * 1024))
     except ImportError:
         pass
@@ -85,9 +86,7 @@ def _get_ram_mb() -> int:
 
 def _check_gpu() -> bool:
     try:
-        result = subprocess.run(
-            ["nvidia-smi"], capture_output=True, timeout=5
-        )
+        result = subprocess.run(["nvidia-smi"], capture_output=True, timeout=5)
         return result.returncode == 0
     except Exception:
         return False
@@ -95,9 +94,9 @@ def _check_gpu() -> bool:
 
 class BatteryProfile(StrEnum):
     CHARGING = "charging"
-    HIGH = "high"        # >60%
-    MEDIUM = "medium"    # 30-60%
-    LOW = "low"          # 15-30%
+    HIGH = "high"  # >60%
+    MEDIUM = "medium"  # 30-60%
+    LOW = "low"  # 15-30%
     CRITICAL = "critical"  # <15%
 
 
@@ -105,11 +104,11 @@ class BatteryManager:
     """Управління енергією на Android/laptop."""
 
     HEARTBEAT_INTERVALS = {
-        BatteryProfile.CHARGING: 300,    # 5 min
-        BatteryProfile.HIGH: 600,        # 10 min
-        BatteryProfile.MEDIUM: 1800,     # 30 min
-        BatteryProfile.LOW: 3600,        # 1 hour
-        BatteryProfile.CRITICAL: 0,      # disabled
+        BatteryProfile.CHARGING: 300,  # 5 min
+        BatteryProfile.HIGH: 600,  # 10 min
+        BatteryProfile.MEDIUM: 1800,  # 30 min
+        BatteryProfile.LOW: 3600,  # 1 hour
+        BatteryProfile.CRITICAL: 0,  # disabled
     }
 
     def get_battery_status(self) -> dict | None:
@@ -118,10 +117,13 @@ class BatteryManager:
         try:
             result = subprocess.run(
                 ["termux-battery-status"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 import json
+
                 return json.loads(result.stdout)
         except Exception:
             pass
@@ -129,6 +131,7 @@ class BatteryManager:
         # psutil fallback (laptops)
         try:
             import psutil
+
             battery = psutil.sensors_battery()
             if battery:
                 return {
@@ -188,7 +191,8 @@ class AndroidPlatform:
         try:
             result = subprocess.run(
                 ["termux-notification", "--title", title, "--content", text],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
             return result.returncode == 0
         except Exception:
@@ -200,7 +204,8 @@ class AndroidPlatform:
         try:
             result = subprocess.run(
                 ["termux-tts-speak", text],
-                capture_output=True, timeout=30,
+                capture_output=True,
+                timeout=30,
             )
             return result.returncode == 0
         except Exception:
@@ -212,10 +217,13 @@ class AndroidPlatform:
         try:
             result = subprocess.run(
                 ["termux-location", "-p", "network", "-r", "once"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             if result.returncode == 0:
                 import json
+
                 return json.loads(result.stdout)
         except Exception:
             pass

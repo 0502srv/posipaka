@@ -188,14 +188,10 @@ async def check_health(agent: Agent | None = None) -> HealthReport:
             free_gb = usage.free / (1024**3)
             status = "healthy" if free_gb > 1.0 else "degraded" if free_gb > 0.5 else "unavailable"
             report.components.append(
-                ComponentHealth(
-                    name="disk", status=status, message=f"{free_gb:.1f} GB free"
-                )
+                ComponentHealth(name="disk", status=status, message=f"{free_gb:.1f} GB free")
             )
     except Exception as e:
-        report.components.append(
-            ComponentHealth(name="disk", status="unknown", message=str(e))
-        )
+        report.components.append(ComponentHealth(name="disk", status="unknown", message=str(e)))
 
     # Degradation mode
     if agent and agent.degradation:

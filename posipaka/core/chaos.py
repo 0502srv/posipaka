@@ -98,8 +98,7 @@ class ChaosEngine:
                 continue
             if random.random() < exp.probability:
                 logger.debug(
-                    f"Chaos: injecting {exp.failure_type} into {component} "
-                    f"(experiment: {exp.name})"
+                    f"Chaos: injecting {exp.failure_type} into {component} (experiment: {exp.name})"
                 )
                 return exp.failure_type
 
@@ -132,15 +131,11 @@ class ChaosEngine:
 
         elif failure_type == FailureType.RESOURCE_EXHAUSTION:
             logger.warning(f"Chaos: simulating resource exhaustion in {component}")
-            raise MemoryError(
-                f"Chaos injection: simulated resource exhaustion in {component}"
-            )
+            raise MemoryError(f"Chaos injection: simulated resource exhaustion in {component}")
 
         elif failure_type == FailureType.NETWORK_PARTITION:
             logger.warning(f"Chaos: simulating network partition for {component}")
-            raise ConnectionError(
-                f"Chaos injection: simulated network partition for {component}"
-            )
+            raise ConnectionError(f"Chaos injection: simulated network partition for {component}")
 
     # ── Звіт ──────────────────────────────────────────────
 

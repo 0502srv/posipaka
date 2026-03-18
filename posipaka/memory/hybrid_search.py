@@ -95,16 +95,10 @@ class HybridSearcher:
         self, query: str, session_id: str | None, limit: int
     ) -> list[tuple[str, str, float]]:
         results = await self._tantivy.search(query, session_id, limit)
-        return [
-            (r["id"], r["content"], r["score"])
-            for r in results
-        ]
+        return [(r["id"], r["content"], r["score"]) for r in results]
 
     async def _search_chroma(
         self, query: str, session_id: str | None, limit: int
     ) -> list[tuple[str, str, float]]:
         docs = await self._chroma.search(query, session_id, limit)
-        return [
-            (f"chroma_{i}", doc, 1.0 - i * 0.1)
-            for i, doc in enumerate(docs)
-        ]
+        return [(f"chroma_{i}", doc, 1.0 - i * 0.1) for i, doc in enumerate(docs)]

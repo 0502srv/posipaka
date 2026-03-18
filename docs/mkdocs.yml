@@ -1,4 +1,5 @@
 # MkDocs configuration для docs.posipaka.dev
+docs_dir: site
 site_name: Posipaka Documentation
 site_url: https://docs.posipaka.dev
 site_description: "Posipaka — персональний AI-агент для месенджерів"

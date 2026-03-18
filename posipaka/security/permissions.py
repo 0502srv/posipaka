@@ -99,9 +99,7 @@ class UserManager:
         profile.custom_permissions = False
         return True
 
-    def set_permission(
-        self, user_id: str, channel: str, perm: Permission, allowed: bool
-    ) -> bool:
+    def set_permission(self, user_id: str, channel: str, perm: Permission, allowed: bool) -> bool:
         profile = self.get_user(user_id, channel)
         if not profile:
             return False
@@ -128,9 +126,7 @@ class UserManager:
             for p in self._users.values()
         ]
 
-    def check_permission(
-        self, user_id: str, channel: str, perm: Permission
-    ) -> bool:
+    def check_permission(self, user_id: str, channel: str, perm: Permission) -> bool:
         profile = self.get_user(user_id, channel)
         if not profile:
             return False

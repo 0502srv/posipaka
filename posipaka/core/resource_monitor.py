@@ -39,9 +39,15 @@ class ResourceMonitor:
         """Зібрати поточний стан ресурсів."""
         if psutil is None:
             return ResourceSnapshot(
-                cpu_percent=0, memory_used_mb=0, memory_total_mb=0,
-                memory_percent=0, disk_used_gb=0, disk_free_gb=0,
-                disk_percent=0, open_files=0, active_threads=1,
+                cpu_percent=0,
+                memory_used_mb=0,
+                memory_total_mb=0,
+                memory_percent=0,
+                disk_used_gb=0,
+                disk_free_gb=0,
+                disk_percent=0,
+                open_files=0,
+                active_threads=1,
             )
 
         mem = psutil.virtual_memory()

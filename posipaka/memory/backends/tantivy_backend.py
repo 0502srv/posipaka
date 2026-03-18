@@ -36,9 +36,7 @@ class TantivyBackend:
 
         schema_builder = tantivy.SchemaBuilder()
         schema_builder.add_text_field("id", stored=True)
-        schema_builder.add_text_field(
-            "session_id", stored=True, tokenizer_name="raw"
-        )
+        schema_builder.add_text_field("session_id", stored=True, tokenizer_name="raw")
         schema_builder.add_text_field("role", stored=True, tokenizer_name="raw")
         schema_builder.add_text_field("content", stored=True)
         schema_builder.add_float_field("timestamp", stored=True, fast=True)
@@ -106,9 +104,7 @@ class TantivyBackend:
         special = set(r'+-&|!(){}[]^"~*?:\/')
         return "".join(f"\\{ch}" if ch in special else ch for ch in query)
 
-    def _search_sync(
-        self, query: str, session_id: str | None, limit: int
-    ) -> list[dict]:
+    def _search_sync(self, query: str, session_id: str | None, limit: int) -> list[dict]:
         searcher = self._index.searcher()
 
         safe_query = self._escape_query(query)
@@ -140,9 +136,7 @@ class TantivyBackend:
     def _delete_session_sync(self, session_id: str) -> None:
         import tantivy
 
-        self._writer.delete_term(
-            tantivy.Term.from_field_text("session_id", session_id)
-        )
+        self._writer.delete_term(tantivy.Term.from_field_text("session_id", session_id))
         self._writer.commit()
 
     async def close(self) -> None:

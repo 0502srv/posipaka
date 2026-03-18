@@ -85,11 +85,10 @@ class CostGuard:
             return False, (f"Ліміт сесії: ${session_spent:.2f} з ${self.per_session_max:.2f}.")
 
         if (
-            (daily_spent + estimated_cost) / self.daily_budget >= self.warning_threshold
-            and not self._warning_sent_today
-        ):
-                self._warning_sent_today = True
-                logger.warning(f"Budget warning: ${daily_spent:.2f} / ${self.daily_budget:.2f}")
+            daily_spent + estimated_cost
+        ) / self.daily_budget >= self.warning_threshold and not self._warning_sent_today:
+            self._warning_sent_today = True
+            logger.warning(f"Budget warning: ${daily_spent:.2f} / ${self.daily_budget:.2f}")
 
         return True, "ok"
 

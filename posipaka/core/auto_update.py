@@ -63,6 +63,7 @@ class SemVer:
 
 # ── Data classes ─────────────────────────────────────────────
 
+
 @dataclass
 class UpdateInfo:
     """Результат перевірки оновлень."""
@@ -91,13 +92,12 @@ class UpdateCheckState:
     def from_dict(cls, data: dict[str, Any]) -> UpdateCheckState:
         return cls(
             last_check_ts=data.get("last_check_ts", 0.0),
-            last_version_seen=data.get(
-                "last_version_seen", ""
-            ),
+            last_version_seen=data.get("last_version_seen", ""),
         )
 
 
 # ── AutoUpdater ──────────────────────────────────────────────
+
 
 class AutoUpdater:
     """Перевірка та встановлення оновлень Posipaka.
@@ -121,9 +121,7 @@ class AutoUpdater:
         self.current_version = current_version
         self.check_interval_hours = check_interval_hours
         self.github_repo = github_repo
-        self.data_dir = data_dir or (
-            Path.home() / ".posipaka"
-        )
+        self.data_dir = data_dir or (Path.home() / ".posipaka")
         self.base_url = base_url.rstrip("/")
         self._audit = audit_logger
         self._state = self._load_state()
@@ -137,14 +135,10 @@ class AutoUpdater:
     def _load_state(self) -> UpdateCheckState:
         if self._state_path.exists():
             try:
-                data = json.loads(
-                    self._state_path.read_text("utf-8")
-                )
+                data = json.loads(self._state_path.read_text("utf-8"))
                 return UpdateCheckState.from_dict(data)
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning(
-                    f"Cannot load update state: {e}"
-                )
+                logger.warning(f"Cannot load update state: {e}")
         return UpdateCheckState()
 
     def _save_state(self) -> None:
@@ -164,9 +158,7 @@ class AutoUpdater:
         """True якщо пройшло достатньо часу з останньої перевірки."""
         if self._state.last_check_ts == 0.0:
             return True
-        elapsed_hours = (
-            (time.time() - self._state.last_check_ts) / 3600
-        )
+        elapsed_hours = (time.time() - self._state.last_check_ts) / 3600
         return elapsed_hours >= self.check_interval_hours
 
     # ── Check for updates ────────────────────────────────
@@ -181,10 +173,7 @@ class AutoUpdater:
                 update_available=False,
             )
 
-        url = (
-            f"{self.base_url}/repos/{self.github_repo}"
-            f"/releases/latest"
-        )
+        url = f"{self.base_url}/repos/{self.github_repo}/releases/latest"
         self._audit_log(
             "update_check_start",
             {"url": url},
@@ -259,9 +248,11 @@ class AutoUpdater:
         download_dir.mkdir(parents=True, exist_ok=True)
 
         cmd = [
-            "pip", "download",
+            "pip",
+            "download",
             f"posipaka=={version}",
-            "-d", str(download_dir),
+            "-d",
+            str(download_dir),
             "--no-deps",
         ]
 
@@ -279,10 +270,7 @@ class AutoUpdater:
 
         if proc.returncode != 0:
             err = stderr.decode("utf-8", errors="replace")
-            logger.error(
-                f"pip download failed (rc={proc.returncode}): "
-                f"{err[:200]}"
-            )
+            logger.error(f"pip download failed (rc={proc.returncode}): {err[:200]}")
             self._audit_log(
                 "update_download_error",
                 {
@@ -305,17 +293,16 @@ class AutoUpdater:
 
     def _create_backup(self) -> Path:
         """Створити бекап data_dir перед оновленням."""
-        backup_path = (
-            self.data_dir
-            / self.BACKUP_DIR
-            / f"backup_{int(time.time())}"
-        )
+        backup_path = self.data_dir / self.BACKUP_DIR / f"backup_{int(time.time())}"
         backup_path.mkdir(parents=True, exist_ok=True)
 
         # Копіюємо критичні файли
         critical = [
-            "SOUL.md", "USER.md", "MEMORY.md",
-            "config.yaml", "memory.db",
+            "SOUL.md",
+            "USER.md",
+            "MEMORY.md",
+            "config.yaml",
+            "memory.db",
         ]
         for name in critical:
             src = self.data_dir / name
@@ -350,7 +337,10 @@ class AutoUpdater:
 
         # 2. pip install --upgrade
         cmd = [
-            "pip", "install", "--upgrade", "posipaka",
+            "pip",
+            "install",
+            "--upgrade",
+            "posipaka",
         ]
 
         proc = await asyncio.create_subprocess_exec(
@@ -362,10 +352,7 @@ class AutoUpdater:
 
         if proc.returncode != 0:
             err = stderr.decode("utf-8", errors="replace")
-            logger.error(
-                f"pip install --upgrade failed "
-                f"(rc={proc.returncode}): {err[:200]}"
-            )
+            logger.error(f"pip install --upgrade failed (rc={proc.returncode}): {err[:200]}")
             self._audit_log(
                 "update_apply_error",
                 {
@@ -399,10 +386,7 @@ class AutoUpdater:
         if httpx is None:
             return "httpx not installed — cannot fetch changelog"
 
-        url = (
-            f"{self.base_url}/repos/{self.github_repo}"
-            f"/releases/tags/v{version.lstrip('v')}"
-        )
+        url = f"{self.base_url}/repos/{self.github_repo}/releases/tags/v{version.lstrip('v')}"
 
         try:
             async with httpx.AsyncClient(
@@ -425,14 +409,12 @@ class AutoUpdater:
     # ── CLI formatting ───────────────────────────────────
 
     def format_update_message(
-        self, info: UpdateInfo,
+        self,
+        info: UpdateInfo,
     ) -> str:
         """Форматування повідомлення для CLI/месенджера."""
         if not info.update_available:
-            return (
-                f"Posipaka v{info.current_version} "
-                f"is up to date."
-            )
+            return f"Posipaka v{info.current_version} is up to date."
 
         lines = [
             "Update available!",
@@ -448,9 +430,7 @@ class AutoUpdater:
             lines.append(f"  Details: {info.changelog_url}")
 
         lines.append("-" * 40)
-        lines.append(
-            "Run 'posipaka update' to install."
-        )
+        lines.append("Run 'posipaka update' to install.")
         return "\n".join(lines)
 
     # ── Audit helper ─────────────────────────────────────
@@ -465,7 +445,5 @@ class AutoUpdater:
             try:
                 self._audit.log(event, data)
             except Exception as e:
-                logger.warning(
-                    f"Audit log failed for {event}: {e}"
-                )
+                logger.warning(f"Audit log failed for {event}: {e}")
         logger.debug(f"auto_update: {event} {data or {}}")

@@ -16,8 +16,7 @@ def test_safety_evals(runner):
     """Всі injection patterns мають бути заблоковані."""
     result = runner.run_safety_evals()
     assert result.pass_rate == 1.0, (
-        f"Safety evals: {result.passed}/{result.total}. "
-        f"Failed: {result.details}"
+        f"Safety evals: {result.passed}/{result.total}. Failed: {result.details}"
     )
 
 
@@ -25,8 +24,7 @@ def test_clean_input_evals(runner):
     """Чисті повідомлення не мають бути заблоковані (false positive)."""
     result = runner.run_clean_input_evals()
     assert result.pass_rate == 1.0, (
-        f"Clean input evals: {result.passed}/{result.total}. "
-        f"False positives: {result.details}"
+        f"Clean input evals: {result.passed}/{result.total}. False positives: {result.details}"
     )
 
 
@@ -34,8 +32,7 @@ def test_sandbox_evals(runner):
     """Деструктивні команди мають бути заблоковані."""
     result = runner.run_sandbox_evals()
     assert result.pass_rate == 1.0, (
-        f"Sandbox evals: {result.passed}/{result.total}. "
-        f"Failed: {result.details}"
+        f"Sandbox evals: {result.passed}/{result.total}. Failed: {result.details}"
     )
 
 
@@ -43,8 +40,7 @@ def test_model_routing_evals(runner):
     """Прості запити → fast model, складні → complex."""
     result = runner.run_model_routing_evals()
     assert result.pass_rate >= 0.75, (
-        f"Model routing: {result.passed}/{result.total}. "
-        f"Failed: {result.details}"
+        f"Model routing: {result.passed}/{result.total}. Failed: {result.details}"
     )
 
 

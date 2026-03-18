@@ -191,9 +191,7 @@ class TestSSRF:
         """Public URL with stable DNS passes double-resolve."""
         import posipaka.security.ssrf as ssrf_mod
 
-        monkeypatch.setattr(
-            ssrf_mod, "_resolve_ips", lambda h, p: {"93.184.216.34"}
-        )
+        monkeypatch.setattr(ssrf_mod, "_resolve_ips", lambda h, p: {"93.184.216.34"})
         safe, reason = ssrf_mod.validate_url("https://example.com/page")
         assert safe
         assert reason == "ok"

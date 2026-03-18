@@ -35,9 +35,7 @@ class WebhookHealthChecker:
         """Start periodic webhook health checking."""
         self._running = True
         self._task = asyncio.create_task(self._check_loop())
-        logger.info(
-            f"WebhookHealthChecker started (interval={self._check_interval}s)"
-        )
+        logger.info(f"WebhookHealthChecker started (interval={self._check_interval}s)")
 
     async def stop(self) -> None:
         """Stop the health checker."""
@@ -59,10 +57,7 @@ class WebhookHealthChecker:
 
     async def _check_all_webhooks(self) -> None:
         """Check all configured webhook channels."""
-        if (
-            self._settings.telegram.use_webhook
-            and self._settings.telegram.webhook_url
-        ):
+        if self._settings.telegram.use_webhook and self._settings.telegram.webhook_url:
             await self._check_telegram_webhook()
 
     async def _check_telegram_webhook(self) -> None:
@@ -101,9 +96,7 @@ class WebhookHealthChecker:
                 return
 
             if pending > 100:
-                logger.warning(
-                    f"Telegram webhook has {pending} pending updates"
-                )
+                logger.warning(f"Telegram webhook has {pending} pending updates")
 
             # Success — reset counter
             self._consecutive_failures["telegram"] = 0
@@ -144,9 +137,7 @@ class WebhookHealthChecker:
         """Record a failure and check if fallback is needed."""
         count = self._consecutive_failures.get(channel, 0) + 1
         self._consecutive_failures[channel] = count
-        logger.warning(
-            f"{channel} webhook failure #{count}/{MAX_CONSECUTIVE_FAILURES}"
-        )
+        logger.warning(f"{channel} webhook failure #{count}/{MAX_CONSECUTIVE_FAILURES}")
         if count >= MAX_CONSECUTIVE_FAILURES:
             logger.error(
                 f"{channel}: {MAX_CONSECUTIVE_FAILURES} consecutive failures. "

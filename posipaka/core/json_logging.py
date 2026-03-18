@@ -24,9 +24,7 @@ from loguru import logger
 # ---------------------------------------------------------------------------
 
 _trace_id_var: ContextVar[str] = ContextVar("trace_id", default="")
-_log_context_var: ContextVar[dict[str, Any] | None] = ContextVar(
-    "log_context", default=None
-)
+_log_context_var: ContextVar[dict[str, Any] | None] = ContextVar("log_context", default=None)
 
 
 def get_trace_id() -> str:
@@ -70,13 +68,11 @@ def add_context(**kwargs: Any) -> Generator[None, None, None]:
 # ---------------------------------------------------------------------------
 
 SCRUB_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"sk-ant-[A-Za-z0-9\-]+"),        # Anthropic API key
-    re.compile(r"sk-[A-Za-z0-9]{20,}"),           # OpenAI API key
-    re.compile(r"xoxb-[A-Za-z0-9\-]+"),           # Slack bot token
-    re.compile(r"\d{10}:\w{35}"),                  # Telegram bot token
-    re.compile(
-        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
-    ),                                             # email addresses
+    re.compile(r"sk-ant-[A-Za-z0-9\-]+"),  # Anthropic API key
+    re.compile(r"sk-[A-Za-z0-9]{20,}"),  # OpenAI API key
+    re.compile(r"xoxb-[A-Za-z0-9\-]+"),  # Slack bot token
+    re.compile(r"\d{10}:\w{35}"),  # Telegram bot token
+    re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),  # email addresses
 ]
 
 

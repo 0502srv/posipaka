@@ -14,8 +14,7 @@ from posipaka.security.injection import sanitize_external_content
 # pip install posipaka[google]
 
 _NOT_CONFIGURED = (
-    "Google Workspace не налаштовано. "
-    "Встановіть GOOGLE_TOKEN_PATH та GOOGLE_CREDENTIALS_PATH."
+    "Google Workspace не налаштовано. Встановіть GOOGLE_TOKEN_PATH та GOOGLE_CREDENTIALS_PATH."
 )
 
 
@@ -100,9 +99,7 @@ async def google_sheets_read(
             lines.append(f"Row {i + 1}: {cells}")
 
         content = "\n".join(lines)
-        return sanitize_external_content(
-            content, source="google_sheets"
-        )
+        return sanitize_external_content(content, source="google_sheets")
     except Exception as e:
         logger.error(f"Sheets read error: {e}")
         return f"Помилка читання таблиці: {e}"
@@ -143,10 +140,7 @@ async def google_sheets_write(
             .execute()
         )
         updated = result.get("updatedCells", 0)
-        return (
-            f"Записано {updated} комірок "
-            f"в {range_name}."
-        )
+        return f"Записано {updated} комірок в {range_name}."
     except json.JSONDecodeError:
         return "Невалідний JSON у values."
     except Exception as e:
@@ -197,18 +191,14 @@ async def google_docs_read(document_id: str) -> str:
             for el in paragraph.get("elements", []):
                 text_run = el.get("textRun")
                 if text_run:
-                    content_parts.append(
-                        text_run.get("content", "")
-                    )
+                    content_parts.append(text_run.get("content", ""))
 
         text = "".join(content_parts).strip()
         if not text:
             text = "(документ порожній)"
 
         result = f"Документ: {title}\n\n{text}"
-        return sanitize_external_content(
-            result, source="google_docs"
-        )
+        return sanitize_external_content(result, source="google_docs")
     except Exception as e:
         logger.error(f"Docs read error: {e}")
         return f"Помилка читання документа: {e}"
@@ -224,9 +214,7 @@ async def google_docs_create(
         if not service:
             return _NOT_CONFIGURED
 
-        doc = service.documents().create(
-            body={"title": title}
-        ).execute()
+        doc = service.documents().create(body={"title": title}).execute()
         doc_id = doc.get("documentId", "")
 
         if content:
@@ -244,10 +232,7 @@ async def google_docs_create(
             ).execute()
 
         url = f"https://docs.google.com/document/d/{doc_id}"
-        return (
-            f"Документ створено: {title}\n"
-            f"ID: {doc_id}\nURL: {url}"
-        )
+        return f"Документ створено: {title}\nID: {doc_id}\nURL: {url}"
     except Exception as e:
         logger.error(f"Docs create error: {e}")
         return f"Помилка створення документа: {e}"
@@ -260,9 +245,7 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="google_sheets_read",
-            description=(
-                "Read data from a Google Sheets spreadsheet."
-            ),
+            description=("Read data from a Google Sheets spreadsheet."),
             category="integration",
             handler=google_sheets_read,
             input_schema={
@@ -275,9 +258,7 @@ def register(registry: Any) -> None:
                     },
                     "range_name": {
                         "type": "string",
-                        "description": (
-                            "Cell range, e.g. Sheet1!A1:Z100"
-                        ),
+                        "description": ("Cell range, e.g. Sheet1!A1:Z100"),
                     },
                 },
             },
@@ -288,10 +269,7 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="google_sheets_write",
-            description=(
-                "Write data to a Google Sheets spreadsheet. "
-                "Requires user approval."
-            ),
+            description=("Write data to a Google Sheets spreadsheet. Requires user approval."),
             category="integration",
             handler=google_sheets_write,
             input_schema={
@@ -308,16 +286,11 @@ def register(registry: Any) -> None:
                     },
                     "range_name": {
                         "type": "string",
-                        "description": (
-                            "Target range, e.g. Sheet1!A1:C3"
-                        ),
+                        "description": ("Target range, e.g. Sheet1!A1:C3"),
                     },
                     "values": {
                         "type": "string",
-                        "description": (
-                            "JSON array of rows, e.g. "
-                            "'[[\"a\",\"b\"],[\"c\",\"d\"]]'"
-                        ),
+                        "description": ('JSON array of rows, e.g. \'[["a","b"],["c","d"]]\''),
                     },
                 },
             },
@@ -329,10 +302,7 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="google_sheets_create",
-            description=(
-                "Create a new Google Sheets spreadsheet. "
-                "Requires user approval."
-            ),
+            description=("Create a new Google Sheets spreadsheet. Requires user approval."),
             category="integration",
             handler=google_sheets_create,
             input_schema={
@@ -341,9 +311,7 @@ def register(registry: Any) -> None:
                 "properties": {
                     "title": {
                         "type": "string",
-                        "description": (
-                            "Title for the new spreadsheet"
-                        ),
+                        "description": ("Title for the new spreadsheet"),
                     },
                 },
             },
@@ -355,9 +323,7 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="google_docs_read",
-            description=(
-                "Read content from a Google Docs document."
-            ),
+            description=("Read content from a Google Docs document."),
             category="integration",
             handler=google_docs_read,
             input_schema={
@@ -377,10 +343,7 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="google_docs_create",
-            description=(
-                "Create a new Google Docs document. "
-                "Requires user approval."
-            ),
+            description=("Create a new Google Docs document. Requires user approval."),
             category="integration",
             handler=google_docs_create,
             input_schema={
@@ -389,15 +352,11 @@ def register(registry: Any) -> None:
                 "properties": {
                     "title": {
                         "type": "string",
-                        "description": (
-                            "Title for the new document"
-                        ),
+                        "description": ("Title for the new document"),
                     },
                     "content": {
                         "type": "string",
-                        "description": (
-                            "Initial text content (optional)"
-                        ),
+                        "description": ("Initial text content (optional)"),
                     },
                 },
             },

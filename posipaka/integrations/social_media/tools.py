@@ -12,6 +12,7 @@ import httpx
 
 # ─── Twitter/X ──────────────────────────────────────────────────────
 
+
 async def twitter_post(text: str) -> str:
     """Опублікувати твіт (X/Twitter API v2)."""
     bearer = os.environ.get("TWITTER_BEARER_TOKEN", "")
@@ -61,6 +62,7 @@ async def twitter_search(query: str, max_results: int = 10) -> str:
 
 
 # ─── LinkedIn ───────────────────────────────────────────────────────
+
 
 async def linkedin_post(text: str) -> str:
     """Опублікувати пост у LinkedIn."""
