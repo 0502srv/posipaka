@@ -242,10 +242,10 @@ def create_app(
                         {
             "".join(
                 '<div class="flex items-center gap-2">'
-                f"<span>{"✅" if t["enabled"] else "❌"}</span>"
+                f'<span>{"✅" if t["enabled"] else "❌"}</span>'
                 f'<span class="font-mono text-sm">{t["name"]}</span>'
                 '<span class="text-gray-400 text-sm">'
-                f"— {t["description"][:60]}</span></div>"
+                f'— {t["description"][:60]}</span></div>'
                 for t in (agent.tools.list_tools() if agent else [])
             )
             or '<div class="text-gray-500">Немає інструментів</div>'
