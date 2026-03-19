@@ -130,6 +130,9 @@ class ToolRegistry:
         """Отримати ToolDefinition."""
         return self._tools.get(name)
 
+    # Провайдери що використовують OpenAI-сумісний формат tools
+    _OPENAI_COMPATIBLE = {"openai", "mistral", "groq", "deepseek", "xai", "gemini", "ollama"}
+
     def get_schemas(self, provider: str = "anthropic") -> list[dict]:
         """Отримати schemas для LLM API."""
         schemas = []
@@ -138,7 +141,7 @@ class ToolRegistry:
                 continue
             if provider == "anthropic":
                 schemas.append(tool.to_anthropic_schema())
-            elif provider == "openai":
+            elif provider in self._OPENAI_COMPATIBLE:
                 schemas.append(tool.to_openai_schema())
         return schemas
 
