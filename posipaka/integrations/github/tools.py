@@ -81,6 +81,11 @@ async def github_get_file(repo: str, path: str) -> str:
 
 
 def register(registry: Any) -> None:
+    import os
+
+    if not os.environ.get("GITHUB_TOKEN"):
+        return
+
     from posipaka.core.tools.registry import ToolDefinition
 
     registry.register(

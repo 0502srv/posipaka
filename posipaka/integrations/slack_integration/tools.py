@@ -78,6 +78,11 @@ async def slack_search_messages(query: str) -> str:
 
 
 def register(registry: Any) -> None:
+    import os
+
+    if not os.environ.get("SLACK_BOT_TOKEN"):
+        return
+
     from posipaka.core.tools.registry import ToolDefinition
 
     registry.register(

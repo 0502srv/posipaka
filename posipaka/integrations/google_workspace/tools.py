@@ -240,6 +240,11 @@ async def google_docs_create(
 
 def register(registry: Any) -> None:
     """Register Google Workspace tools."""
+    import os
+
+    if not os.environ.get("GOOGLE_TOKEN_PATH"):
+        return
+
     from posipaka.core.tools.registry import ToolDefinition
 
     registry.register(

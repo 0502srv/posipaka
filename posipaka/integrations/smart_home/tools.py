@@ -121,6 +121,11 @@ async def hass_call_service(domain: str, service: str, entity_id: str = "", data
 
 
 def register(registry: Any) -> None:
+    import os
+
+    if not os.environ.get("HASS_TOKEN"):
+        return
+
     from posipaka.core.tools.registry import ToolDefinition
 
     registry.register(

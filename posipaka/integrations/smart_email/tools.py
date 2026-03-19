@@ -84,6 +84,11 @@ async def email_filter_rules() -> str:
 
 
 def register(registry: Any) -> None:
+    import os
+
+    if not os.environ.get("GOOGLE_TOKEN_PATH"):
+        return
+
     from posipaka.core.tools.registry import ToolDefinition
 
     registry.register(
