@@ -73,6 +73,12 @@ class LLMClient:
         self._primary_client: Any = None
         self._fallback_client: Any = None
 
+    def reinitialize(self) -> None:
+        """Скинути кешовані клієнти — наступний complete() створить нових."""
+        self._primary_client = None
+        self._fallback_client = None
+        logger.info("LLM client reset — will reinitialize on next call")
+
     def _init_clients(self) -> None:
         provider = self._settings.llm.provider
         api_key = self._settings.llm.api_key.get_secret_value()
@@ -386,6 +392,27 @@ class Agent:
         await self.hooks.emit(HookEvent.AGENT_START)
         self.audit.log("agent_start", {"version": "0.1.0"})
         logger.info("Agent initialized")
+
+    def reload_settings(self) -> None:
+        """Hot-reload: перечитати runtime config і переініціалізувати компоненти."""
+        # 1. Перечитати runtime config
+        if self.runtime_config:
+            self.runtime_config._load()
+            self.runtime_config.apply_to_settings(self.settings)
+
+        # 2. Переініціалізувати LLM клієнт
+        self.llm.reinitialize()
+
+        # 3. Оновити CostGuard ліміти
+        self.cost_guard.daily_budget = self.settings.cost.daily_budget_usd
+        self.cost_guard.per_request_max = self.settings.cost.per_request_max_usd
+        self.cost_guard.per_session_max = self.settings.cost.per_session_max_usd
+
+        # 4. Переініціалізувати ModelRouter
+        self.model_router = self._init_model_router(self.settings)
+
+        self.audit.log("settings_hot_reloaded", {})
+        logger.info("Settings hot-reloaded successfully")
 
     def _load_builtin_skills(self) -> None:
         """Завантажити builtin skills (summarize, translate, remind, research)."""

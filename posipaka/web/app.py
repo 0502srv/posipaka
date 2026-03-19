@@ -132,7 +132,7 @@ def _save_runtime(updates: dict[str, Any], agent: Any = None) -> None:
 
 
 def _saved_with_restart() -> str:
-    """Return HTML fragment: saved + restart button."""
+    """Return HTML fragment: saved + restart button (for channels only)."""
     return (
         '<span class="text-green-400">Збережено!</span> '
         '<button hx-post="/settings/restart" hx-target="this" '
@@ -140,6 +140,11 @@ def _saved_with_restart() -> str:
         'class="ml-2 px-3 py-1 bg-yellow-600 rounded text-sm '
         'hover:bg-yellow-700">Перезапустити</button>'
     )
+
+
+def _saved_applied() -> str:
+    """Return HTML fragment: saved + applied instantly (hot-reload)."""
+    return '<span class="text-green-400">Збережено! Застосовано.</span>'
 
 
 def create_app(
@@ -1165,7 +1170,8 @@ def create_app(
                 "settings_llm_updated",
                 {"provider": str(form.get("provider", ""))},
             )
-        return _saved_with_restart()
+            agent.reload_settings()
+        return _saved_applied()
 
     @app.post("/settings/soul", response_class=HTMLResponse)
     async def settings_soul(request: Request):
@@ -1248,7 +1254,8 @@ def create_app(
         )
         if agent:
             agent.audit.log("settings_agent_updated", {"name": str(form.get("name", ""))})
-        return _saved_with_restart()
+            agent.reload_settings()
+        return _saved_applied()
 
     @app.post("/settings/cost", response_class=HTMLResponse)
     async def settings_cost(request: Request):
@@ -1263,7 +1270,8 @@ def create_app(
         )
         if agent:
             agent.audit.log("settings_cost_updated", {})
-        return _saved_with_restart()
+            agent.reload_settings()
+        return _saved_applied()
 
     @app.delete("/settings/memory/clear", response_class=HTMLResponse)
     async def settings_memory_clear(request: Request):
@@ -1350,17 +1358,18 @@ def create_app(
     # ─── Restart ─────────────────────────────────────────────────────
     @app.post("/settings/restart", response_class=HTMLResponse)
     async def settings_restart(request: Request):
-        """Restart the agent process."""
+        """Restart the agent process (for channel changes that need full restart)."""
         import asyncio
         import os
+        import signal
 
         if agent:
             agent.audit.log("agent_restart", {"source": "web_ui"})
 
         async def _delayed_restart() -> None:
             await asyncio.sleep(1)
-            # Exit with code 1 so Docker restart policy restarts container
-            os._exit(1)
+            # SIGTERM for graceful shutdown; Docker restart policy restarts container
+            os.kill(os.getpid(), signal.SIGTERM)
 
         asyncio.create_task(_delayed_restart())
         return (
@@ -1409,7 +1418,8 @@ def create_app(
 
         if agent:
             agent.audit.log("settings_routing_updated", {"mode": mode})
-        return '<span class="text-green-400">Збережено! Діє після перезапуску.</span>'
+            agent.reload_settings()
+        return _saved_applied()
 
     # ─── Channels settings ─────────────────────────────────────────────
     @app.post("/settings/channels", response_class=HTMLResponse)
