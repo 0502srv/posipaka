@@ -44,13 +44,13 @@ def start(ctx: click.Context) -> None:
 
     settings = get_settings()
     logger.info(f"Posipaka v{__version__} запускається...")
-    logger.info(f"LLM: {settings.llm.provider}/{settings.llm.model}")
 
     async def _run() -> None:
         from posipaka.core.agent import Agent
 
         agent = Agent(settings)
         await agent.initialize()
+        logger.info(f"LLM: {agent.settings.llm.provider}/{agent.settings.llm.model}")
         try:
             tasks = []
 
