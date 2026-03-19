@@ -1,86 +1,147 @@
-"""Posipaka — Weather Integration (OpenWeatherMap API)."""
+"""Posipaka — Weather Integration (Open-Meteo API, no key required)."""
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import httpx
 
-OWM_BASE = "https://api.openweathermap.org/data/2.5"
+_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
+_WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
+
+# WMO Weather interpretation codes → Ukrainian descriptions
+_WMO_CODES: dict[int, str] = {
+    0: "ясно",
+    1: "переважно ясно",
+    2: "мінлива хмарність",
+    3: "хмарно",
+    45: "туман",
+    48: "паморозний туман",
+    51: "легка мряка",
+    53: "мряка",
+    55: "сильна мряка",
+    56: "крижана мряка",
+    57: "сильна крижана мряка",
+    61: "невеликий дощ",
+    63: "дощ",
+    65: "сильний дощ",
+    66: "крижаний дощ",
+    67: "сильний крижаний дощ",
+    71: "невеликий сніг",
+    73: "сніг",
+    75: "сильний сніг",
+    77: "снігова крупа",
+    80: "невеликі зливи",
+    81: "зливи",
+    82: "сильні зливи",
+    85: "невеликий снігопад",
+    86: "сильний снігопад",
+    95: "гроза",
+    96: "гроза з градом",
+    99: "сильна гроза з градом",
+}
 
 
-def _get_api_key() -> str:
-    return os.environ.get("OPENWEATHERMAP_API_KEY", "")
-
-
-async def get_weather(city: str, units: str = "metric") -> str:
-    """Отримати поточну погоду."""
-    api_key = _get_api_key()
-    if not api_key:
-        return "OpenWeatherMap API ключ не налаштовано. Встановіть OPENWEATHERMAP_API_KEY."
-
+async def _geocode(city: str) -> tuple[float, float, str] | None:
+    """Знайти координати міста. Повертає (lat, lon, display_name) або None."""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"{OWM_BASE}/weather",
-                params={"q": city, "appid": api_key, "units": units, "lang": "uk"},
+            resp = await client.get(
+                _GEOCODING_URL,
+                params={"name": city, "count": 1, "language": "uk", "format": "json"},
             )
-            response.raise_for_status()
+            resp.raise_for_status()
+        data = resp.json()
+        results = data.get("results")
+        if not results:
+            return None
+        r = results[0]
+        name = r.get("name", city)
+        country = r.get("country", "")
+        display = f"{name}, {country}" if country else name
+        return r["latitude"], r["longitude"], display
+    except Exception:
+        return None
 
-        data = response.json()
-        temp = data["main"]["temp"]
-        feels = data["main"]["feels_like"]
-        desc = data["weather"][0]["description"]
-        humidity = data["main"]["humidity"]
-        wind = data["wind"]["speed"]
-        unit_sym = "°C" if units == "metric" else "°F"
+
+async def get_weather(city: str) -> str:
+    """Отримати поточну погоду для міста."""
+    geo = await _geocode(city)
+    if not geo:
+        return f"Місто '{city}' не знайдено."
+
+    lat, lon, display_name = geo
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                _WEATHER_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
+                    "timezone": "auto",
+                },
+            )
+            resp.raise_for_status()
+
+        current = resp.json()["current"]
+        temp = current["temperature_2m"]
+        feels = current["apparent_temperature"]
+        humidity = current["relative_humidity_2m"]
+        wind = current["wind_speed_10m"]
+        code = current["weather_code"]
+        desc = _WMO_CODES.get(code, f"код {code}")
 
         return (
-            f"Погода в {city}:\n"
-            f"🌡️ {temp}{unit_sym} (відчувається як {feels}{unit_sym})\n"
+            f"Погода в {display_name}:\n"
+            f"🌡️ {temp}°C (відчувається як {feels}°C)\n"
             f"☁️ {desc}\n"
             f"💧 Вологість: {humidity}%\n"
-            f"💨 Вітер: {wind} м/с"
+            f"💨 Вітер: {wind} км/год"
         )
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            return f"Місто '{city}' не знайдено"
-        return f"Помилка API: {e.response.status_code}"
     except Exception as e:
-        return f"Помилка погоди: {e}"
+        return f"Помилка отримання погоди: {e}"
 
 
-async def get_forecast(city: str, days: int = 3, units: str = "metric") -> str:
-    """Отримати прогноз погоди."""
-    api_key = _get_api_key()
-    if not api_key:
-        return "OpenWeatherMap API ключ не налаштовано."
+async def get_forecast(city: str, days: int = 3) -> str:
+    """Отримати прогноз погоди на кілька днів."""
+    geo = await _geocode(city)
+    if not geo:
+        return f"Місто '{city}' не знайдено."
+
+    lat, lon, display_name = geo
+    days = max(1, min(days, 16))
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"{OWM_BASE}/forecast",
-                params={"q": city, "appid": api_key, "units": units, "lang": "uk", "cnt": days * 8},
+            resp = await client.get(
+                _WEATHER_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "daily": "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,wind_speed_10m_max",
+                    "timezone": "auto",
+                    "forecast_days": days,
+                },
             )
-            response.raise_for_status()
+            resp.raise_for_status()
 
-        data = response.json()
-        unit_sym = "°C" if units == "metric" else "°F"
+        daily = resp.json()["daily"]
+        lines = [f"Прогноз для {display_name} на {days} дн.:\n"]
 
-        lines = [f"Прогноз для {city} на {days} дні:\n"]
-        seen_dates = set()
-        for item in data.get("list", []):
-            date = item["dt_txt"][:10]
-            if date in seen_dates:
-                continue
-            seen_dates.add(date)
-            if len(seen_dates) > days:
-                break
+        for i in range(len(daily["time"])):
+            date = daily["time"][i]
+            t_max = daily["temperature_2m_max"][i]
+            t_min = daily["temperature_2m_min"][i]
+            code = daily["weather_code"][i]
+            precip = daily["precipitation_probability_max"][i]
+            wind = daily["wind_speed_10m_max"][i]
+            desc = _WMO_CODES.get(code, f"код {code}")
 
-            temp = item["main"]["temp"]
-            desc = item["weather"][0]["description"]
-            lines.append(f"📅 {date}: {temp}{unit_sym}, {desc}")
+            lines.append(
+                f"📅 {date}: {t_min}..{t_max}°C, {desc}, "
+                f"опади {precip}%, вітер {wind} км/год"
+            )
 
         return "\n".join(lines)
     except Exception as e:
@@ -94,17 +155,16 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="get_weather",
-            description="Get current weather for a city. Requires OPENWEATHERMAP_API_KEY.",
+            description="Get current weather for a city. Works instantly, no API key needed.",
             category="integration",
             handler=get_weather,
             input_schema={
                 "type": "object",
                 "required": ["city"],
                 "properties": {
-                    "city": {"type": "string", "description": "City name (e.g. 'Kyiv', 'London')"},
-                    "units": {
+                    "city": {
                         "type": "string",
-                        "description": "Units: metric (°C) or imperial (°F)",
+                        "description": "City name (e.g. 'Kyiv', 'London', 'Дніпро')",
                     },
                 },
             },
@@ -115,16 +175,21 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="get_forecast",
-            description="Get weather forecast for a city for next N days.",
+            description="Get weather forecast for a city for next N days (up to 16).",
             category="integration",
             handler=get_forecast,
             input_schema={
                 "type": "object",
                 "required": ["city"],
                 "properties": {
-                    "city": {"type": "string", "description": "City name"},
-                    "days": {"type": "integer", "description": "Number of days (default 3)"},
-                    "units": {"type": "string", "description": "Units: metric or imperial"},
+                    "city": {
+                        "type": "string",
+                        "description": "City name (e.g. 'Kyiv', 'London', 'Дніпро')",
+                    },
+                    "days": {
+                        "type": "integer",
+                        "description": "Number of forecast days (1-16, default 3)",
+                    },
                 },
             },
             tags=["weather"],
