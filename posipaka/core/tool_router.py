@@ -40,19 +40,25 @@ _TOOL_ROUTES: list[tuple[re.Pattern, list[str]]] = [
         ),
         ["get_news", "get_top_headlines"],
     ),
+    # Knowledge / informational queries
+    (
+        re.compile(
+            r"розкажи|розповідь|розповісти|опиши|описати|"
+            r"що таке|хто так|що відомо|що знаєш|"
+            r"історі[яю]|факти про|інформаці[яю] про|"
+            r"tell me about|describe|explain|what is|who is",
+            re.IGNORECASE,
+        ),
+        ["wikipedia_search", "wikipedia_summary", "web_search", "web_fetch"],
+    ),
     # Web search
     (
         re.compile(
             r"знайди|пошук|search|google|шукай|загугли|"
-            r"що таке|who is|what is|wiki|вікіпед",
+            r"wiki|вікіпед",
             re.IGNORECASE,
         ),
         ["web_search", "web_fetch", "wikipedia_search", "wikipedia_summary"],
-    ),
-    # Wikipedia specifically
-    (
-        re.compile(r"вікіпед|wikipedia|wiki", re.IGNORECASE),
-        ["wikipedia_search", "wikipedia_summary"],
     ),
     # Files / shell
     (
@@ -149,8 +155,8 @@ def route_tools(
         f"(from {len(all_schemas)} total)"
     )
 
-    # If exactly 1-2 tools matched, use "required" — force the model to call tool
-    tool_choice: str | dict = "required" if len(filtered) <= 3 else "auto"
+    # Force tool call when few tools matched — even weak models handle this
+    tool_choice: str | dict = "required" if len(filtered) <= 5 else "auto"
 
     return ToolRouteResult(
         tools=filtered,
