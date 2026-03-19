@@ -780,9 +780,18 @@ class Agent:
                 if tz_info:
                     system_prompt += "\n\n" + tz_info
 
-            # Get recent history
+            # Get recent history (deduplicate consecutive same-role messages)
             recent = await self.memory.get_recent(session_id, self.MAX_CONTEXT_MESSAGES)
-            messages = [{"role": m["role"], "content": m["content"]} for m in recent]
+            messages: list[dict[str, str]] = []
+            for m in recent:
+                role, content_text = m["role"], m["content"]
+                if messages and messages[-1]["role"] == role:
+                    messages[-1]["content"] += "\n" + content_text
+                else:
+                    messages.append({"role": role, "content": content_text})
+            # Ensure first message is user (required by most LLMs)
+            if messages and messages[0]["role"] != "user":
+                messages = messages[1:]
 
             # Get tool schemas
             tool_schemas = self.tools.get_schemas(self.settings.llm.provider)
@@ -1092,7 +1101,18 @@ class Agent:
 
     async def _build_system_prompt(self, session_id: str) -> str:
         """Побудова system prompt з SOUL.md + USER.md + MEMORY.md + semantic search."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
         parts = []
+
+        # Current date/time — щоб модель знала поточну дату
+        try:
+            tz = ZoneInfo(self.settings.soul.timezone)
+        except (KeyError, ImportError):
+            tz = ZoneInfo("UTC")
+        now = datetime.now(tz)
+        parts.append(f"Поточна дата: {now.strftime('%Y-%m-%d %H:%M')} ({now.tzname()})")
 
         # SOUL.md
         soul_path = self.settings.soul_md_path
