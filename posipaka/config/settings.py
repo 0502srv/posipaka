@@ -23,8 +23,8 @@ class LLMSettings(BaseSettings):
         "deepseek",
         "xai",
     ] = "mistral"
-    model: str = "mistral-large-latest"
-    fallback_model: str = "mistral-small-latest"
+    model: str = "mistral-small-latest"
+    fallback_model: str = ""
     fallback_provider: Literal[
         "anthropic",
         "openai",
@@ -34,7 +34,8 @@ class LLMSettings(BaseSettings):
         "groq",
         "deepseek",
         "xai",
-    ] = "groq"
+        "",
+    ] = ""
     api_key: SecretStr = SecretStr("")
     fallback_api_key: SecretStr = SecretStr("")
     base_url: str | None = None

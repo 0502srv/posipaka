@@ -133,7 +133,7 @@ if [[ "$_current_key" == "sk-ant-your-key-here" || "$_current_key" == "your-api-
             ;;
         *)
             sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=mistral/' "$INSTALL_DIR/.env"
-            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=mistral-large-latest/' "$INSTALL_DIR/.env"
+            sed -i 's/^LLM_MODEL=.*/LLM_MODEL=mistral-small-latest/' "$INSTALL_DIR/.env"
             echo -e -n "${BLUE}Mistral API key: ${NC}"
             read -r _api_key < /dev/tty
             ;;
