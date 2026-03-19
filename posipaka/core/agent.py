@@ -205,21 +205,28 @@ class LLMClient:
         if self._primary_client is None:
             raise RuntimeError("OpenAI client not initialized")
 
-        oai_messages = [{"role": "system", "content": system}]
+        oai_messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         prev_role = "system"
         for msg in messages:
             role = msg["role"]
+            # Tool-related messages pass through as-is (structured format)
+            if role == "tool" or "tool_calls" in msg:
+                oai_messages.append(msg)
+                prev_role = role
+                continue
             # Merge consecutive same-role messages (Mistral requires alternation)
             if role == prev_role and oai_messages:
                 oai_messages[-1]["content"] += "\n" + msg["content"]
             else:
                 oai_messages.append({"role": role, "content": msg["content"]})
                 prev_role = role
-        # Ensure last message is user (required by Mistral and some other providers)
-        if oai_messages and oai_messages[-1]["role"] != "user":
-            # Trim trailing assistant messages
-            while oai_messages and oai_messages[-1]["role"] == "assistant":
-                oai_messages.pop()
+        # Ensure last message is user or tool (required by Mistral)
+        while (
+            len(oai_messages) > 1
+            and oai_messages[-1]["role"] == "assistant"
+            and "tool_calls" not in oai_messages[-1]
+        ):
+            oai_messages.pop()
 
         kwargs: dict[str, Any] = {
             "model": model,
@@ -856,13 +863,25 @@ class Agent:
                     return
 
                 # LLM call with selected model + degradation handling
+                # After first tool execution with confident routing,
+                # don't pass tools — force model to respond with text
+                if _iteration == 0:
+                    iter_tools = tool_schemas if tool_schemas else None
+                    iter_choice = tool_choice
+                elif route.confident and _iteration >= 1:
+                    iter_tools = None
+                    iter_choice = None
+                else:
+                    iter_tools = tool_schemas if tool_schemas else None
+                    iter_choice = None
+
                 try:
                     response = await self.llm.complete(
                         system=system_prompt,
                         messages=messages,
-                        tools=tool_schemas if tool_schemas else None,
+                        tools=iter_tools,
                         model=selected_model,
-                        tool_choice=tool_choice if _iteration == 0 else None,
+                        tool_choice=iter_choice,
                     )
                     if self.degradation:
                         self.degradation.report_recovery("llm")
@@ -1015,10 +1034,30 @@ class Agent:
                             }
                         )
                     else:
+                        # OpenAI/Mistral format: assistant with tool_calls + tool result
+                        import json
+
                         messages.append(
                             {
                                 "role": "assistant",
-                                "content": f"[Tool: {tool_name}] → {result_str}",
+                                "tool_calls": [
+                                    {
+                                        "id": tool_id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": tool_name,
+                                            "arguments": json.dumps(tool_input),
+                                        },
+                                    }
+                                ],
+                                "content": response["content"] or "",
+                            }
+                        )
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_id,
+                                "content": result_str,
                             }
                         )
 

@@ -50,7 +50,9 @@ else
 fi
 
 # ─── Clone or update repo ───────────────────────────────────────────────────
+IS_UPDATE=false
 if [ -d "$INSTALL_DIR/.git" ]; then
+    IS_UPDATE=true
     log "Updating existing installation..."
     cd "$INSTALL_DIR"
     git pull origin main --ff-only
@@ -70,9 +72,11 @@ if [ ! -f "$INSTALL_DIR/.env" ]; then
     cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
 fi
 
-# ─── Interactive config ──────────────────────────────────────────────────────
+# ─── Interactive config (skip on update — config already exists) ─────────────
 _current_key=$(grep "^LLM_API_KEY=" "$INSTALL_DIR/.env" | cut -d= -f2-)
-if [[ "$_current_key" == "sk-ant-your-key-here" || "$_current_key" == "your-api-key-here" || -z "$_current_key" ]]; then
+if [[ "$IS_UPDATE" == true && -n "$_current_key" && "$_current_key" != "your-api-key-here" ]]; then
+    log "Update mode — keeping existing config"
+elif [[ "$_current_key" == "sk-ant-your-key-here" || "$_current_key" == "your-api-key-here" || -z "$_current_key" ]]; then
     echo ""
     echo -e "${YELLOW}${BOLD}Configuration${NC}"
     echo ""
@@ -267,10 +271,12 @@ case "$DEPLOY_METHOD" in
     native) deploy_native ;;
 esac
 
-# ─── Generate web password ────────────────────────────────────────────────────
+# ─── Generate web password (only on fresh install) ──────────────────────────
 sleep 3
 _web_password=""
-if [[ "$DEPLOY_METHOD" == "docker" ]]; then
+if [[ "$IS_UPDATE" == true ]]; then
+    log "Update complete — password unchanged"
+elif [[ "$DEPLOY_METHOD" == "docker" ]]; then
     _web_password=$($DOCKER exec posipaka posipaka reset-password 2>&1 \
         | grep "NEW WEB UI PASSWORD:" | head -1 \
         | sed 's/.*NEW WEB UI PASSWORD: //' | tr -d '[:space:]')
@@ -289,7 +295,11 @@ fi
 # ─── Done ────────────────────────────────────────────────────────────────────
 _ip=$(hostname -I | awk '{print $1}')
 echo ""
-echo -e "${GREEN}${BOLD}Posipaka deployed successfully!${NC}"
+if [[ "$IS_UPDATE" == true ]]; then
+    echo -e "${GREEN}${BOLD}Posipaka updated successfully!${NC}"
+else
+    echo -e "${GREEN}${BOLD}Posipaka deployed successfully!${NC}"
+fi
 echo ""
 echo "  Web UI:  http://${_ip}:8080"
 if [[ -n "$_web_password" ]]; then
@@ -303,4 +313,8 @@ else
 fi
 echo "  Config:  $INSTALL_DIR/.env"
 echo ""
-echo "Next: send a message to your Telegram bot!"
+if [[ "$IS_UPDATE" == true ]]; then
+    echo "Updated & rebuilt. Bot is running."
+else
+    echo "Next: send a message to your Telegram bot!"
+fi
