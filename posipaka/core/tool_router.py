@@ -46,7 +46,10 @@ _TOOL_ROUTES: list[tuple[re.Pattern, list[str]]] = [
             r"розкажи|розповідь|розповісти|опиши|описати|"
             r"що таке|хто так|що відомо|що знаєш|"
             r"історі[яю]|факти про|інформаці[яю] про|"
-            r"tell me about|describe|explain|what is|who is",
+            r"як працює|як діє|як влаштован|"
+            r"порівняй|різниця між|відмінність|"
+            r"переваги|недоліки|плюси|мінуси|"
+            r"tell me about|describe|explain|what is|who is|how does",
             re.IGNORECASE,
         ),
         ["wikipedia_search", "wikipedia_summary", "web_search", "web_fetch"],

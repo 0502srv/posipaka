@@ -914,7 +914,14 @@ class Agent:
                         await self.memory.maybe_extract_facts(session_id, content)
                         # Cache response for similar future queries
                         await self.semantic_cache.store(content, text, session_id)
-                        self.audit.log("response_sent", {"content": text})
+                        self.audit.log(
+                            "response_sent",
+                            {
+                                "content": text,
+                                "model": selected_model,
+                                "tool_calls": _iteration,
+                            },
+                        )
                         # Quality scoring
                         if self.quality_monitor:
                             import contextlib
@@ -1182,7 +1189,11 @@ class Agent:
         except (KeyError, ImportError):
             tz = ZoneInfo("UTC")
         now = datetime.now(tz)
-        parts.append(f"Поточна дата: {now.strftime('%Y-%m-%d %H:%M')} ({now.tzname()})")
+        parts.append(
+            f"Поточна дата: {now.strftime('%Y-%m-%d %H:%M')} ({now.tzname()})\n"
+            "Відповідай стисло і по суті. Максимум 1500 символів, якщо користувач "
+            "не просить детальніше. Використовуй структуру (заголовки, списки) для читабельності."
+        )
 
         # SOUL.md
         soul_path = self.settings.soul_md_path

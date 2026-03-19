@@ -40,7 +40,7 @@ class LLMSettings(BaseSettings):
     fallback_api_key: SecretStr = SecretStr("")
     base_url: str | None = None
     max_tokens: int = 4096
-    temperature: float = 0.7
+    temperature: float = 0.4
 
     @field_validator("provider")
     @classmethod
