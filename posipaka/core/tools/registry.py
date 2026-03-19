@@ -147,7 +147,14 @@ class ToolRegistry:
 
     def get_skill_metadata(self) -> str:
         """Metadata для system prompt."""
-        lines = ["Available tools:"]
+        lines = [
+            "# Tools",
+            "IMPORTANT: Always use tools when the user asks for real-time data "
+            "(weather, news, crypto prices, web search, etc.). "
+            "NEVER guess or make up data — call the appropriate tool instead.",
+            "",
+            "Available tools:",
+        ]
         for tool in self._tools.values():
             if not tool.enabled:
                 continue

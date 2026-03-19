@@ -122,6 +122,7 @@ class LLMClient:
         messages: list[dict],
         tools: list[dict] | None = None,
         model: str | None = None,
+        tool_choice: str | dict | None = None,
     ) -> dict:
         """
         Виклик LLM.
@@ -138,7 +139,9 @@ class LLMClient:
             if provider == "anthropic":
                 return await self._call_anthropic(system, messages, tools, model)
             else:
-                return await self._call_openai(system, messages, tools, model)
+                return await self._call_openai(
+                    system, messages, tools, model, tool_choice
+                )
         except Exception as e:
             logger.error(f"LLM primary error: {e}")
             # Try fallback
@@ -192,14 +195,31 @@ class LLMClient:
         }
 
     async def _call_openai(
-        self, system: str, messages: list[dict], tools: list[dict] | None, model: str
+        self,
+        system: str,
+        messages: list[dict],
+        tools: list[dict] | None,
+        model: str,
+        tool_choice: str | dict | None = None,
     ) -> dict:
         if self._primary_client is None:
             raise RuntimeError("OpenAI client not initialized")
 
         oai_messages = [{"role": "system", "content": system}]
+        prev_role = "system"
         for msg in messages:
-            oai_messages.append({"role": msg["role"], "content": msg["content"]})
+            role = msg["role"]
+            # Merge consecutive same-role messages (Mistral requires alternation)
+            if role == prev_role and oai_messages:
+                oai_messages[-1]["content"] += "\n" + msg["content"]
+            else:
+                oai_messages.append({"role": role, "content": msg["content"]})
+                prev_role = role
+        # Ensure last message is user (required by Mistral and some other providers)
+        if oai_messages and oai_messages[-1]["role"] != "user":
+            # Trim trailing assistant messages
+            while oai_messages and oai_messages[-1]["role"] == "assistant":
+                oai_messages.pop()
 
         kwargs: dict[str, Any] = {
             "model": model,
@@ -220,6 +240,8 @@ class LLMClient:
                 }
                 for t in tools
             ]
+            if tool_choice:
+                kwargs["tool_choice"] = tool_choice
 
         response = await self._primary_client.chat.completions.create(**kwargs)
         choice = response.choices[0]
@@ -793,8 +815,16 @@ class Agent:
             if messages and messages[0]["role"] != "user":
                 messages = messages[1:]
 
-            # Get tool schemas
-            tool_schemas = self.tools.get_schemas(self.settings.llm.provider)
+            # Get tool schemas + smart routing
+            all_schemas = self.tools.get_schemas(self.settings.llm.provider)
+
+            from posipaka.core.tool_router import route_tools
+
+            route = route_tools(
+                content, all_schemas, self.settings.llm.provider
+            )
+            tool_schemas = route.tools
+            tool_choice = route.tool_choice
 
             # Model routing — вибрати оптимальну модель + settings
             selected_profile = self.model_router.select_profile(
@@ -832,6 +862,7 @@ class Agent:
                         messages=messages,
                         tools=tool_schemas if tool_schemas else None,
                         model=selected_model,
+                        tool_choice=tool_choice if _iteration == 0 else None,
                     )
                     if self.degradation:
                         self.degradation.report_recovery("llm")

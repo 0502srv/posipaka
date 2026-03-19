@@ -155,7 +155,7 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="get_weather",
-            description="Get current weather for a city. Works instantly, no API key needed.",
+            description="Get current weather for a city. Use when user asks about weather, temperature, rain, snow, wind, погода, температура.",
             category="integration",
             handler=get_weather,
             input_schema={
@@ -175,7 +175,7 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="get_forecast",
-            description="Get weather forecast for a city for next N days (up to 16).",
+            description="Get weather forecast for a city for next N days (up to 16). Use when user asks about forecast, прогноз, погода на завтра/тиждень.",
             category="integration",
             handler=get_forecast,
             input_schema={
