@@ -271,24 +271,30 @@ case "$DEPLOY_METHOD" in
     native) deploy_native ;;
 esac
 
-# ─── Generate web password (only on fresh install) ──────────────────────────
-sleep 3
+# ─── Extract web password from first-run logs ───────────────────────────────
 _web_password=""
 if [[ "$IS_UPDATE" == true ]]; then
     log "Update complete — password unchanged"
 elif [[ "$DEPLOY_METHOD" == "docker" ]]; then
-    _web_password=$($DOCKER exec posipaka posipaka reset-password 2>&1 \
-        | grep "NEW WEB UI PASSWORD:" | head -1 \
-        | sed 's/.*NEW WEB UI PASSWORD: //' | tr -d '[:space:]')
+    # Password is auto-generated on first run and logged to stdout
+    _web_password=$($DOCKER logs posipaka 2>&1 \
+        | grep "WEB UI PASSWORD:" | head -1 \
+        | sed 's/.*WEB UI PASSWORD: //' | tr -d '[:space:]')
+    # Fallback: if not found in logs, generate via reset-password
+    if [[ -z "$_web_password" ]]; then
+        _web_password=$($DOCKER exec posipaka posipaka reset-password 2>&1 \
+            | grep "NEW WEB UI PASSWORD:" | head -1 \
+            | sed 's/.*NEW WEB UI PASSWORD: //' | tr -d '[:space:]')
+    fi
 else
     sleep 2
     _web_password=$(sudo journalctl -u posipaka --no-pager -n 50 2>&1 \
         | grep "WEB UI PASSWORD:" | head -1 \
         | sed 's/.*WEB UI PASSWORD: //' | tr -d '[:space:]')
     if [[ -z "$_web_password" ]]; then
-        cd "$INSTALL_DIR" && .venv/bin/posipaka reset-password 2>&1 \
+        cd "$INSTALL_DIR" && _web_password=$(.venv/bin/posipaka reset-password 2>&1 \
             | grep "NEW WEB UI PASSWORD:" | head -1 \
-            | sed 's/.*NEW WEB UI PASSWORD: //' | tr -d '[:space:]'
+            | sed 's/.*NEW WEB UI PASSWORD: //' | tr -d '[:space:]')
     fi
 fi
 
