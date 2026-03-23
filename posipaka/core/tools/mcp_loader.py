@@ -49,15 +49,39 @@ TOOL_CACHE_TTL = 300
 RESOURCE_CACHE_TTL = 300
 PROMPT_CACHE_TTL = 300
 
-_ESSENTIAL_VARS = frozenset({
-    "PATH", "HOME", "LANG", "LANGUAGE", "LC_ALL", "LC_CTYPE",
-    "TERM", "SHELL", "USER", "LOGNAME", "TMPDIR", "XDG_RUNTIME_DIR",
-})
+_ESSENTIAL_VARS = frozenset(
+    {
+        "PATH",
+        "HOME",
+        "LANG",
+        "LANGUAGE",
+        "LC_ALL",
+        "LC_CTYPE",
+        "TERM",
+        "SHELL",
+        "USER",
+        "LOGNAME",
+        "TMPDIR",
+        "XDG_RUNTIME_DIR",
+    }
+)
 
-_ALLOWED_COMMANDS = frozenset({
-    "node", "npx", "npm", "python", "python3", "uvx", "uv",
-    "deno", "bun", "bunx", "docker", "podman",
-})
+_ALLOWED_COMMANDS = frozenset(
+    {
+        "node",
+        "npx",
+        "npm",
+        "python",
+        "python3",
+        "uvx",
+        "uv",
+        "deno",
+        "bun",
+        "bunx",
+        "docker",
+        "podman",
+    }
+)
 
 __all__ = [
     "MCPToolLoader",
@@ -302,6 +326,7 @@ def _build_subprocess_env(config: MCPServerConfig) -> dict[str, str]:
 def _is_ip_address(host: str) -> bool:
     try:
         import ipaddress
+
         ipaddress.ip_address(host)
         return True
     except ValueError:
@@ -311,16 +336,19 @@ def _is_ip_address(host: str) -> bool:
 def _is_private_ip(host: str) -> bool:
     try:
         import ipaddress
+
         addr = ipaddress.ip_address(host)
         return addr.is_private and not addr.is_loopback
     except ValueError:
         return False
 
 
-_BLOCKED_HOSTS = frozenset({
-    "metadata.google.internal",
-    "metadata.goog",
-})
+_BLOCKED_HOSTS = frozenset(
+    {
+        "metadata.google.internal",
+        "metadata.goog",
+    }
+)
 
 
 def _check_blocked_host(
@@ -338,6 +366,7 @@ def _check_blocked_host(
 
     if _is_ip_address(host):
         import ipaddress
+
         addr = ipaddress.ip_address(host)
         if addr.is_loopback:
             return False, "ok"
@@ -571,7 +600,6 @@ def _extract_init_result(state: MCPServerState, result: Any) -> None:
 
 
 class MCPToolLoader:
-
     def __init__(
         self,
         config_path: Path | None = None,
@@ -607,10 +635,7 @@ class MCPToolLoader:
 
     @property
     def active_servers(self) -> list[str]:
-        return [
-            name for name, s in self._servers.items()
-            if s.status == MCPServerStatus.READY
-        ]
+        return [name for name, s in self._servers.items() if s.status == MCPServerStatus.READY]
 
     def load_config(self) -> list[MCPServerConfig]:
         if not self._config_path.exists():
@@ -660,7 +685,8 @@ class MCPToolLoader:
             except ValueError:
                 logger.warning(
                     "MCP server '{}': unknown transport '{}', falling back to stdio",
-                    name, raw_transport,
+                    name,
+                    raw_transport,
                 )
                 transport = MCPTransport.STDIO
 
@@ -671,7 +697,9 @@ class MCPToolLoader:
                 safe, reason = _validate_mcp_url(s["url"], allow_private)
                 if not safe:
                     logger.warning(
-                        "MCP server '{}': URL blocked ({}), skipping", name, reason,
+                        "MCP server '{}': URL blocked ({}), skipping",
+                        name,
+                        reason,
                     )
                     continue
 
@@ -710,7 +738,8 @@ class MCPToolLoader:
                 if base_cmd not in allowed:
                     logger.warning(
                         "MCP server '{}': command '{}' not in allowed list, skipping",
-                        name, config.command,
+                        name,
+                        config.command,
                     )
                     continue
 
@@ -727,7 +756,8 @@ class MCPToolLoader:
             return 0
 
         auto_start = [
-            name for name, s in self._servers.items()
+            name
+            for name, s in self._servers.items()
             if s.config.auto_start and s.status == MCPServerStatus.STOPPED
         ]
         if not auto_start:
@@ -823,6 +853,7 @@ class MCPToolLoader:
                 captured_session_ids.append(sid)
 
         import httpx
+
         http_kwargs: dict[str, Any] = {}
 
         extra_headers = dict(config.headers or {})
@@ -892,9 +923,7 @@ class MCPToolLoader:
         read_stream, write_stream = await stack.enter_async_context(
             streamable_http_client(config.url, **http_kwargs),
         )
-        state.session_id_fn = lambda: (
-            captured_session_ids[-1] if captured_session_ids else None
-        )
+        state.session_id_fn = lambda: captured_session_ids[-1] if captured_session_ids else None
 
         kwargs = self._make_session_kwargs(state)
         session = await stack.enter_async_context(
@@ -917,8 +946,12 @@ class MCPToolLoader:
         def _logging_cb(params: Any) -> None:
             level = str(getattr(params, "level", "info")).upper()
             data = getattr(params, "data", "")
-            logger.log(level if level in ("DEBUG", "INFO", "WARNING", "ERROR") else "DEBUG",
-                        "MCP [{}]: {}", config.name, data)
+            logger.log(
+                level if level in ("DEBUG", "INFO", "WARNING", "ERROR") else "DEBUG",
+                "MCP [{}]: {}",
+                config.name,
+                data,
+            )
 
         kwargs["logging_callback"] = _logging_cb
 
@@ -958,7 +991,8 @@ class MCPToolLoader:
                                 del state.progress[old]
                         if self._progress_callback:
                             self._progress_callback(
-                                config.name, str(token),
+                                config.name,
+                                str(token),
                                 getattr(params, "progress", 0),
                                 getattr(params, "total", None),
                             )
@@ -967,10 +1001,7 @@ class MCPToolLoader:
 
         async def _list_roots(ctx: Any) -> list:
             if config.roots:
-                return [
-                    Root(uri=f"file://{p}", name=Path(p).name)
-                    for p in config.roots
-                ]
+                return [Root(uri=f"file://{p}", name=Path(p).name) for p in config.roots]
             return [Root(uri=f"file://{self._data_dir}", name="posipaka")]
 
         kwargs["list_roots_callback"] = _list_roots
@@ -1000,6 +1031,7 @@ class MCPToolLoader:
         async def _augmented_elicitation(ctx, params, task_metadata):
             task = await store.create_task(task_metadata)
             if self._elicitation_callback:
+
                 async def _complete():
                     try:
                         result = await self._elicitation_callback(ctx, params)
@@ -1007,20 +1039,25 @@ class MCPToolLoader:
                         await store.update_task(task.taskId, status="completed")
                     except Exception:
                         from mcp.types import ElicitResult
+
                         await store.store_result(task.taskId, ElicitResult(action="decline"))
                         await store.update_task(task.taskId, status="completed")
+
                 t = asyncio.create_task(_complete())
                 t.add_done_callback(_log_task_exception)
             else:
                 from mcp.types import ElicitResult
+
                 await store.store_result(task.taskId, ElicitResult(action="decline"))
                 await store.update_task(task.taskId, status="completed")
             from mcp.types import CreateTaskResult
+
             return CreateTaskResult(task=task)
 
         async def _get_task(ctx, params):
             task = await store.get_task(params.taskId)
             from mcp.types import GetTaskResult
+
             return GetTaskResult(
                 taskId=task.taskId,
                 status=task.status,
@@ -1031,6 +1068,7 @@ class MCPToolLoader:
         async def _get_task_result(ctx, params):
             result = await store.get_result(params.taskId)
             from mcp.types import GetTaskPayloadResult
+
             return GetTaskPayloadResult.model_validate(result.model_dump())
 
         return ExperimentalTaskHandlers(
@@ -1109,6 +1147,7 @@ class MCPToolLoader:
             return state.tools
 
         try:
+
             def _tool_to_dict(t: Any) -> dict:
                 d: dict[str, Any] = {
                     "name": t.name,
@@ -1126,7 +1165,9 @@ class MCPToolLoader:
                 return d
 
             tools = await _paginated_list(
-                state.session.list_tools, "tools", _tool_to_dict,
+                state.session.list_tools,
+                "tools",
+                _tool_to_dict,
             )
             state.tools = tools
             state.tools_cached_at = time_mod.time()
@@ -1140,10 +1181,7 @@ class MCPToolLoader:
             return state.tools
 
     async def get_all_tools(self) -> dict[str, list[dict]]:
-        ready = [
-            name for name, s in self._servers.items()
-            if s.status == MCPServerStatus.READY
-        ]
+        ready = [name for name, s in self._servers.items() if s.status == MCPServerStatus.READY]
         if not ready:
             return {}
 
@@ -1274,6 +1312,7 @@ class MCPToolLoader:
             return state.resources
 
         try:
+
             def _res_to_dict(r: Any) -> dict:
                 return {
                     "uri": getattr(r, "uri", ""),
@@ -1283,7 +1322,9 @@ class MCPToolLoader:
                 }
 
             resources = await _paginated_list(
-                state.session.list_resources, "resources", _res_to_dict,
+                state.session.list_resources,
+                "resources",
+                _res_to_dict,
             )
             state.resources = resources
             state.resources_cached_at = time_mod.time()
@@ -1318,7 +1359,9 @@ class MCPToolLoader:
                 blob = getattr(c, "blob", None)
                 if text:
                     if len(text) > MAX_RESOURCE_SIZE:
-                        text = text[:MAX_RESOURCE_SIZE] + f"\n[truncated at {MAX_RESOURCE_SIZE} bytes]"
+                        text = (
+                            text[:MAX_RESOURCE_SIZE] + f"\n[truncated at {MAX_RESOURCE_SIZE} bytes]"
+                        )
                     texts.append(text)
                 elif blob:
                     texts.append(f"[Binary: {len(blob)} bytes]")
@@ -1389,14 +1432,17 @@ class MCPToolLoader:
             return state.prompts
 
         try:
+
             def _prompt_to_dict(p: Any) -> dict:
                 args_list = []
-                for a in (getattr(p, "arguments", None) or []):
-                    args_list.append({
-                        "name": getattr(a, "name", ""),
-                        "description": getattr(a, "description", ""),
-                        "required": getattr(a, "required", False),
-                    })
+                for a in getattr(p, "arguments", None) or []:
+                    args_list.append(
+                        {
+                            "name": getattr(a, "name", ""),
+                            "description": getattr(a, "description", ""),
+                            "required": getattr(a, "required", False),
+                        }
+                    )
                 return {
                     "name": getattr(p, "name", ""),
                     "description": getattr(p, "description", ""),
@@ -1404,7 +1450,9 @@ class MCPToolLoader:
                 }
 
             prompts = await _paginated_list(
-                state.session.list_prompts, "prompts", _prompt_to_dict,
+                state.session.list_prompts,
+                "prompts",
+                _prompt_to_dict,
             )
             state.prompts = prompts
             state.prompts_cached_at = time_mod.time()
@@ -1454,9 +1502,11 @@ class MCPToolLoader:
         try:
             if ref_type == "ref/prompt":
                 from mcp.types import PromptReference
+
                 ref = PromptReference(type="ref/prompt", name=ref_name)
             elif ref_type == "ref/resource":
                 from mcp.types import ResourceTemplateReference
+
                 ref = ResourceTemplateReference(type="ref/resource", uri=ref_name)
             else:
                 return []
@@ -1489,11 +1539,13 @@ class MCPToolLoader:
             for tool in state.tools:
                 score = _score_tool(words, query.lower(), tool)
                 if score > 0:
-                    all_results.append({
-                        **tool,
-                        "_score": score,
-                        "_server": name,
-                    })
+                    all_results.append(
+                        {
+                            **tool,
+                            "_score": score,
+                            "_server": name,
+                        }
+                    )
 
         all_results.sort(key=lambda t: t["_score"], reverse=True)
         return all_results[:limit]
@@ -1511,10 +1563,7 @@ class MCPToolLoader:
             return False
 
     async def health_check_all(self) -> dict[str, bool]:
-        ready = [
-            name for name, s in self._servers.items()
-            if s.status == MCPServerStatus.READY
-        ]
+        ready = [name for name, s in self._servers.items() if s.status == MCPServerStatus.READY]
         if not ready:
             return {}
 
@@ -1522,10 +1571,7 @@ class MCPToolLoader:
             *(self.health_check(name) for name in ready),
             return_exceptions=True,
         )
-        return {
-            name: (r is True)
-            for name, r in zip(ready, results)
-        }
+        return {name: (r is True) for name, r in zip(ready, results)}
 
     async def _try_reconnect(self, server_name: str) -> bool:
         state = self._servers.get(server_name)
@@ -1550,7 +1596,8 @@ class MCPToolLoader:
 
     async def reconnect_failed_servers(self) -> int:
         failed = [
-            name for name, s in self._servers.items()
+            name
+            for name, s in self._servers.items()
             if s.status == MCPServerStatus.ERROR
             and s.consecutive_failures < CIRCUIT_BREAKER_THRESHOLD
         ]
@@ -1573,20 +1620,22 @@ class MCPToolLoader:
                 except Exception:
                     pass
             per_server = self.metrics.per_server.get(name, {})
-            statuses.append({
-                "name": name,
-                "status": state.status.value,
-                "transport": state.config.transport.value,
-                "tools_count": len(state.tools),
-                "resources_count": len(state.resources),
-                "prompts_count": len(state.prompts),
-                "protocol_version": state.protocol_version,
-                "consecutive_failures": state.consecutive_failures,
-                "last_error": state.last_error,
-                "session_id": sid,
-                "capabilities": dict(state.server_capabilities),
-                "metrics": per_server,
-            })
+            statuses.append(
+                {
+                    "name": name,
+                    "status": state.status.value,
+                    "transport": state.config.transport.value,
+                    "tools_count": len(state.tools),
+                    "resources_count": len(state.resources),
+                    "prompts_count": len(state.prompts),
+                    "protocol_version": state.protocol_version,
+                    "consecutive_failures": state.consecutive_failures,
+                    "last_error": state.last_error,
+                    "session_id": sid,
+                    "capabilities": dict(state.server_capabilities),
+                    "metrics": per_server,
+                }
+            )
         return statuses
 
     def get_session_id(self, server_name: str) -> str | None:

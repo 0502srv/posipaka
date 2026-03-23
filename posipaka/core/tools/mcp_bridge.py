@@ -26,7 +26,6 @@ MCP_CATEGORY = "mcp"
 
 
 class MCPBridge:
-
     def __init__(
         self,
         registry: ToolRegistry,
@@ -68,7 +67,8 @@ class MCPBridge:
         except Exception as e:
             logger.warning(
                 "MCP: failed to auto-refresh tools for '{}': {}",
-                server_name, e,
+                server_name,
+                e,
             )
 
     async def _on_resources_changed(self, server_name: str) -> None:
@@ -163,7 +163,8 @@ class MCPBridge:
 
             if self._registry.get(registered_name):
                 logger.debug(
-                    "MCP tool '{}' skipped (already registered)", registered_name,
+                    "MCP tool '{}' skipped (already registered)",
+                    registered_name,
                 )
                 continue
 
@@ -171,7 +172,8 @@ class MCPBridge:
             if not input_schema:
                 logger.debug(
                     "MCP tool '{}' from '{}' has no inputSchema, using empty object",
-                    mcp_name, server_name,
+                    mcp_name,
+                    server_name,
                 )
                 input_schema = {"type": "object", "properties": {}}
 
@@ -203,7 +205,9 @@ class MCPBridge:
 
         if count:
             logger.debug(
-                "MCP: registered {} tools from server '{}'", count, server_name,
+                "MCP: registered {} tools from server '{}'",
+                count,
+                server_name,
             )
         return count
 
@@ -222,7 +226,9 @@ class MCPBridge:
             except Exception as e:
                 logger.error(
                     "MCP tool handler error ({}/{}): {}",
-                    server_name, mcp_name, e,
+                    server_name,
+                    mcp_name,
+                    e,
                 )
                 return f"Error calling MCP tool {mcp_name}: {e}"
 
@@ -236,11 +242,7 @@ class MCPBridge:
         self._tool_routing.clear()
 
     def _unregister_server_tools(self, server_name: str) -> None:
-        to_remove = [
-            name
-            for name, (srv, _) in self._tool_routing.items()
-            if srv == server_name
-        ]
+        to_remove = [name for name, (srv, _) in self._tool_routing.items() if srv == server_name]
         for name in to_remove:
             self._registry.unregister(name)
             self._registered_tools.discard(name)
@@ -269,7 +271,8 @@ class MCPBridge:
             reconnected = await self._loader.reconnect_failed_servers()
             if reconnected:
                 logger.info(
-                    "MCP: reconnected {} servers after health check", reconnected,
+                    "MCP: reconnected {} servers after health check",
+                    reconnected,
                 )
                 # Fetch tools outside lock, then register under lock
                 recovered_tools: dict[str, list[dict]] = {}
@@ -285,14 +288,10 @@ class MCPBridge:
 
         return results
 
+
 def _make_tool_name(server_name: str, mcp_name: str) -> str:
     clean_server = make_safe_server_name(server_name)
-    clean_tool = (
-        mcp_name
-        .replace("-", "_")
-        .replace(".", "_")
-        .replace(" ", "_")
-    )
+    clean_tool = mcp_name.replace("-", "_").replace(".", "_").replace(" ", "_")
     full_name = f"{MCP_TOOL_PREFIX}{clean_server}{MCP_NAME_SEP}{clean_tool}"
     return make_safe_tool_name(full_name)
 

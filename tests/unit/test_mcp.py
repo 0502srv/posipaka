@@ -149,10 +149,7 @@ class TestMCPToolLoaderConfig:
         import yaml
 
         config = {
-            "servers": {
-                f"srv{i}": {"command": "test", "enabled": True}
-                for i in range(20)
-            },
+            "servers": {f"srv{i}": {"command": "test", "enabled": True} for i in range(20)},
             "settings": {"max_servers": 3},
         }
         path = tmp_path / "mcp.yaml"
@@ -346,7 +343,10 @@ class TestMCPServerLifecycle:
         state.consecutive_failures = 10
 
         with patch.object(
-            loader, "start_server", new_callable=AsyncMock, return_value=False,
+            loader,
+            "start_server",
+            new_callable=AsyncMock,
+            return_value=False,
         ):
             await loader.restart_server("test-server")
         assert state.consecutive_failures == 0
@@ -591,7 +591,10 @@ class TestMCPToolOperations:
         state.consecutive_failures = 1  # Below threshold
 
         with patch.object(
-            loader, "_try_reconnect", new_callable=AsyncMock, return_value=False,
+            loader,
+            "_try_reconnect",
+            new_callable=AsyncMock,
+            return_value=False,
         ) as mock_reconnect:
             result = await loader.call_tool("test-server", "tool", {})
             mock_reconnect.assert_called_once_with("test-server")
@@ -914,10 +917,7 @@ class TestMCPToolSearch:
         loader.load_config()
         state = loader._servers["test-server"]
         state.status = MCPServerStatus.READY
-        state.tools = [
-            {"name": f"tool_{i}", "description": f"tool number {i}"}
-            for i in range(20)
-        ]
+        state.tools = [{"name": f"tool_{i}", "description": f"tool number {i}"} for i in range(20)]
         results = await loader.search_tools("tool", limit=3)
         assert len(results) == 3
 
@@ -1030,7 +1030,10 @@ class TestMCPAutoReconnect:
         state.consecutive_failures = 1
 
         with patch.object(
-            loader, "start_server", new_callable=AsyncMock, return_value=True,
+            loader,
+            "start_server",
+            new_callable=AsyncMock,
+            return_value=True,
         ):
             result = await loader._try_reconnect("test-server")
             assert result is True
@@ -1058,9 +1061,15 @@ class TestMCPAutoReconnect:
         state.status = MCPServerStatus.ERROR
         state.consecutive_failures = 1
 
-        with patch.object(
-            loader, "_try_reconnect", new_callable=AsyncMock, return_value=True,
-        ), patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch.object(
+                loader,
+                "_try_reconnect",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             count = await loader.reconnect_failed_servers()
             assert count == 1
 
@@ -1181,7 +1190,8 @@ class TestMCPBridgeHelpers:
 
     def test_make_tool_name_long_server(self):
         name = _make_tool_name(
-            "very-long-server-name-that-exceeds-twenty", "tool",
+            "very-long-server-name-that-exceeds-twenty",
+            "tool",
         )
         assert len(name.split("__")[0]) <= len(MCP_TOOL_PREFIX) + 20
 
@@ -1356,9 +1366,12 @@ class TestMCPBridgeRegistration:
 
     async def test_register_tools_empty_schema(self, registry):
         bridge = MCPBridge(registry)
-        count = bridge._register_tools_from_server("srv", [
-            {"name": "simple_tool", "description": "No schema"},
-        ])
+        count = bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "simple_tool", "description": "No schema"},
+            ],
+        )
         assert count == 1
         tool = registry.get(f"{MCP_TOOL_PREFIX}srv__simple_tool")
         assert tool is not None
@@ -1406,10 +1419,13 @@ class TestMCPBridgeRegistration:
 
     async def test_unregister_server_tools(self, registry):
         bridge = MCPBridge(registry)
-        bridge._register_tools_from_server("srv", [
-            {"name": "tool1", "description": "T1"},
-            {"name": "tool2", "description": "T2"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "tool1", "description": "T1"},
+                {"name": "tool2", "description": "T2"},
+            ],
+        )
         assert len(bridge._registered_tools) == 2
 
         bridge._unregister_server_tools("srv")
@@ -1442,14 +1458,19 @@ class TestMCPBridgeExecution:
     async def test_handler_returns_text(self, registry):
         bridge = MCPBridge(registry)
 
-        bridge._loader.call_tool = AsyncMock(return_value={
-            "content": [{"type": "text", "text": "Hello World"}],
-            "isError": False,
-        })
+        bridge._loader.call_tool = AsyncMock(
+            return_value={
+                "content": [{"type": "text", "text": "Hello World"}],
+                "isError": False,
+            }
+        )
 
-        bridge._register_tools_from_server("srv", [
-            {"name": "greet", "description": "Greet"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "greet", "description": "Greet"},
+            ],
+        )
 
         result = await registry.execute(f"{MCP_TOOL_PREFIX}srv__greet", {})
         assert result == "Hello World"
@@ -1457,14 +1478,19 @@ class TestMCPBridgeExecution:
     async def test_handler_error_response(self, registry):
         bridge = MCPBridge(registry)
 
-        bridge._loader.call_tool = AsyncMock(return_value={
-            "content": [{"type": "text", "text": "Not found"}],
-            "isError": True,
-        })
+        bridge._loader.call_tool = AsyncMock(
+            return_value={
+                "content": [{"type": "text", "text": "Not found"}],
+                "isError": True,
+            }
+        )
 
-        bridge._register_tools_from_server("srv", [
-            {"name": "fail_tool", "description": "Fails"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "fail_tool", "description": "Fails"},
+            ],
+        )
 
         result = await registry.execute(f"{MCP_TOOL_PREFIX}srv__fail_tool", {})
         assert "Error" in result
@@ -1472,16 +1498,21 @@ class TestMCPBridgeExecution:
     async def test_handler_image_content(self, registry):
         bridge = MCPBridge(registry)
 
-        bridge._loader.call_tool = AsyncMock(return_value={
-            "content": [
-                {"type": "image", "mimeType": "image/png", "data": "base64..."},
-            ],
-            "isError": False,
-        })
+        bridge._loader.call_tool = AsyncMock(
+            return_value={
+                "content": [
+                    {"type": "image", "mimeType": "image/png", "data": "base64..."},
+                ],
+                "isError": False,
+            }
+        )
 
-        bridge._register_tools_from_server("srv", [
-            {"name": "screenshot", "description": "Take screenshot"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "screenshot", "description": "Take screenshot"},
+            ],
+        )
 
         result = await registry.execute(f"{MCP_TOOL_PREFIX}srv__screenshot", {})
         assert "Image" in result
@@ -1489,17 +1520,22 @@ class TestMCPBridgeExecution:
     async def test_handler_multi_content(self, registry):
         bridge = MCPBridge(registry)
 
-        bridge._loader.call_tool = AsyncMock(return_value={
-            "content": [
-                {"type": "text", "text": "Line 1"},
-                {"type": "text", "text": "Line 2"},
-            ],
-            "isError": False,
-        })
+        bridge._loader.call_tool = AsyncMock(
+            return_value={
+                "content": [
+                    {"type": "text", "text": "Line 1"},
+                    {"type": "text", "text": "Line 2"},
+                ],
+                "isError": False,
+            }
+        )
 
-        bridge._register_tools_from_server("srv", [
-            {"name": "multi", "description": "Multi"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "multi", "description": "Multi"},
+            ],
+        )
 
         result = await registry.execute(f"{MCP_TOOL_PREFIX}srv__multi", {})
         assert "Line 1" in result
@@ -1508,15 +1544,20 @@ class TestMCPBridgeExecution:
     async def test_handler_structured_content(self, registry):
         bridge = MCPBridge(registry)
 
-        bridge._loader.call_tool = AsyncMock(return_value={
-            "content": [],
-            "isError": False,
-            "structuredContent": {"data": [1, 2, 3]},
-        })
+        bridge._loader.call_tool = AsyncMock(
+            return_value={
+                "content": [],
+                "isError": False,
+                "structuredContent": {"data": [1, 2, 3]},
+            }
+        )
 
-        bridge._register_tools_from_server("srv", [
-            {"name": "query", "description": "Query data"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "query", "description": "Query data"},
+            ],
+        )
 
         result = await registry.execute(f"{MCP_TOOL_PREFIX}srv__query", {})
         assert "data" in result
@@ -1531,9 +1572,12 @@ class TestMCPBridgeExecution:
 class TestMCPBridgeRouting:
     def test_get_routing_info(self, registry):
         bridge = MCPBridge(registry)
-        bridge._register_tools_from_server("myserver", [
-            {"name": "my_tool", "description": "Test"},
-        ])
+        bridge._register_tools_from_server(
+            "myserver",
+            [
+                {"name": "my_tool", "description": "Test"},
+            ],
+        )
         info = bridge.get_routing_info()
         tool_name = f"{MCP_TOOL_PREFIX}myserver__my_tool"
         assert tool_name in info
@@ -1541,9 +1585,12 @@ class TestMCPBridgeRouting:
 
     def test_get_status(self, registry):
         bridge = MCPBridge(registry)
-        bridge._register_tools_from_server("srv", [
-            {"name": "t1", "description": ""},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "t1", "description": ""},
+            ],
+        )
         status = bridge.get_status()
         assert status["registered_tools"] == 1
         assert "servers" in status
@@ -1557,16 +1604,19 @@ class TestMCPBridgeRouting:
 class TestMCPSchemaIntegration:
     def test_mcp_tools_in_anthropic_schemas(self, registry):
         bridge = MCPBridge(registry)
-        bridge._register_tools_from_server("fs", [
-            {
-                "name": "read",
-                "description": "Read file",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"path": {"type": "string"}},
+        bridge._register_tools_from_server(
+            "fs",
+            [
+                {
+                    "name": "read",
+                    "description": "Read file",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {"path": {"type": "string"}},
+                    },
                 },
-            },
-        ])
+            ],
+        )
 
         schemas = registry.get_schemas("anthropic")
         mcp_schemas = [s for s in schemas if s["name"].startswith(MCP_TOOL_PREFIX)]
@@ -1575,29 +1625,33 @@ class TestMCPSchemaIntegration:
 
     def test_mcp_tools_in_openai_schemas(self, registry):
         bridge = MCPBridge(registry)
-        bridge._register_tools_from_server("fs", [
-            {
-                "name": "read",
-                "description": "Read file",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"path": {"type": "string"}},
+        bridge._register_tools_from_server(
+            "fs",
+            [
+                {
+                    "name": "read",
+                    "description": "Read file",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {"path": {"type": "string"}},
+                    },
                 },
-            },
-        ])
+            ],
+        )
 
         schemas = registry.get_schemas("openai")
-        mcp_schemas = [
-            s for s in schemas if s["function"]["name"].startswith(MCP_TOOL_PREFIX)
-        ]
+        mcp_schemas = [s for s in schemas if s["function"]["name"].startswith(MCP_TOOL_PREFIX)]
         assert len(mcp_schemas) == 1
         assert mcp_schemas[0]["type"] == "function"
 
     def test_mcp_tools_in_metadata(self, registry):
         bridge = MCPBridge(registry)
-        bridge._register_tools_from_server("github", [
-            {"name": "list_repos", "description": "List GitHub repositories"},
-        ])
+        bridge._register_tools_from_server(
+            "github",
+            [
+                {"name": "list_repos", "description": "List GitHub repositories"},
+            ],
+        )
 
         metadata = registry.get_skill_metadata()
         assert "mcp_github__list_repos" in metadata
@@ -1612,6 +1666,7 @@ class TestMCPSchemaIntegration:
 class TestMCPBridgeCallbacks:
     def test_bridge_passes_callbacks(self, registry):
         """MCPBridge passes sampling/elicitation callbacks to loader."""
+
         async def mock_sampling(ctx, params):
             pass
 
@@ -1768,7 +1823,9 @@ class TestMCPOAuthConfig:
 
     def test_custom(self):
         oauth = MCPOAuthConfig(
-            client_name="test", redirect_uri="http://x/cb", scope="all",
+            client_name="test",
+            redirect_uri="http://x/cb",
+            scope="all",
         )
         assert oauth.client_name == "test"
         assert oauth.scope == "all"
@@ -1832,6 +1889,7 @@ class TestMCPSessionKwargs:
         assert kwargs["client_info"] is not None
         assert kwargs["client_info"].name == "posipaka"
         from posipaka import __version__
+
         assert kwargs["client_info"].version == __version__
 
     def test_make_session_kwargs_has_callbacks(self, loader):
@@ -1844,6 +1902,7 @@ class TestMCPSessionKwargs:
 
     def test_make_session_kwargs_with_sampling(self, mcp_yaml):
         """sampling_callback is passed through to session kwargs."""
+
         async def mock_sampling(ctx, params):
             pass
 
@@ -1855,6 +1914,7 @@ class TestMCPSessionKwargs:
 
     def test_make_session_kwargs_with_elicitation(self, mcp_yaml):
         """elicitation_callback is passed through to session kwargs."""
+
         async def mock_elicitation(ctx, params):
             pass
 
@@ -1973,9 +2033,12 @@ class TestMCPBridgeSetRegistration:
 
     def test_discard_on_unregister(self, registry):
         bridge = MCPBridge(registry)
-        bridge._register_tools_from_server("srv", [
-            {"name": "t1", "description": "T1"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "t1", "description": "T1"},
+            ],
+        )
         assert len(bridge._registered_tools) == 1
         bridge._unregister_server_tools("srv")
         assert len(bridge._registered_tools) == 0
@@ -2209,21 +2272,24 @@ class TestFuzzyToolSearch:
     def test_score_tool_no_match(self):
         """Completely unrelated words score 0."""
         score = _score_tool(
-            ["zzzzz"], "zzzzz",
+            ["zzzzz"],
+            "zzzzz",
             {"name": "read_file", "description": "Read a file"},
         )
         assert score == 0
 
     def test_score_tool_keyword_in_name(self):
         score = _score_tool(
-            ["read"], "read",
+            ["read"],
+            "read",
             {"name": "read_file", "description": ""},
         )
         assert score >= 0.6
 
     def test_score_tool_keyword_in_description(self):
         score = _score_tool(
-            ["weather"], "weather",
+            ["weather"],
+            "weather",
             {"name": "get_data", "description": "Get current weather"},
         )
         assert score >= 0.3
@@ -2285,9 +2351,12 @@ class TestMCPBridgeHandlerErrorBoundary:
             side_effect=RuntimeError("connection lost"),
         )
 
-        bridge._register_tools_from_server("srv", [
-            {"name": "flaky_tool", "description": "Flaky"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "flaky_tool", "description": "Flaky"},
+            ],
+        )
 
         result = await registry.execute(f"{MCP_TOOL_PREFIX}srv__flaky_tool", {})
         assert "Error" in result
@@ -2302,9 +2371,12 @@ class TestMCPBridgeHandlerErrorBoundary:
             side_effect=TypeError("unexpected type"),
         )
 
-        bridge._register_tools_from_server("srv", [
-            {"name": "bad_tool", "description": "Bad"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "bad_tool", "description": "Bad"},
+            ],
+        )
 
         result = await registry.execute(f"{MCP_TOOL_PREFIX}srv__bad_tool", {})
         assert "Error" in result
@@ -2319,6 +2391,7 @@ class TestMCPAvailabilityCheck:
     def test_mcp_available_flag(self):
         """MCP SDK should be detected at import time."""
         from posipaka.core.tools.mcp_loader import _MCP_AVAILABLE
+
         # In test environment, mcp is installed
         assert isinstance(_MCP_AVAILABLE, bool)
 
@@ -2469,7 +2542,11 @@ class TestMCPCompletions:
     async def test_get_completion_not_ready(self, loader):
         loader.load_config()
         result = await loader.get_completion(
-            "test-server", "ref/prompt", "greet", "name", "Al",
+            "test-server",
+            "ref/prompt",
+            "greet",
+            "name",
+            "Al",
         )
         assert result == []
 
@@ -2489,7 +2566,11 @@ class TestMCPCompletions:
         state.session = mock_session
 
         result = await loader.get_completion(
-            "test-server", "ref/prompt", "greet", "name", "Al",
+            "test-server",
+            "ref/prompt",
+            "greet",
+            "name",
+            "Al",
         )
         assert result == ["Alice", "Alex", "Albert"]
         mock_session.complete.assert_called_once()
@@ -2510,7 +2591,11 @@ class TestMCPCompletions:
         state.session = mock_session
 
         result = await loader.get_completion(
-            "test-server", "ref/resource", "db:///{table}", "table", "us",
+            "test-server",
+            "ref/resource",
+            "db:///{table}",
+            "table",
+            "us",
         )
         assert result == ["users", "orders"]
 
@@ -2521,7 +2606,11 @@ class TestMCPCompletions:
         state.session = AsyncMock()
 
         result = await loader.get_completion(
-            "test-server", "ref/invalid", "x", "y", "z",
+            "test-server",
+            "ref/invalid",
+            "x",
+            "y",
+            "z",
         )
         assert result == []
 
@@ -2535,7 +2624,11 @@ class TestMCPCompletions:
         state.session = mock_session
 
         result = await loader.get_completion(
-            "test-server", "ref/prompt", "greet", "name", "Al",
+            "test-server",
+            "ref/prompt",
+            "greet",
+            "name",
+            "Al",
         )
         assert result == []
 
@@ -2572,12 +2665,14 @@ class TestFuzzyScoreMultiWord:
     def test_multi_word_all_score(self):
         """Each matching word contributes to score independently."""
         score = _score_tool(
-            ["read", "file"], "read file",
+            ["read", "file"],
+            "read file",
             {"name": "read_file", "description": ""},
         )
         # Both "read" and "file" match in name — should score > single word
         single_score = _score_tool(
-            ["read"], "read",
+            ["read"],
+            "read",
             {"name": "read_file", "description": ""},
         )
         assert score > single_score
@@ -2586,7 +2681,8 @@ class TestFuzzyScoreMultiWord:
         """Fuzzy matching works for word that has no exact match,
         even if another word had an exact match."""
         score = _score_tool(
-            ["read", "flie"], "read flie",
+            ["read", "flie"],
+            "read flie",
             {"name": "read_file", "description": ""},
         )
         # "read" matches exactly, "flie" should fuzzy-match "file"
@@ -2740,7 +2836,10 @@ class TestMCPCancellation:
         state.session = mock_session
 
         result = await loader.call_tool(
-            "test-server", "slow", {}, call_id="call-1",
+            "test-server",
+            "slow",
+            {},
+            call_id="call-1",
         )
         assert result["isError"] is False
         # After completion, call_id should be cleaned up
@@ -2824,7 +2923,10 @@ class TestReadResourceReconnect:
         state.consecutive_failures = 1
 
         with patch.object(
-            loader, "_try_reconnect", new_callable=AsyncMock, return_value=False,
+            loader,
+            "_try_reconnect",
+            new_callable=AsyncMock,
+            return_value=False,
         ) as mock_reconnect:
             result = await loader.read_resource("test-server", "file:///test.txt")
             mock_reconnect.assert_called_once_with("test-server")
@@ -2859,6 +2961,7 @@ class TestMCPCallSemaphore:
         # Simulate start
         state.status = MCPServerStatus.READY
         import asyncio
+
         state.call_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CALLS)
         assert state.call_semaphore is not None
 
@@ -2870,6 +2973,7 @@ class TestMCPCallSemaphore:
         state.tools = [{"name": "test_tool"}]
 
         import asyncio
+
         state.call_semaphore = asyncio.Semaphore(1)
 
         mock_result = MagicMock()
@@ -2890,6 +2994,7 @@ class TestMCPCallSemaphore:
         loader.load_config()
         state = loader._servers["test-server"]
         import asyncio
+
         state.call_semaphore = asyncio.Semaphore(5)
         await loader.stop_server("test-server")
         assert state.call_semaphore is None
@@ -2906,7 +3011,8 @@ class TestEnvPassthrough:
         monkeypatch.setenv("SECRET_KEY", "should_not_leak")
         monkeypatch.setenv("PATH", "/usr/bin")
         config = MCPServerConfig(
-            name="test", command="echo",
+            name="test",
+            command="echo",
             env={"MY_VAR": "value"},
         )
         env = _build_subprocess_env(config)
@@ -2918,7 +3024,8 @@ class TestEnvPassthrough:
         """With env_passthrough=["*"], full os.environ is included (opt-in)."""
         monkeypatch.setenv("SECRET_KEY", "should_be_included")
         config = MCPServerConfig(
-            name="test", command="echo",
+            name="test",
+            command="echo",
             env={"MY_VAR": "value"},
             env_passthrough=["*"],
         )
@@ -2932,7 +3039,8 @@ class TestEnvPassthrough:
         monkeypatch.setenv("SECRET_VAR", "should_not_be_included")
         monkeypatch.setenv("PATH", "/usr/bin")
         config = MCPServerConfig(
-            name="test", command="echo",
+            name="test",
+            command="echo",
             env={"CUSTOM": "val"},
             env_passthrough=["ALLOWED_VAR"],
         )
@@ -2947,7 +3055,8 @@ class TestEnvPassthrough:
         monkeypatch.setenv("PATH", "/usr/bin")
         monkeypatch.setenv("HOME", "/home/test")
         config = MCPServerConfig(
-            name="test", command="echo",
+            name="test",
+            command="echo",
             env_passthrough=["NOTHING_SPECIAL"],
         )
         env = _build_subprocess_env(config)
@@ -3082,6 +3191,7 @@ class TestContentBlockResourceLink:
 class TestToolsChangedCallback:
     def test_tools_changed_callback_stored(self, mcp_yaml):
         """tools_changed_callback is stored in loader."""
+
         async def my_callback(server_name):
             pass
 
@@ -3102,15 +3212,20 @@ class TestToolsChangedCallback:
         bridge = MCPBridge(registry)
 
         # Register initial tools
-        bridge._register_tools_from_server("srv", [
-            {"name": "old_tool", "description": "Old"},
-        ])
+        bridge._register_tools_from_server(
+            "srv",
+            [
+                {"name": "old_tool", "description": "Old"},
+            ],
+        )
         assert len(bridge._registered_tools) == 1
 
         # Mock loader.get_tools to return new tools
-        bridge._loader.get_tools = AsyncMock(return_value=[
-            {"name": "new_tool", "description": "New", "inputSchema": {}},
-        ])
+        bridge._loader.get_tools = AsyncMock(
+            return_value=[
+                {"name": "new_tool", "description": "New", "inputSchema": {}},
+            ]
+        )
         bridge._loader._servers["srv"] = MCPServerState(
             config=MCPServerConfig(name="srv", command="echo"),
             status=MCPServerStatus.READY,
@@ -3355,6 +3470,7 @@ class TestDNSRebindingProtection:
     def test_validate_url_dns_resolution_failure_allowed(self):
         """DNS resolution failure should allow the URL (server may not be up)."""
         import socket as socket_mod
+
         with patch(
             "posipaka.core.tools.mcp_loader.socket.getaddrinfo",
             side_effect=socket_mod.gaierror("DNS failed"),
@@ -3394,7 +3510,9 @@ class TestPaginationSafeguards:
             return FakeResult()
 
         items = await _paginated_list(
-            fake_list, "tools", lambda x: {"name": x.name},
+            fake_list,
+            "tools",
+            lambda x: {"name": x.name},
             max_items=50,
         )
         assert len(items) == 50  # Stopped at max_items
@@ -3412,7 +3530,9 @@ class TestPaginationSafeguards:
             return result
 
         items = await _paginated_list(
-            slow_list, "tools", lambda x: {"name": "x"},
+            slow_list,
+            "tools",
+            lambda x: {"name": "x"},
             timeout=0.1,
         )
         assert items == []  # Timed out before getting anything
@@ -3433,7 +3553,9 @@ class TestPaginationSafeguards:
             return r
 
         items = await _paginated_list(
-            fake_list, "tools", lambda x: {"name": "t"},
+            fake_list,
+            "tools",
+            lambda x: {"name": "t"},
         )
         assert len(items) == 2
 
@@ -3576,7 +3698,8 @@ class TestEnvPassthroughStar:
         """env_passthrough=["*"] should include all os.environ."""
         monkeypatch.setenv("SECRET_KEY", "should_be_included")
         config = MCPServerConfig(
-            name="test", command="echo",
+            name="test",
+            command="echo",
             env_passthrough=["*"],
         )
         env = _build_subprocess_env(config)
@@ -3781,9 +3904,11 @@ class TestMCPBridgeLockContention:
         """_on_tools_changed should fetch tools before acquiring lock."""
         bridge = MCPBridge(registry)
         bridge._loader = MagicMock()
-        bridge._loader.get_tools = AsyncMock(return_value=[
-            {"name": "new_tool", "description": "test", "inputSchema": {}},
-        ])
+        bridge._loader.get_tools = AsyncMock(
+            return_value=[
+                {"name": "new_tool", "description": "test", "inputSchema": {}},
+            ]
+        )
 
         # Pre-register a tool to verify unregister+register cycle
         bridge._registered_tools.add("mcp_test__old_tool")
@@ -3799,9 +3924,11 @@ class TestMCPBridgeLockContention:
         """refresh_tools should fetch all tools before acquiring lock."""
         bridge = MCPBridge(registry)
         bridge._loader = MagicMock()
-        bridge._loader.get_all_tools = AsyncMock(return_value={
-            "server1": [{"name": "tool1", "description": "t", "inputSchema": {}}],
-        })
+        bridge._loader.get_all_tools = AsyncMock(
+            return_value={
+                "server1": [{"name": "tool1", "description": "t", "inputSchema": {}}],
+            }
+        )
 
         count = await bridge.refresh_tools()
         assert count == 1
@@ -3909,7 +4036,8 @@ class TestAsyncDNSValidation:
         from posipaka.core.tools.mcp_loader import _validate_url_structure
 
         safe, reason, hostname = _validate_url_structure(
-            "http://example.com:8000/mcp", True,
+            "http://example.com:8000/mcp",
+            True,
         )
         assert safe is True
         assert hostname == "example.com"
@@ -3919,7 +4047,8 @@ class TestAsyncDNSValidation:
         from posipaka.core.tools.mcp_loader import _validate_url_structure
 
         safe, reason, hostname = _validate_url_structure(
-            "http://169.254.169.254/latest", True,
+            "http://169.254.169.254/latest",
+            True,
         )
         assert safe is False
         assert hostname is None
@@ -3929,7 +4058,9 @@ class TestAsyncDNSValidation:
         from posipaka.core.tools.mcp_loader import _check_resolved_ips
 
         safe, reason = _check_resolved_ips(
-            "evil.com", {"169.254.169.254"}, True,
+            "evil.com",
+            {"169.254.169.254"},
+            True,
         )
         assert safe is False
         assert "rebinding" in reason.lower()
@@ -3939,7 +4070,9 @@ class TestAsyncDNSValidation:
         from posipaka.core.tools.mcp_loader import _check_resolved_ips
 
         safe, reason = _check_resolved_ips(
-            "example.com", {"93.184.216.34"}, True,
+            "example.com",
+            {"93.184.216.34"},
+            True,
         )
         assert safe is True
 
@@ -4066,9 +4199,11 @@ class TestBridgeStartServerLock:
         bridge = MCPBridge(registry)
         bridge._loader = MagicMock()
         bridge._loader.start_server = AsyncMock(return_value=True)
-        bridge._loader.get_tools = AsyncMock(return_value=[
-            {"name": "new_tool", "description": "test", "inputSchema": {}},
-        ])
+        bridge._loader.get_tools = AsyncMock(
+            return_value=[
+                {"name": "new_tool", "description": "test", "inputSchema": {}},
+            ]
+        )
 
         await bridge.start_server("test-server")
 
@@ -4107,7 +4242,9 @@ class TestMCPTransportEnumExtended:
 
     def test_http_transport_enum(self):
         config = MCPServerConfig(
-            name="test", command="", url="http://localhost:8000/mcp",
+            name="test",
+            command="",
+            url="http://localhost:8000/mcp",
             transport=MCPTransport.HTTP,
         )
         assert config.transport == MCPTransport.HTTP
@@ -4126,6 +4263,7 @@ class TestMCPTransportEnumExtended:
         }
         path = tmp_path / "mcp.yaml"
         import yaml
+
         path.write_text(yaml.dump(config_data))
 
         loader = MCPToolLoader(config_path=path)
@@ -4133,8 +4271,7 @@ class TestMCPTransportEnumExtended:
             configs = loader.load_config()
             # Should warn about unknown transport
             warning_calls = [
-                c for c in mock_logger.warning.call_args_list
-                if "unknown transport" in str(c)
+                c for c in mock_logger.warning.call_args_list if "unknown transport" in str(c)
             ]
             assert len(warning_calls) == 1
         assert len(configs) == 1
@@ -4221,7 +4358,10 @@ class TestSessionResumption:
 
         with (
             patch.object(
-                loader, "start_server", new_callable=AsyncMock, return_value=True,
+                loader,
+                "start_server",
+                new_callable=AsyncMock,
+                return_value=True,
             ) as mock_start,
             patch.object(loader, "_cleanup_server", new_callable=AsyncMock),
         ):
@@ -4247,6 +4387,7 @@ class TestExperimentalTaskHandlers:
 
     def test_build_task_handlers_with_elicitation_callback(self, tmp_path):
         """Should build task handlers using the elicitation callback."""
+
         async def mock_elicitation(ctx, params):
             return MagicMock(action="accept")
 
@@ -4281,6 +4422,7 @@ class TestMcpErrorConsistency:
         mock_session = AsyncMock()
         if _McpError is not Exception:
             from mcp.types import ErrorData
+
             mock_session.list_prompts.side_effect = _McpError(
                 ErrorData(code=-32600, message="test"),
             )
@@ -4305,6 +4447,7 @@ class TestMcpErrorConsistency:
         mock_session = AsyncMock()
         if _McpError is not Exception:
             from mcp.types import ErrorData
+
             mock_session.list_resources.side_effect = _McpError(
                 ErrorData(code=-32600, message="test"),
             )
