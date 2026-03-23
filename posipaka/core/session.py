@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -13,7 +14,7 @@ class Session:
     user_id: str
     channel: str
     created_at: float = field(default_factory=time.time)
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class SessionManager:
@@ -24,6 +25,7 @@ class SessionManager:
 
     def __init__(self) -> None:
         self._sessions: dict[str, Session] = {}
+        self._named_sessions: dict[str, Session] = {}
 
     def create(self, user_id: str, channel: str) -> Session:
         user_sessions = [s for s in self._sessions.values() if s.user_id == user_id]
@@ -61,8 +63,28 @@ class SessionManager:
                 return s
         return self.create(user_id, channel)
 
+    def get_or_create_named(self, name: str, user_id: str, channel: str) -> Session:
+        """Отримати або створити persistent named session."""
+        existing = self._named_sessions.get(name)
+        if existing and existing.id in self._sessions:
+            return existing
+        session = self.create(user_id, channel)
+        session.metadata["session_name"] = name
+        self._named_sessions[name] = session
+        return session
+
+    def get_named(self, name: str) -> Session | None:
+        """Отримати named session якщо існує."""
+        session = self._named_sessions.get(name)
+        if session and session.id in self._sessions:
+            return session
+        return None
+
     def list_active(self) -> list[Session]:
         return list(self._sessions.values())
 
     def close(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
+        self._named_sessions = {
+            k: v for k, v in self._named_sessions.items() if v.id != session_id
+        }

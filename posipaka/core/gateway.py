@@ -59,8 +59,14 @@ class MessageGateway:
         self._running = True
         self._register_channels()
 
+        # Store gateway reference on agent so cron delivery works
+        self.agent.gateway = self
+
         logger.info(f"Gateway starting channels: {list(self._channels.keys())}")
         await self.agent.hooks.emit(HookEvent.GATEWAY_START)
+
+        # Auto-register cron jobs in scheduler and start it
+        self._start_cron_scheduler()
 
         # Start all channels
         for name, channel in self._channels.items():
@@ -78,8 +84,18 @@ class MessageGateway:
             await self.stop()
 
     async def stop(self) -> None:
-        """Зупинити всі канали."""
+        """Зупинити всі канали та дочекатися cron jobs."""
         self._running = False
+
+        # Stop scheduler first, then wait for running cron jobs
+        scheduler = getattr(self.agent, "scheduler", None)
+        if scheduler and scheduler.running:
+            scheduler.stop(wait=False)
+
+        cron_executor = getattr(self.agent, "cron_executor", None)
+        if cron_executor:
+            await cron_executor.graceful_shutdown(timeout=30.0)
+
         for name, channel in self._channels.items():
             try:
                 await channel.stop()
@@ -87,8 +103,46 @@ class MessageGateway:
                 await self.agent.hooks.emit(HookEvent.CHANNEL_DISCONNECTED, {"channel": name})
             except Exception as e:
                 logger.error(f"Error stopping {name}: {e}")
+
+        # Close cron history DB
+        if hasattr(self.agent, "cron_history") and self.agent.cron_history:
+            self.agent.cron_history.close()
+
         await self.agent.hooks.emit(HookEvent.GATEWAY_STOP)
         logger.info("Gateway stopped")
+
+    def _start_cron_scheduler(self) -> None:
+        """Register CronEngine jobs in APScheduler and start it."""
+        scheduler = getattr(self.agent, "scheduler", None)
+        cron_engine = getattr(self.agent, "cron_engine", None)
+        cron_executor = getattr(self.agent, "cron_executor", None)
+        if not (scheduler and cron_engine and cron_executor):
+            return
+        try:
+            # Provider resolves agent_fn at call time (not registration time)
+            def agent_fn_provider():
+                return getattr(self.agent, "_cron_agent_fn", None)
+
+            scheduler.register_cron_jobs(
+                cron_engine, cron_executor, agent_fn_provider,
+            )
+
+            # Daily cleanup of old execution history (03:00)
+            cron_history = getattr(self.agent, "cron_history", None)
+            if cron_history:
+                async def _daily_cleanup() -> None:
+                    cron_history.cleanup(days=30)
+
+                scheduler.add_cron(
+                    "system:cron_history_cleanup",
+                    _daily_cleanup,
+                    hour=3,
+                    minute=0,
+                )
+
+            scheduler.start()
+        except Exception as e:
+            logger.error(f"Failed to start cron scheduler: {e}")
 
     async def send_to_channel(self, channel_name: str, user_id: str, text: str) -> None:
         """Надіслати повідомлення через конкретний канал."""

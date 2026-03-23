@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from posipaka.core.agent import Agent
@@ -22,7 +22,7 @@ class HealthReport:
     overall: str = "healthy"
     components: list[ComponentHealth] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "status": self.overall,
             "components": {
@@ -203,6 +203,43 @@ async def check_health(agent: Agent | None = None) -> HealthReport:
                 message=mode,
             )
         )
+
+    # Cron subsystem
+    if agent and getattr(agent, "cron_engine", None):
+        try:
+            cron_engine = agent.cron_engine
+            cron_executor = getattr(agent, "cron_executor", None)
+            cron_history = getattr(agent, "cron_history", None)
+
+            all_jobs = cron_engine.list_jobs()
+            enabled = [j for j in all_jobs if j["enabled"]]
+            running = len(cron_executor.running_jobs) if cron_executor else 0
+            dlq_count = cron_history.dlq_count() if cron_history else 0
+
+            status = "healthy"
+            if dlq_count > 10:
+                status = "degraded"
+            elif dlq_count > 0:
+                status = "healthy"
+
+            parts = [
+                f"{len(all_jobs)} jobs ({len(enabled)} enabled)",
+                f"{running} running",
+            ]
+            if dlq_count:
+                parts.append(f"{dlq_count} DLQ pending")
+
+            report.components.append(
+                ComponentHealth(
+                    name="cron",
+                    status=status,
+                    message=", ".join(parts),
+                )
+            )
+        except Exception as e:
+            report.components.append(
+                ComponentHealth(name="cron", status="unavailable", message=str(e))
+            )
 
     # Overall
     statuses = [c.status for c in report.components]

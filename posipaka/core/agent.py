@@ -379,6 +379,9 @@ class Agent:
         self.orchestrator = None
         self.persona_manager = None
         self.cron_engine = None
+        self.cron_history = None
+        self.cron_executor = None
+        self.scheduler = None
         self.heartbeat = None
 
     async def initialize(self) -> None:
@@ -539,7 +542,7 @@ class Agent:
             logger.warning(f"PersonaManager init error: {e}")
 
     def _init_cron_engine(self) -> None:
-        """Ініціалізація persistent cron engine."""
+        """Ініціалізація persistent cron engine + executor + history + scheduler."""
         try:
             from posipaka.core.cron_engine import CronEngine
 
@@ -549,6 +552,45 @@ class Agent:
             logger.debug(f"CronEngine: {len(self.cron_engine.list_jobs())} jobs loaded")
         except Exception as e:
             logger.warning(f"CronEngine init error: {e}")
+
+        # History + DLQ (SQLite)
+        try:
+            from posipaka.core.cron_history import CronHistory
+
+            db_path = self.settings.data_dir / "cron_history.db"
+            self.cron_history = CronHistory(db_path)
+            self.cron_history.init()
+        except Exception as e:
+            self.cron_history = None
+            logger.warning(f"CronHistory init error: {e}")
+
+        # Scheduler (APScheduler)
+        try:
+            from posipaka.core.scheduler import PosipakScheduler
+
+            self.scheduler = PosipakScheduler()
+        except Exception as e:
+            self.scheduler = None
+            logger.warning(f"Scheduler init error: {e}")
+
+        # Executor — wired to all infrastructure.
+        # gateway_provider resolves lazily because gateway starts after agent init.
+        try:
+            from posipaka.core.cron_executor import CronExecutor
+
+            self.cron_executor = CronExecutor(
+                cron_engine=self.cron_engine,
+                gateway_provider=lambda: getattr(self, "gateway", None),
+                history=self.cron_history,
+                workflow_engine=getattr(self, "workflow_engine", None),
+                hooks=self.hooks,
+                degradation=getattr(self, "degradation", None),
+                cost_guard=self.cost_guard,
+                slo_monitor=getattr(self, "slo_monitor", None),
+            )
+        except Exception as e:
+            self.cron_executor = None
+            logger.warning(f"CronExecutor init error: {e}")
 
     def _schedule_update_check(self) -> None:
         """Фонова перевірка оновлень при старті (не блокує).
@@ -727,6 +769,22 @@ class Agent:
         ]:
             if not path.exists():
                 path.write_text(content, encoding="utf-8")
+
+    async def _cron_agent_fn(
+        self,
+        message: str,
+        user_id: str,
+        session_mode: str = "isolated",
+        session_name: str = "",
+        session_id: str | None = None,
+        model: str | None = None,
+    ) -> str:
+        """Wrapper для виконання cron job через агент."""
+        sid = session_id or f"cron:{user_id}"
+        result_parts = []
+        async for chunk in self.handle_message(message, sid, context="cron_job"):
+            result_parts.append(chunk)
+        return "".join(result_parts)
 
     async def handle_message(
         self, content: str, session_id: str, context: str = "direct_message"
@@ -1127,13 +1185,80 @@ class Agent:
         if command == "cron":
             if not self.cron_engine:
                 return "CronEngine не ініціалізований."
+            sub = (args or "").strip().split(maxsplit=1)
+            subcmd = sub[0] if sub else "list"
+            subargs = sub[1] if len(sub) > 1 else ""
+
+            if subcmd == "runs":
+                if not self.cron_history:
+                    return "CronHistory не ініціалізований."
+                return self.cron_history.format_runs(subargs or None)
+
+            if subcmd == "run" and subargs:
+                if not self.cron_executor:
+                    return "CronExecutor не ініціалізований."
+                job = self.cron_engine.get(subargs)
+                if not job:
+                    return f"Job '{subargs}' не знайдено."
+                result = await self.cron_executor.execute_job(
+                    job, agent_fn=self._cron_agent_fn,
+                )
+                return result or "Job виконано (без результату)."
+
+            if subcmd == "stats" and subargs:
+                if not self.cron_history:
+                    return "CronHistory не ініціалізований."
+                job = self.cron_engine.get(subargs)
+                if not job:
+                    return f"Job '{subargs}' не знайдено."
+                stats = self.cron_history.get_stats(job.id)
+                return (
+                    f"Статистика '{job.name}':\n"
+                    f"  Всього: {stats['total']}\n"
+                    f"  Успішно: {stats['success']}\n"
+                    f"  Помилки: {stats['failed']}\n"
+                    f"  Сер. час: {stats['avg_duration']}s"
+                )
+
+            if subcmd == "dlq":
+                if not self.cron_history:
+                    return "CronHistory не ініціалізований."
+                return self.cron_history.format_dlq()
+
+            if subcmd == "retry" and subargs:
+                if not self.cron_history or not self.cron_executor:
+                    return "CronHistory/Executor не ініціалізований."
+                try:
+                    dlq_id = int(subargs)
+                except ValueError:
+                    return "Вкажіть DLQ ID (число)."
+                dlq_entries = self.cron_history.get_dlq()
+                entry = next((e for e in dlq_entries if e["id"] == dlq_id), None)
+                if not entry:
+                    return f"DLQ #{dlq_id} не знайдено."
+                job = self.cron_engine.get(entry["job_id"])
+                if not job:
+                    return f"Job '{entry['job_name']}' більше не існує."
+                self.cron_history.resolve_dlq(dlq_id, resolved_by="manual_retry")
+                result = await self.cron_executor.execute_job(
+                    job, agent_fn=self._cron_agent_fn,
+                )
+                return result or "Retry виконано (без результату)."
+
+            # Default: list
             jobs = self.cron_engine.list_jobs()
             if not jobs:
                 return "Немає запланованих завдань."
             lines = ["Заплановані завдання:"]
+            dlq_count = self.cron_history.dlq_count() if self.cron_history else 0
+            if dlq_count:
+                lines.append(f"  ⚠️ DLQ: {dlq_count} pending")
             for j in jobs:
                 status = "✅" if j["enabled"] else "❌"
-                lines.append(f"  {status} {j['name']} [{j['type']}] — {j['schedule']}")
+                target = f" → {j['target']}" if j.get("delivery") != "none" else ""
+                lines.append(
+                    f"  {status} {j['name']} [{j['type']}] — {j['schedule']}{target}"
+                )
             return "\n".join(lines)
         if command == "compact":
             if self.memory:

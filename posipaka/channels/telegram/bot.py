@@ -77,11 +77,15 @@ class TelegramChannel(BaseChannel):
 
     def _is_authorized(self, user_id: int) -> bool:
         """Перевірити авторизацію."""
-        owner = self.settings.telegram.owner_id
         allowed = self.settings.telegram.allowed_user_ids
-        if owner == 0:
-            return True  # No owner set yet, allow first user
-        return user_id == owner or user_id in allowed
+        if not allowed:
+            return True  # No allowlist — open for everyone
+        return user_id in allowed
+
+    def _is_owner(self, user_id: int) -> bool:
+        """Перевірити чи є користувач власником."""
+        owner = self.settings.telegram.owner_id
+        return owner != 0 and user_id == owner
 
     async def start(self) -> None:
         """Запустити Telegram бота."""
@@ -247,7 +251,7 @@ class TelegramChannel(BaseChannel):
         """Messenger-based onboarding."""
         user_id = str(update.effective_user.id)
 
-        if not self._is_authorized(update.effective_user.id):
+        if not self._is_owner(update.effective_user.id):
             await update.message.reply_text(self._t("system.permission_denied"))
             return
 

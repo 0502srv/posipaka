@@ -78,7 +78,11 @@ async def get_weather(city: str) -> str:
                 params={
                     "latitude": lat,
                     "longitude": lon,
-                    "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
+                    "current": (
+                        "temperature_2m,relative_humidity_2m,"
+                        "apparent_temperature,weather_code,"
+                        "wind_speed_10m"
+                    ),
                     "timezone": "auto",
                 },
             )
@@ -119,7 +123,11 @@ async def get_forecast(city: str, days: int = 3) -> str:
                 params={
                     "latitude": lat,
                     "longitude": lon,
-                    "daily": "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,wind_speed_10m_max",
+                    "daily": (
+                        "temperature_2m_max,temperature_2m_min,"
+                        "weather_code,precipitation_probability_max,"
+                        "wind_speed_10m_max"
+                    ),
                     "timezone": "auto",
                     "forecast_days": days,
                 },
@@ -155,7 +163,11 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="get_weather",
-            description="Get current weather for a city. Use when user asks about weather, temperature, rain, snow, wind, погода, температура.",
+            description=(
+                "Get current weather for a city. "
+                "Use when user asks about weather, temperature, "
+                "rain, snow, wind, погода, температура."
+            ),
             category="integration",
             handler=get_weather,
             input_schema={
@@ -175,7 +187,11 @@ def register(registry: Any) -> None:
     registry.register(
         ToolDefinition(
             name="get_forecast",
-            description="Get weather forecast for a city for next N days (up to 16). Use when user asks about forecast, прогноз, погода на завтра/тиждень.",
+            description=(
+                "Get weather forecast for a city for next N days "
+                "(up to 16). Use when user asks about forecast, "
+                "прогноз, погода на завтра/тиждень."
+            ),
             category="integration",
             handler=get_forecast,
             input_schema={
