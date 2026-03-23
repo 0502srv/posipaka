@@ -121,7 +121,8 @@ class CronExecutor:
             return await self._execute_with_lifecycle(job, agent_fn)
 
     async def execute_all_enabled(
-        self, agent_fn: AgentFn | None = None,
+        self,
+        agent_fn: AgentFn | None = None,
     ) -> list[str]:
         """Execute all enabled jobs. Returns IDs of successful jobs."""
         enabled_jobs = [
@@ -138,15 +139,14 @@ class CronExecutor:
         ]
 
     async def graceful_shutdown(
-        self, timeout: float = DEFAULT_SHUTDOWN_TIMEOUT,
+        self,
+        timeout: float = DEFAULT_SHUTDOWN_TIMEOUT,
     ) -> None:
         """Wait for running jobs to complete or timeout."""
         if not self._running_jobs:
             return
 
-        logger.info(
-            f"Cron shutdown: waiting for {len(self._running_jobs)} jobs..."
-        )
+        logger.info(f"Cron shutdown: waiting for {len(self._running_jobs)} jobs...")
         deadline = time.monotonic() + timeout
         while self._running_jobs and time.monotonic() < deadline:
             await asyncio.sleep(_SHUTDOWN_POLL_INTERVAL)
@@ -180,7 +180,9 @@ class CronExecutor:
     # ── Lifecycle ───────────────────────────────────────────────
 
     async def _execute_with_lifecycle(
-        self, job: CronJob, agent_fn: AgentFn | None,
+        self,
+        job: CronJob,
+        agent_fn: AgentFn | None,
     ) -> str | None:
         """Full lifecycle: hooks -> execute -> metrics -> deliver."""
         start_ts = time.monotonic()
@@ -189,14 +191,19 @@ class CronExecutor:
         exec_id = None
         if self._history:
             exec_id = await asyncio.to_thread(
-                self._history.record_start, job.id, job.name,
+                self._history.record_start,
+                job.id,
+                job.name,
             )
 
-        await self._emit("job_triggered", {
-            "job_id": job.id,
-            "job_name": job.name,
-            "job_type": job.type,
-        })
+        await self._emit(
+            "job_triggered",
+            {
+                "job_id": job.id,
+                "job_name": job.name,
+                "job_type": job.type,
+            },
+        )
 
         try:
             result = await self._run_with_retry(job, agent_fn)
@@ -206,18 +213,22 @@ class CronExecutor:
             if self._history and exec_id is not None:
                 await asyncio.to_thread(
                     self._history.record_success,
-                    exec_id, result or "",
+                    exec_id,
+                    result or "",
                     delivery_mode=job.effective_delivery,
                     target_channel=job.effective_channel,
                     target_user_id=job.effective_user,
                     duration_sec=round(duration, 2),
                 )
             self._record_metrics(job, duration, success=True)
-            await self._emit("job_completed", {
-                "job_id": job.id,
-                "job_name": job.name,
-                "duration_sec": round(duration, 2),
-            })
+            await self._emit(
+                "job_completed",
+                {
+                    "job_id": job.id,
+                    "job_name": job.name,
+                    "duration_sec": round(duration, 2),
+                },
+            )
 
             if result:
                 await self._deliver(job, result)
@@ -229,7 +240,9 @@ class CronExecutor:
 
             if self._history and exec_id is not None:
                 await asyncio.to_thread(
-                    self._history.record_failure, exec_id, error_msg,
+                    self._history.record_failure,
+                    exec_id,
+                    error_msg,
                 )
                 await asyncio.to_thread(
                     self._history.add_to_dlq,
@@ -239,12 +252,15 @@ class CronExecutor:
                     attempts=job.max_retries + 1,
                 )
             self._record_metrics(job, duration, success=False)
-            await self._emit("job_failed", {
-                "job_id": job.id,
-                "job_name": job.name,
-                "error": error_msg,
-                "attempts": job.max_retries + 1,
-            })
+            await self._emit(
+                "job_failed",
+                {
+                    "job_id": job.id,
+                    "job_name": job.name,
+                    "error": error_msg,
+                    "attempts": job.max_retries + 1,
+                },
+            )
 
             await self._deliver_error(job, error_msg)
             return None
@@ -255,7 +271,9 @@ class CronExecutor:
                 self._locks.pop(job.id, None)
 
     async def _run_with_retry(
-        self, job: CronJob, agent_fn: AgentFn | None,
+        self,
+        job: CronJob,
+        agent_fn: AgentFn | None,
     ) -> str:
         """Execute with exponential backoff. Raises on exhaustion."""
         max_attempts = 1 + job.max_retries
@@ -267,10 +285,7 @@ class CronExecutor:
             except Exception as e:
                 last_error = e
                 self._engine.mark_error(job.id, str(e))
-                logger.error(
-                    f"Job '{job.name}' attempt "
-                    f"{attempt + 1}/{max_attempts}: {e}"
-                )
+                logger.error(f"Job '{job.name}' attempt {attempt + 1}/{max_attempts}: {e}")
                 if attempt + 1 < max_attempts:
                     delay = self._engine.get_retry_delay(job.id)
                     logger.info(f"Job '{job.name}' retry in {delay:.1f}s")
@@ -279,7 +294,9 @@ class CronExecutor:
         raise _RetriesExhaustedError(last_error)
 
     async def _run_once(
-        self, job: CronJob, agent_fn: AgentFn | None,
+        self,
+        job: CronJob,
+        agent_fn: AgentFn | None,
     ) -> str:
         """Single execution attempt with per-job timeout."""
         if job.type == CronType.WORKFLOW and job.workflow_name:
@@ -294,15 +311,11 @@ class CronExecutor:
         if self._cost_guard and job.type != CronType.WORKFLOW:
             allowed, reason = self._cost_guard.check_before_call(
                 model=job.model or "default",
-                estimated_input_tokens=(
-                    self._cost_guard.estimate_tokens(job.message)
-                ),
+                estimated_input_tokens=(self._cost_guard.estimate_tokens(job.message)),
                 session_id=f"cron:{job.id}",
             )
             if not allowed:
-                raise CronBudgetExceededError(
-                    f"Budget exceeded: {reason}"
-                )
+                raise CronBudgetExceededError(f"Budget exceeded: {reason}")
 
         session_id = self._resolve_session_id(job)
         result = await asyncio.wait_for(
@@ -321,9 +334,7 @@ class CronExecutor:
     async def _run_workflow(self, job: CronJob) -> str:
         """Execute a workflow job."""
         if not self._workflow_engine:
-            raise RuntimeError(
-                f"WorkflowEngine not available for '{job.workflow_name}'"
-            )
+            raise RuntimeError(f"WorkflowEngine not available for '{job.workflow_name}'")
 
         results = await self._workflow_engine.execute(
             name=job.workflow_name,
@@ -342,14 +353,9 @@ class CronExecutor:
                 successes.append(str(value))
 
         if errors and not successes:
-            raise RuntimeError(
-                f"All workflow steps failed: {'; '.join(errors)}"
-            )
+            raise RuntimeError(f"All workflow steps failed: {'; '.join(errors)}")
         if errors:
-            logger.warning(
-                f"Workflow '{job.workflow_name}' partial failures: "
-                f"{'; '.join(errors)}"
-            )
+            logger.warning(f"Workflow '{job.workflow_name}' partial failures: {'; '.join(errors)}")
         return "\n\n".join(successes) if successes else "Workflow completed"
 
     # ── Delivery ────────────────────────────────────────────────
@@ -366,23 +372,27 @@ class CronExecutor:
         await self._deliver_announce(job, result)
 
     async def _deliver_announce(
-        self, job: CronJob, result: str,
+        self,
+        job: CronJob,
+        result: str,
     ) -> None:
         gateway = self._get_gateway()
         if not gateway:
-            logger.warning(
-                f"Job '{job.name}': no gateway for delivery"
-            )
+            logger.warning(f"Job '{job.name}': no gateway for delivery")
             return
         try:
             await gateway.send_to_channel(
-                job.effective_channel, job.effective_user, result,
+                job.effective_channel,
+                job.effective_user,
+                result,
             )
         except Exception as e:
             logger.error(f"Job '{job.name}' delivery failed: {e}")
 
     async def _deliver_webhook(
-        self, job: CronJob, result: str,
+        self,
+        job: CronJob,
+        result: str,
     ) -> None:
         if not job.webhook_url:
             logger.warning(f"Job '{job.name}': webhook_url not set")
@@ -394,9 +404,7 @@ class CronExecutor:
 
             safe, reason = validate_url(job.webhook_url)
             if not safe:
-                logger.error(
-                    f"Job '{job.name}' webhook blocked (SSRF): {reason}"
-                )
+                logger.error(f"Job '{job.name}' webhook blocked (SSRF): {reason}")
                 return
         except ImportError:
             pass
@@ -422,7 +430,9 @@ class CronExecutor:
         return self._webhook_session
 
     async def _send_webhook(
-        self, job: CronJob, result: str,
+        self,
+        job: CronJob,
+        result: str,
     ) -> None:
         """Actual webhook POST with retry (runs as background task)."""
         payload = {
@@ -435,39 +445,33 @@ class CronExecutor:
         }
         session = await self._get_webhook_session()
         if session is None:
-            logger.error(
-                f"Job '{job.name}': aiohttp required for webhook"
-            )
+            logger.error(f"Job '{job.name}': aiohttp required for webhook")
             return
 
         for attempt in range(_WEBHOOK_MAX_RETRIES + 1):
             try:
                 async with session.post(
-                    job.webhook_url, json=payload,
+                    job.webhook_url,
+                    json=payload,
                 ) as resp:
                     if resp.status < 400:
-                        logger.debug(
-                            f"Job '{job.name}' webhook OK ({resp.status})"
-                        )
+                        logger.debug(f"Job '{job.name}' webhook OK ({resp.status})")
                         return
-                    logger.error(
-                        f"Job '{job.name}' webhook HTTP {resp.status}"
-                    )
+                    logger.error(f"Job '{job.name}' webhook HTTP {resp.status}")
             except Exception as e:
                 logger.error(f"Job '{job.name}' webhook error: {e}")
 
             if attempt < _WEBHOOK_MAX_RETRIES:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
     async def _deliver_error(
-        self, job: CronJob, error: str,
+        self,
+        job: CronJob,
+        error: str,
     ) -> None:
         if job.effective_delivery == DeliveryMode.NONE:
             return
-        msg = (
-            f"Cron job '{job.name}' failed after "
-            f"{job.max_retries + 1} attempts:\n{error}"
-        )
+        msg = f"Cron job '{job.name}' failed after {job.max_retries + 1} attempts:\n{error}"
         await self._deliver(job, msg)
 
     # ── Infrastructure integration ──────────────────────────────
@@ -478,38 +482,44 @@ class CronExecutor:
             return True
         mode = str(self._degradation.mode)
         if mode == "emergency":
-            logger.warning(
-                f"Job '{job.name}' skipped: EMERGENCY mode"
-            )
+            logger.warning(f"Job '{job.name}' skipped: EMERGENCY mode")
             return False
         if mode == "minimal" and job.type == CronType.WORKFLOW:
-            logger.warning(
-                f"Workflow '{job.name}' skipped: MINIMAL mode"
-            )
+            logger.warning(f"Workflow '{job.name}' skipped: MINIMAL mode")
             return False
         return True
 
     def _record_metrics(
-        self, job: CronJob, duration: float, *, success: bool,
+        self,
+        job: CronJob,
+        duration: float,
+        *,
+        success: bool,
     ) -> None:
         """Push metrics to SLOMonitor."""
         if not self._slo_monitor:
             return
         try:
             self._slo_monitor.record(
-                "cron_job_duration", duration,
-                job_id=job.id, job_type=job.type,
+                "cron_job_duration",
+                duration,
+                job_id=job.id,
+                job_type=job.type,
             )
             if not success:
                 self._slo_monitor.record(
-                    "cron_job_error", 1.0,
-                    job_id=job.id, error=job.last_error,
+                    "cron_job_error",
+                    1.0,
+                    job_id=job.id,
+                    error=job.last_error,
                 )
         except Exception as e:
             logger.debug(f"SLO record error: {e}")
 
     async def _emit(
-        self, event_name: str, data: dict[str, Any],
+        self,
+        event_name: str,
+        data: dict[str, Any],
     ) -> None:
         """Emit hook event with error isolation."""
         if not self._hooks:

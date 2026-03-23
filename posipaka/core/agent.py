@@ -139,9 +139,7 @@ class LLMClient:
             if provider == "anthropic":
                 return await self._call_anthropic(system, messages, tools, model)
             else:
-                return await self._call_openai(
-                    system, messages, tools, model, tool_choice
-                )
+                return await self._call_openai(system, messages, tools, model, tool_choice)
         except Exception as e:
             logger.error(f"LLM primary error: {e}")
             # Try fallback
@@ -885,9 +883,7 @@ class Agent:
 
             from posipaka.core.tool_router import route_tools
 
-            route = route_tools(
-                content, all_schemas, self.settings.llm.provider
-            )
+            route = route_tools(content, all_schemas, self.settings.llm.provider)
             tool_schemas = route.tools
             tool_choice = route.tool_choice
 
@@ -1201,7 +1197,8 @@ class Agent:
                 if not job:
                     return f"Job '{subargs}' не знайдено."
                 result = await self.cron_executor.execute_job(
-                    job, agent_fn=self._cron_agent_fn,
+                    job,
+                    agent_fn=self._cron_agent_fn,
                 )
                 return result or "Job виконано (без результату)."
 
@@ -1241,7 +1238,8 @@ class Agent:
                     return f"Job '{entry['job_name']}' більше не існує."
                 self.cron_history.resolve_dlq(dlq_id, resolved_by="manual_retry")
                 result = await self.cron_executor.execute_job(
-                    job, agent_fn=self._cron_agent_fn,
+                    job,
+                    agent_fn=self._cron_agent_fn,
                 )
                 return result or "Retry виконано (без результату)."
 
@@ -1256,9 +1254,7 @@ class Agent:
             for j in jobs:
                 status = "✅" if j["enabled"] else "❌"
                 target = f" → {j['target']}" if j.get("delivery") != "none" else ""
-                lines.append(
-                    f"  {status} {j['name']} [{j['type']}] — {j['schedule']}{target}"
-                )
+                lines.append(f"  {status} {j['name']} [{j['type']}] — {j['schedule']}{target}")
             return "\n".join(lines)
         if command == "compact":
             if self.memory:

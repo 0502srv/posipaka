@@ -124,12 +124,15 @@ class MessageGateway:
                 return getattr(self.agent, "_cron_agent_fn", None)
 
             scheduler.register_cron_jobs(
-                cron_engine, cron_executor, agent_fn_provider,
+                cron_engine,
+                cron_executor,
+                agent_fn_provider,
             )
 
             # Daily cleanup of old execution history (03:00)
             cron_history = getattr(self.agent, "cron_history", None)
             if cron_history:
+
                 async def _daily_cleanup() -> None:
                     cron_history.cleanup(days=30)
 

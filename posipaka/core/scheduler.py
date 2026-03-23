@@ -83,7 +83,9 @@ class PosipakScheduler:
             )
         else:
             trigger = CronTrigger(
-                hour=hour, minute=minute, timezone=timezone,
+                hour=hour,
+                minute=minute,
+                timezone=timezone,
             )
 
         self._scheduler.add_job(
@@ -127,9 +129,7 @@ class PosipakScheduler:
         return [
             {
                 "id": job.id,
-                "next_run": (
-                    str(job.next_run_time) if job.next_run_time else None
-                ),
+                "next_run": (str(job.next_run_time) if job.next_run_time else None),
                 "trigger": str(job.trigger),
             }
             for job in self._scheduler.get_jobs()
@@ -165,7 +165,8 @@ class PosipakScheduler:
             # Resolve agent_fn at call time via provider
             async def _run_job(
                 j: CronJob = job,
-                provider: Callable[[], Callable[..., Awaitable[str]] | None] | None = agent_fn_provider,
+                provider: Callable[[], Callable[..., Awaitable[str]] | None]
+                | None = agent_fn_provider,
             ) -> None:
                 fn = provider() if provider else None
                 await executor.execute_job(j, agent_fn=fn)
@@ -173,12 +174,15 @@ class PosipakScheduler:
             try:
                 if job.type == CronType.ONE_SHOT and job.at:
                     self.add_reminder(
-                        sched_id, _run_job, run_time=job.at,
+                        sched_id,
+                        _run_job,
+                        run_time=job.at,
                     )
                     count += 1
                 elif job.cron:
                     self.add_cron(
-                        sched_id, _run_job,
+                        sched_id,
+                        _run_job,
                         cron_expression=job.cron,
                         timezone=job.timezone,
                         misfire_grace_time=misfire,
@@ -187,14 +191,14 @@ class PosipakScheduler:
                 elif job.every:
                     seconds = CronEngine.parse_every(job.every)
                     self.add_interval(
-                        sched_id, _run_job, seconds=seconds,
+                        sched_id,
+                        _run_job,
+                        seconds=seconds,
                         misfire_grace_time=misfire,
                     )
                     count += 1
             except Exception as e:
-                logger.error(
-                    f"Failed to register job '{job.name}': {e}"
-                )
+                logger.error(f"Failed to register job '{job.name}': {e}")
 
         # Update next_run_at for all registered jobs
         self._sync_next_run_times(cron_engine)
@@ -202,9 +206,7 @@ class PosipakScheduler:
         # Register remove callback for APScheduler sync (once per engine)
         engine_id = id(cron_engine)
         if engine_id not in self._registered_engines:
-            cron_engine.on_remove(
-                lambda jid: self.remove_job(f"cron:{jid}")
-            )
+            cron_engine.on_remove(lambda jid: self.remove_job(f"cron:{jid}"))
             self._registered_engines.add(engine_id)
 
         logger.info(f"Registered {count} cron jobs in scheduler")
@@ -218,7 +220,8 @@ class PosipakScheduler:
             job_id = apjob.id[5:]  # strip "cron:" prefix
             if apjob.next_run_time:
                 cron_engine.update_next_run(
-                    job_id, apjob.next_run_time.isoformat(),
+                    job_id,
+                    apjob.next_run_time.isoformat(),
                 )
 
     def register_history_cleanup(
@@ -245,8 +248,7 @@ class PosipakScheduler:
             replace_existing=True,
         )
         logger.debug(
-            f"History cleanup registered: every {interval_hours}h, "
-            f"retain {retention_days}d"
+            f"History cleanup registered: every {interval_hours}h, retain {retention_days}d"
         )
 
     @property

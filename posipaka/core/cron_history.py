@@ -33,7 +33,8 @@ class CronHistory:
     def init(self) -> None:
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(
-            str(self._db_path), check_same_thread=False,
+            str(self._db_path),
+            check_same_thread=False,
         )
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -45,9 +46,7 @@ class CronHistory:
     def _ensure_conn(self) -> sqlite3.Connection:
         """Guard: raise if init() was not called."""
         if self._conn is None:
-            raise RuntimeError(
-                "CronHistory not initialized — call init() first"
-            )
+            raise RuntimeError("CronHistory not initialized — call init() first")
         return self._conn
 
     def _create_tables(self) -> None:
@@ -122,8 +121,15 @@ class CronHistory:
                 "SET finished_at=?, status='success', result=?, duration_sec=?, "
                 "    delivery_mode=?, target_channel=?, target_user_id=? "
                 "WHERE id=?",
-                (now, result[:_MAX_TEXT_LENGTH], duration_sec, delivery_mode,
-                 target_channel, target_user_id, execution_id),
+                (
+                    now,
+                    result[:_MAX_TEXT_LENGTH],
+                    duration_sec,
+                    delivery_mode,
+                    target_channel,
+                    target_user_id,
+                    execution_id,
+                ),
             )
             conn.commit()
 
@@ -132,21 +138,21 @@ class CronHistory:
             conn = self._ensure_conn()
             now = datetime.now(UTC).isoformat()
             conn.execute(
-                "UPDATE cron_executions "
-                "SET finished_at=?, status='failed', error=? WHERE id=?",
+                "UPDATE cron_executions SET finished_at=?, status='failed', error=? WHERE id=?",
                 (now, error[:_MAX_TEXT_LENGTH], execution_id),
             )
             conn.commit()
 
     def get_runs(
-        self, job_id: str | None = None, limit: int = 20,
+        self,
+        job_id: str | None = None,
+        limit: int = 20,
     ) -> list[dict[str, Any]]:
         with self._lock:
             conn = self._ensure_conn()
             if job_id:
                 rows = conn.execute(
-                    "SELECT * FROM cron_executions WHERE job_id=? "
-                    "ORDER BY started_at DESC LIMIT ?",
+                    "SELECT * FROM cron_executions WHERE job_id=? ORDER BY started_at DESC LIMIT ?",
                     (job_id, limit),
                 ).fetchall()
             else:
@@ -198,7 +204,9 @@ class CronHistory:
             return cursor.lastrowid or 0
 
     def get_dlq(
-        self, status: str = "pending", limit: int = 50,
+        self,
+        status: str = "pending",
+        limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Get DLQ entries."""
         with self._lock:
@@ -286,9 +294,7 @@ class CronHistory:
             return "Немає записів виконання."
         lines = ["Історія виконання cron jobs:"]
         for r in runs:
-            icon = {"success": "✅", "failed": "❌", "running": "⏳"}.get(
-                r["status"], "?"
-            )
+            icon = {"success": "✅", "failed": "❌", "running": "⏳"}.get(r["status"], "?")
             started = r["started_at"][:19].replace("T", " ")
             dur = f" ({r['duration_sec']}s)" if r.get("duration_sec") else ""
             line = f"  {icon} {r['job_name']} — {started}{dur}"

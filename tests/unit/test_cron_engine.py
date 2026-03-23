@@ -36,8 +36,13 @@ def engine(tmp_path):
 
 
 def test_add_and_list(engine):
-    engine.add(name="test_job", message="Hello", user_id="u1",
-               cron_type=CronType.RECURRING, cron="0 9 * * *")
+    engine.add(
+        name="test_job",
+        message="Hello",
+        user_id="u1",
+        cron_type=CronType.RECURRING,
+        cron="0 9 * * *",
+    )
     jobs = engine.list_jobs()
     assert len(jobs) == 1
     assert jobs[0]["name"] == "test_job"
@@ -71,9 +76,14 @@ def test_enable_disable(engine):
 
 
 def test_mark_run_and_delete(engine):
-    job = engine.add(name="once", message="One time", user_id="u1",
-                     cron_type=CronType.ONE_SHOT, at="2026-04-01T09:00:00",
-                     delete_after_run=True)
+    job = engine.add(
+        name="once",
+        message="One time",
+        user_id="u1",
+        cron_type=CronType.ONE_SHOT,
+        at="2026-04-01T09:00:00",
+        delete_after_run=True,
+    )
     engine.mark_run(job.id)
     assert len(engine.list_jobs()) == 0
 
@@ -92,16 +102,21 @@ def test_delivery_mode_defaults(engine):
 
 
 def test_target_channel_override(engine):
-    job = engine.add(name="cross", message="Hi", user_id="u1",
-                     channel="telegram", target_channel="discord",
-                     target_user_id="u2", **_CRON)
+    job = engine.add(
+        name="cross",
+        message="Hi",
+        user_id="u1",
+        channel="telegram",
+        target_channel="discord",
+        target_user_id="u2",
+        **_CRON,
+    )
     assert job.effective_channel == "discord"
     assert job.effective_user == "u2"
 
 
 def test_mark_error_and_retry(engine):
-    job = engine.add(name="retry", message="X", user_id="u1",
-                     max_retries=3, **_CRON)
+    job = engine.add(name="retry", message="X", user_id="u1", max_retries=3, **_CRON)
     engine.mark_error(job.id, "timeout")
     assert job.consecutive_failures == 1
     assert engine.should_retry(job.id) is True
@@ -112,8 +127,9 @@ def test_mark_error_and_retry(engine):
 
 
 def test_retry_delay_exponential_with_jitter(engine):
-    job = engine.add(name="backoff", message="X", user_id="u1",
-                     max_retries=3, retry_delay_seconds=10, **_CRON)
+    job = engine.add(
+        name="backoff", message="X", user_id="u1", max_retries=3, retry_delay_seconds=10, **_CRON
+    )
     engine.mark_error(job.id, "e1")
     delay1 = engine.get_retry_delay(job.id)
     assert 10 <= delay1 <= 12  # 10 + up to 20% jitter
@@ -128,8 +144,7 @@ def test_retry_delay_exponential_with_jitter(engine):
 
 
 def test_mark_run_resets_failures(engine):
-    job = engine.add(name="reset", message="X", user_id="u1",
-                     max_retries=3, **_CRON)
+    job = engine.add(name="reset", message="X", user_id="u1", max_retries=3, **_CRON)
     engine.mark_error(job.id, "fail")
     engine.mark_run(job.id)
     assert job.consecutive_failures == 0
@@ -154,50 +169,61 @@ def test_list_jobs_filter_by_user(engine):
 
 def test_validation_invalid_cron_expression(engine):
     with pytest.raises(ValueError, match="expected 5 fields"):
-        engine.add(name="bad_cron", message="X", user_id="u1",
-                   cron_type=CronType.RECURRING, cron="invalid")
+        engine.add(
+            name="bad_cron", message="X", user_id="u1", cron_type=CronType.RECURRING, cron="invalid"
+        )
 
 
 def test_validation_invalid_at_datetime(engine):
     with pytest.raises(ValueError, match="Invalid 'at'"):
-        engine.add(name="bad_at", message="X", user_id="u1",
-                   cron_type=CronType.ONE_SHOT, at="not-a-date")
+        engine.add(
+            name="bad_at", message="X", user_id="u1", cron_type=CronType.ONE_SHOT, at="not-a-date"
+        )
 
 
 def test_validation_invalid_every(engine):
     with pytest.raises(ValueError, match="Invalid 'every'"):
-        engine.add(name="bad_every", message="X", user_id="u1",
-                   cron_type=CronType.INTERVAL, every="abc")
+        engine.add(
+            name="bad_every", message="X", user_id="u1", cron_type=CronType.INTERVAL, every="abc"
+        )
 
 
 def test_validation_valid_formats(engine):
-    engine.add(name="ok_cron", message="X", user_id="u1",
-               cron_type=CronType.RECURRING, cron="0 9 * * *")
-    engine.add(name="ok_at", message="X", user_id="u1",
-               cron_type=CronType.ONE_SHOT, at="2026-04-01T09:00:00")
-    engine.add(name="ok_every", message="X", user_id="u1",
-               cron_type=CronType.INTERVAL, every="30m")
+    engine.add(
+        name="ok_cron", message="X", user_id="u1", cron_type=CronType.RECURRING, cron="0 9 * * *"
+    )
+    engine.add(
+        name="ok_at",
+        message="X",
+        user_id="u1",
+        cron_type=CronType.ONE_SHOT,
+        at="2026-04-01T09:00:00",
+    )
+    engine.add(name="ok_every", message="X", user_id="u1", cron_type=CronType.INTERVAL, every="30m")
     assert len(engine.list_jobs()) == 3
 
 
 def test_validation_mutual_exclusivity(engine):
     with pytest.raises(ValueError, match="Only one"):
-        engine.add(name="bad", message="X", user_id="u1",
-                   cron_type=CronType.RECURRING,
-                   cron="0 9 * * *", every="30m")
+        engine.add(
+            name="bad",
+            message="X",
+            user_id="u1",
+            cron_type=CronType.RECURRING,
+            cron="0 9 * * *",
+            every="30m",
+        )
 
 
 def test_validation_negative_interval(engine):
     with pytest.raises(ValueError, match="Invalid 'every'"):
-        engine.add(name="neg", message="X", user_id="u1",
-                   cron_type=CronType.INTERVAL, every="-5m")
+        engine.add(name="neg", message="X", user_id="u1", cron_type=CronType.INTERVAL, every="-5m")
 
 
 def test_validation_no_schedule_raises(engine):
     """Creating a non-workflow job without schedule must fail."""
     with pytest.raises(ValueError, match="Schedule required"):
-        engine.add(name="ghost", message="X", user_id="u1",
-                   cron_type=CronType.RECURRING)
+        engine.add(name="ghost", message="X", user_id="u1", cron_type=CronType.RECURRING)
 
 
 def test_parse_every_seconds():
@@ -207,8 +233,9 @@ def test_parse_every_seconds():
 
 def test_retry_delay_capped(engine):
     """Backoff capped at 1 hour."""
-    job = engine.add(name="cap", message="X", user_id="u1",
-                     max_retries=20, retry_delay_seconds=60, **_CRON)
+    job = engine.add(
+        name="cap", message="X", user_id="u1", max_retries=20, retry_delay_seconds=60, **_CRON
+    )
     for _ in range(15):
         engine.mark_error(job.id, "e")
     delay = engine.get_retry_delay(job.id)
@@ -219,13 +246,23 @@ def test_new_fields_persist(tmp_path):
     cron_dir = tmp_path / "cron"
     e1 = CronEngine(cron_dir)
     e1.init()
-    e1.add(name="full", message="Test", user_id="u1",
-           cron_type=CronType.RECURRING, cron="0 9 * * *",
-           delivery_mode="webhook", webhook_url="https://example.com",
-           max_retries=5, session_mode="custom", session_name="my_session",
-           workflow_name="daily_brief", target_channel="discord",
-           target_user_id="u99", timeout_seconds=120,
-           misfire_policy="skip")
+    e1.add(
+        name="full",
+        message="Test",
+        user_id="u1",
+        cron_type=CronType.RECURRING,
+        cron="0 9 * * *",
+        delivery_mode="webhook",
+        webhook_url="https://example.com",
+        max_retries=5,
+        session_mode="custom",
+        session_name="my_session",
+        workflow_name="daily_brief",
+        target_channel="discord",
+        target_user_id="u99",
+        timeout_seconds=120,
+        misfire_policy="skip",
+    )
 
     e2 = CronEngine(cron_dir)
     e2.init()
@@ -246,8 +283,8 @@ def test_on_remove_callback(engine):
     j1 = engine.add(name="a", message="X", user_id="u1", **_CRON)
     j2 = engine.add(name="b", message="Y", user_id="u1", **_CRON)
 
-    engine.remove(j1.id)      # remove by ID
-    engine.remove("b")        # remove by name
+    engine.remove(j1.id)  # remove by ID
+    engine.remove("b")  # remove by name
 
     assert j1.id in removed_ids
     assert j2.id in removed_ids
@@ -322,6 +359,7 @@ class TestCronHistory:
     @pytest.fixture
     def history(self, tmp_path):
         from posipaka.core.cron_history import CronHistory
+
         h = CronHistory(tmp_path / "cron_history.db")
         h.init()
         return h
@@ -355,6 +393,7 @@ class TestCronHistory:
     def test_uninitialized_guard(self, tmp_path):
         """Methods must raise RuntimeError if init() not called."""
         from posipaka.core.cron_history import CronHistory
+
         h = CronHistory(tmp_path / "not_init.db")
         with pytest.raises(RuntimeError, match="not initialized"):
             h.record_start("j1", "job")
@@ -420,10 +459,12 @@ class TestCronExecutor:
         engine.init()
 
         from posipaka.core.cron_history import CronHistory
+
         history = CronHistory(tmp_path / "history.db")
         history.init()
 
         from posipaka.core.cron_executor import CronExecutor
+
         executor = CronExecutor(engine, history=history)
         return engine, executor, history
 
@@ -431,6 +472,7 @@ class TestCronExecutor:
     def _mock_agent(**kwargs):
         async def fn(**kw):
             return f"Result: {kw['message']}"
+
         return fn
 
     # ── Basic execution ──
@@ -490,6 +532,7 @@ class TestCronExecutor:
     async def test_concurrency_limit(self, tmp_path):
         """Semaphore limits concurrent execution."""
         from posipaka.core.cron_executor import CronExecutor
+
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         executor = CronExecutor(engine, max_concurrent=2)
@@ -509,10 +552,8 @@ class TestCronExecutor:
                 running -= 1
             return "ok"
 
-        jobs = [engine.add(name=f"j{i}", message="X", user_id="u1", **_CRON)
-                for i in range(4)]
-        tasks = [asyncio.create_task(executor.execute_job(j, agent_fn=counting_fn))
-                 for j in jobs]
+        jobs = [engine.add(name=f"j{i}", message="X", user_id="u1", **_CRON) for i in range(4)]
+        tasks = [asyncio.create_task(executor.execute_job(j, agent_fn=counting_fn)) for j in jobs]
 
         await asyncio.sleep(0.05)
         barrier.set()
@@ -526,8 +567,9 @@ class TestCronExecutor:
     async def test_retry_then_dlq(self, setup):
         """After exhausting retries, job lands in DLQ."""
         engine, executor, history = setup
-        job = engine.add(name="fragile", message="X", user_id="u1",
-                         max_retries=2, retry_delay_seconds=0, **_CRON)
+        job = engine.add(
+            name="fragile", message="X", user_id="u1", max_retries=2, retry_delay_seconds=0, **_CRON
+        )
 
         async def always_fail(**kw):
             raise RuntimeError("permanent failure")
@@ -544,10 +586,12 @@ class TestCronExecutor:
     @pytest.mark.asyncio
     async def test_retry_succeeds_on_third(self, setup):
         engine, executor, _ = setup
-        job = engine.add(name="flaky", message="X", user_id="u1",
-                         max_retries=2, retry_delay_seconds=0, **_CRON)
+        job = engine.add(
+            name="flaky", message="X", user_id="u1", max_retries=2, retry_delay_seconds=0, **_CRON
+        )
 
         attempts = 0
+
         async def flaky_fn(**kw):
             nonlocal attempts
             attempts += 1
@@ -565,8 +609,7 @@ class TestCronExecutor:
     async def test_job_timeout(self, setup):
         """Job that exceeds timeout_seconds must fail."""
         engine, executor, history = setup
-        job = engine.add(name="hung", message="X", user_id="u1",
-                         timeout_seconds=1, **_CRON)
+        job = engine.add(name="hung", message="X", user_id="u1", timeout_seconds=1, **_CRON)
 
         async def hang_fn(**kw):
             await asyncio.sleep(10)
@@ -634,6 +677,7 @@ class TestCronExecutor:
         mock_cost.estimate_tokens.return_value = 100
 
         from posipaka.core.cron_history import CronHistory
+
         history = CronHistory(tmp_path / "hist.db")
         history.init()
 
@@ -749,10 +793,10 @@ class TestCronExecutor:
     async def test_session_isolated_unique_per_run(self, setup):
         """Isolated sessions get unique ID per run."""
         engine, executor, _ = setup
-        job = engine.add(name="iso", message="X", user_id="u1",
-                         session_mode="isolated", **_CRON)
+        job = engine.add(name="iso", message="X", user_id="u1", session_mode="isolated", **_CRON)
 
         sessions_seen = []
+
         async def capture_fn(**kw):
             sessions_seen.append(kw.get("session_id"))
             return "ok"
@@ -766,10 +810,17 @@ class TestCronExecutor:
     async def test_session_custom_stable(self, setup):
         """Custom sessions keep same ID across runs."""
         engine, executor, _ = setup
-        job = engine.add(name="custom", message="X", user_id="u1",
-                         session_mode="custom", session_name="standup", **_CRON)
+        job = engine.add(
+            name="custom",
+            message="X",
+            user_id="u1",
+            session_mode="custom",
+            session_name="standup",
+            **_CRON,
+        )
 
         sessions_seen = []
+
         async def capture_fn(**kw):
             sessions_seen.append(kw.get("session_id"))
             return "ok"
@@ -840,18 +891,21 @@ class TestCronExecutor:
 class TestCronParser:
     def test_detect_intent_ua(self):
         from posipaka.core.cron_parser import detect_schedule_intent
+
         assert detect_schedule_intent("нагадай мені через 30 хвилин") is True
         assert detect_schedule_intent("щодня о 9 ранку") is True
         assert detect_schedule_intent("як справи?") is False
 
     def test_detect_intent_en(self):
         from posipaka.core.cron_parser import detect_schedule_intent
+
         assert detect_schedule_intent("remind me in 30 minutes") is True
         assert detect_schedule_intent("every day at 9") is True
         assert detect_schedule_intent("what is the weather?") is False
 
     def test_parse_relative_ua(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("нагадай через 30 хвилин")
         assert result.is_valid
         assert result.cron_type == CronType.ONE_SHOT
@@ -859,18 +913,21 @@ class TestCronParser:
 
     def test_parse_daily_ua(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("щодня о 9:30")
         assert result.is_valid
         assert result.cron == "30 9 * * *"
 
     def test_parse_daily_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("every day at 14")
         assert result.is_valid
         assert result.cron == "0 14 * * *"
 
     def test_parse_interval(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("кожні 15 хвилин")
         assert result.is_valid
         assert result.cron_type == CronType.INTERVAL
@@ -878,6 +935,7 @@ class TestCronParser:
 
     def test_parse_unknown(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("яка погода?")
         assert not result.is_valid
 
@@ -885,6 +943,7 @@ class TestCronParser:
 
     def test_parse_weekday_saturday_ua(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("щосуботи о 10:00")
         assert result.is_valid
         assert result.cron_type == CronType.RECURRING
@@ -892,30 +951,35 @@ class TestCronParser:
 
     def test_parse_weekday_sunday_ua(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("щонеділі о 12")
         assert result.is_valid
         assert result.cron == "0 12 * * sun"
 
     def test_parse_weekday_monday_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("every monday at 9:30")
         assert result.is_valid
         assert result.cron == "30 9 * * mon"
 
     def test_parse_weekday_friday_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("friday at 18")
         assert result.is_valid
         assert result.cron == "0 18 * * fri"
 
     def test_parse_weekday_saturday_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("every saturday at 8")
         assert result.is_valid
         assert result.cron == "0 8 * * sat"
 
     def test_parse_weekday_sunday_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("sunday at 20:30")
         assert result.is_valid
         assert result.cron == "30 20 * * sun"
@@ -924,36 +988,42 @@ class TestCronParser:
 
     def test_parse_monthly_ua(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("кожного 1-го о 9")
         assert result.is_valid
         assert result.cron == "0 9 1 * *"
 
     def test_parse_monthly_ua_with_minutes(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("щомісяця 15 о 10:30")
         assert result.is_valid
         assert result.cron == "30 10 15 * *"
 
     def test_parse_monthly_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("every 15th at 10:30")
         assert result.is_valid
         assert result.cron == "30 10 15 * *"
 
     def test_parse_monthly_en_simple(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("monthly on 1 at 9")
         assert result.is_valid
         assert result.cron == "0 9 1 * *"
 
     def test_parse_monthly_ru(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("каждого 5-го в 8")
         assert result.is_valid
         assert result.cron == "0 8 5 * *"
 
     def test_detect_intent_monthly(self):
         from posipaka.core.cron_parser import detect_schedule_intent
+
         assert detect_schedule_intent("щомісяця 1 о 9") is True
         assert detect_schedule_intent("monthly on 15 at 10") is True
         assert detect_schedule_intent("кожного 1-го о 9") is True
@@ -967,6 +1037,7 @@ class TestCronParser:
 class TestCronExecutorWebhook:
     def test_webhook_tasks_set_exists(self, tmp_path):
         from posipaka.core.cron_executor import CronExecutor
+
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         executor = CronExecutor(engine)
@@ -982,6 +1053,7 @@ class TestCronExecutorWebhook:
 class TestSessionManager:
     def test_named_session_stable(self):
         from posipaka.core.session import SessionManager
+
         mgr = SessionManager()
         s1 = mgr.get_or_create_named("daily", "u1", "telegram")
         s2 = mgr.get_or_create_named("daily", "u1", "telegram")
@@ -989,6 +1061,7 @@ class TestSessionManager:
 
     def test_close_named_removes(self):
         from posipaka.core.session import SessionManager
+
         mgr = SessionManager()
         s = mgr.get_or_create_named("test", "u1", "telegram")
         mgr.close(s.id)
@@ -1005,43 +1078,51 @@ class TestCronParserEdgeCases:
 
     def test_invalid_hour_rejected(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("щодня о 25:00")
         assert not result.is_valid
 
     def test_invalid_minute_rejected(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("every day at 9:70")
         assert not result.is_valid
 
     def test_invalid_monthly_day_rejected(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("monthly on 35 at 9")
         assert not result.is_valid
 
     def test_invalid_monthly_hour_rejected(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("кожного 1-го о 30")
         assert not result.is_valid
 
     def test_no_false_positive_in_number(self):
         """'in 1990' should not trigger schedule intent."""
         from posipaka.core.cron_parser import detect_schedule_intent
+
         assert detect_schedule_intent("I was born in 1990") is False
         assert detect_schedule_intent("there are 5 items in 3 boxes") is False
 
     def test_intent_still_detects_valid_en(self):
         from posipaka.core.cron_parser import detect_schedule_intent
+
         assert detect_schedule_intent("in 5 minutes do something") is True
         assert detect_schedule_intent("in 2 hours check status") is True
 
     def test_zero_interval_rejected(self):
         from posipaka.core.cron_parser import parse_schedule
+
         # "кожні 0 хвилин" should not produce valid schedule
         result = parse_schedule("кожні 0 хвилин")
         assert not result.is_valid
 
     def test_weekday_invalid_hour(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("every monday at 25")
         assert not result.is_valid
 
@@ -1049,6 +1130,7 @@ class TestCronParserEdgeCases:
 class TestCronHistoryContextManager:
     def test_context_manager(self, tmp_path):
         from posipaka.core.cron_history import CronHistory
+
         with CronHistory(tmp_path / "ctx.db") as h:
             eid = h.record_start("j1", "job")
             h.record_success(eid, "ok")
@@ -1063,6 +1145,7 @@ class TestCronExecutorAllEnabled:
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         from posipaka.core.cron_executor import CronExecutor
+
         executor = CronExecutor(engine)
         return engine, executor
 
@@ -1107,6 +1190,7 @@ class TestCronExecutorShutdown:
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         from posipaka.core.cron_executor import CronExecutor
+
         executor = CronExecutor(engine)
 
         job = engine.add(name="slow", message="X", user_id="u1", **_CRON)
@@ -1140,6 +1224,7 @@ class TestCronExecutorShutdown:
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         from posipaka.core.cron_executor import CronExecutor
+
         executor = CronExecutor(engine)
 
         job = engine.add(name="stuck", message="X", user_id="u1", **_CRON)
@@ -1178,6 +1263,7 @@ class TestCronJobFromDictUnknownFields:
             "another_bad": 42,
         }
         from posipaka.core.cron_engine import CronJob
+
         job = CronJob.from_dict(data)
         assert job.name == "test"
         assert not hasattr(job, "unknown_field")
@@ -1211,21 +1297,36 @@ class TestDeepCronValidation:
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         with pytest.raises(ValueError, match="Invalid cron"):
-            engine.add(name="bad", message="X", user_id="u1",
-                       cron_type=CronType.RECURRING, cron="99 99 * * *")
+            engine.add(
+                name="bad",
+                message="X",
+                user_id="u1",
+                cron_type=CronType.RECURRING,
+                cron="99 99 * * *",
+            )
 
     def test_invalid_day_of_week_rejected(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         with pytest.raises(ValueError, match="Invalid cron"):
-            engine.add(name="bad_dow", message="X", user_id="u1",
-                       cron_type=CronType.RECURRING, cron="0 9 * * 8")
+            engine.add(
+                name="bad_dow",
+                message="X",
+                user_id="u1",
+                cron_type=CronType.RECURRING,
+                cron="0 9 * * 8",
+            )
 
     def test_valid_cron_accepted(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
-        job = engine.add(name="valid", message="X", user_id="u1",
-                         cron_type=CronType.RECURRING, cron="30 14 1 */2 mon")
+        job = engine.add(
+            name="valid",
+            message="X",
+            user_id="u1",
+            cron_type=CronType.RECURRING,
+            cron="30 14 1 */2 mon",
+        )
         assert job.cron == "30 14 1 */2 mon"
 
 
@@ -1235,8 +1336,7 @@ class TestCircuitBreaker:
     def test_auto_disable_after_threshold(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
-        job = engine.add(name="fragile", message="X", user_id="u1",
-                         auto_disable_after=3, **_CRON)
+        job = engine.add(name="fragile", message="X", user_id="u1", auto_disable_after=3, **_CRON)
         for _ in range(3):
             engine.mark_error(job.id, "boom")
         assert job.enabled is False
@@ -1245,8 +1345,7 @@ class TestCircuitBreaker:
     def test_no_auto_disable_below_threshold(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
-        job = engine.add(name="ok", message="X", user_id="u1",
-                         auto_disable_after=5, **_CRON)
+        job = engine.add(name="ok", message="X", user_id="u1", auto_disable_after=5, **_CRON)
         for _ in range(4):
             engine.mark_error(job.id, "err")
         assert job.enabled is True
@@ -1254,8 +1353,7 @@ class TestCircuitBreaker:
     def test_auto_disable_zero_means_never(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
-        job = engine.add(name="never", message="X", user_id="u1",
-                         auto_disable_after=0, **_CRON)
+        job = engine.add(name="never", message="X", user_id="u1", auto_disable_after=0, **_CRON)
         for _ in range(50):
             engine.mark_error(job.id, "err")
         assert job.enabled is True
@@ -1263,8 +1361,7 @@ class TestCircuitBreaker:
     def test_reset_after_success(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
-        job = engine.add(name="recover", message="X", user_id="u1",
-                         auto_disable_after=3, **_CRON)
+        job = engine.add(name="recover", message="X", user_id="u1", auto_disable_after=3, **_CRON)
         engine.mark_error(job.id, "e1")
         engine.mark_error(job.id, "e2")
         engine.mark_run(job.id)
@@ -1328,6 +1425,7 @@ class TestCronParserTimezone:
 
     def test_parse_with_timezone(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("через 30 хвилин", tz="Europe/Kyiv")
         assert result.is_valid
         assert result.cron_type == CronType.ONE_SHOT
@@ -1335,12 +1433,14 @@ class TestCronParserTimezone:
 
     def test_parse_with_invalid_timezone_falls_back(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("in 10 minutes", tz="Invalid/Zone")
         assert result.is_valid  # should still work with UTC fallback
 
     def test_parse_input_truncated(self):
         """Long input is truncated, no ReDoS."""
         from posipaka.core.cron_parser import parse_schedule
+
         long_text = "X" * 1000 + " through 30 minutes"
         result = parse_schedule(long_text)
         assert not result.is_valid  # schedule part truncated away
@@ -1351,6 +1451,7 @@ class TestCronHistoryCleanupCount:
 
     def test_cleanup_counts_both_tables(self, tmp_path):
         from posipaka.core.cron_history import CronHistory
+
         h = CronHistory(tmp_path / "cleanup.db")
         h.init()
 
@@ -1369,6 +1470,7 @@ class TestCronHistoryAsyncContextManager:
     @pytest.mark.asyncio
     async def test_async_context_manager(self, tmp_path):
         from posipaka.core.cron_history import CronHistory
+
         h = CronHistory(tmp_path / "async_ctx.db")
         async with h:
             eid = h.record_start("j1", "job")
@@ -1382,6 +1484,7 @@ class TestCronExecutorClose:
     @pytest.mark.asyncio
     async def test_close_clears_webhook_tasks(self, tmp_path):
         from posipaka.core.cron_executor import CronExecutor
+
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         executor = CronExecutor(engine)
@@ -1391,6 +1494,7 @@ class TestCronExecutorClose:
     @pytest.mark.asyncio
     async def test_close_idempotent(self, tmp_path):
         from posipaka.core.cron_executor import CronExecutor
+
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         executor = CronExecutor(engine)
@@ -1405,8 +1509,7 @@ class TestAutoDisableField:
         cron_dir = tmp_path / "cron"
         e1 = CronEngine(cron_dir)
         e1.init()
-        e1.add(name="persist", message="X", user_id="u1",
-               auto_disable_after=5, **_CRON)
+        e1.add(name="persist", message="X", user_id="u1", auto_disable_after=5, **_CRON)
 
         e2 = CronEngine(cron_dir)
         e2.init()
@@ -1443,21 +1546,22 @@ class TestWebhookUrlValidation:
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         with pytest.raises(ValueError, match="http/https"):
-            engine.add(name="bad", message="X", user_id="u1",
-                       webhook_url="ftp://example.com", **_CRON)
+            engine.add(
+                name="bad", message="X", user_id="u1", webhook_url="ftp://example.com", **_CRON
+            )
 
     def test_no_host_rejected(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         with pytest.raises(ValueError, match="valid host"):
-            engine.add(name="bad", message="X", user_id="u1",
-                       webhook_url="http://", **_CRON)
+            engine.add(name="bad", message="X", user_id="u1", webhook_url="http://", **_CRON)
 
     def test_valid_url_accepted(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
-        job = engine.add(name="ok", message="X", user_id="u1",
-                         webhook_url="https://example.com/hook", **_CRON)
+        job = engine.add(
+            name="ok", message="X", user_id="u1", webhook_url="https://example.com/hook", **_CRON
+        )
         assert job.webhook_url == "https://example.com/hook"
 
     def test_empty_url_accepted(self, tmp_path):
@@ -1481,37 +1585,43 @@ class TestEnumValidation:
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         with pytest.raises(ValueError, match="Invalid type"):
-            engine.add(name="bad", message="X", user_id="u1",
-                       cron_type="nonexistent", cron="0 9 * * *")
+            engine.add(
+                name="bad", message="X", user_id="u1", cron_type="nonexistent", cron="0 9 * * *"
+            )
 
     def test_invalid_delivery_mode_rejected(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         with pytest.raises(ValueError, match="Invalid delivery_mode"):
-            engine.add(name="bad", message="X", user_id="u1",
-                       delivery_mode="carrier_pigeon", **_CRON)
+            engine.add(
+                name="bad", message="X", user_id="u1", delivery_mode="carrier_pigeon", **_CRON
+            )
 
     def test_invalid_session_mode_rejected(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         with pytest.raises(ValueError, match="Invalid session_mode"):
-            engine.add(name="bad", message="X", user_id="u1",
-                       session_mode="telepathy", **_CRON)
+            engine.add(name="bad", message="X", user_id="u1", session_mode="telepathy", **_CRON)
 
     def test_invalid_misfire_policy_rejected(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         with pytest.raises(ValueError, match="Invalid misfire_policy"):
-            engine.add(name="bad", message="X", user_id="u1",
-                       misfire_policy="panic", **_CRON)
+            engine.add(name="bad", message="X", user_id="u1", misfire_policy="panic", **_CRON)
 
     def test_from_dict_invalid_type_rejected(self):
         from posipaka.core.cron_engine import CronJob
+
         with pytest.raises(ValueError, match="Invalid type"):
-            CronJob.from_dict({
-                "id": "abc", "name": "t", "type": "bogus",
-                "message": "X", "user_id": "u1",
-            })
+            CronJob.from_dict(
+                {
+                    "id": "abc",
+                    "name": "t",
+                    "type": "bogus",
+                    "message": "X",
+                    "user_id": "u1",
+                }
+            )
 
     def test_update_invalid_enum_rejected(self, tmp_path):
         engine = CronEngine(tmp_path / "cron")
@@ -1524,10 +1634,15 @@ class TestEnumValidation:
         engine = CronEngine(tmp_path / "cron")
         engine.init()
         job = engine.add(
-            name="good", message="X", user_id="u1",
-            cron_type="recurring", cron="0 9 * * *",
-            delivery_mode="webhook", session_mode="custom",
-            misfire_policy="skip", webhook_url="https://example.com",
+            name="good",
+            message="X",
+            user_id="u1",
+            cron_type="recurring",
+            cron="0 9 * * *",
+            delivery_mode="webhook",
+            session_mode="custom",
+            misfire_policy="skip",
+            webhook_url="https://example.com",
         )
         assert job.delivery_mode == "webhook"
         assert job.session_mode == "custom"
@@ -1550,6 +1665,7 @@ class TestCronParserEveryHour:
 
     def test_every_hour_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("every hour")
         assert result.is_valid
         assert result.cron_type == CronType.INTERVAL
@@ -1557,36 +1673,42 @@ class TestCronParserEveryHour:
 
     def test_hourly_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("hourly")
         assert result.is_valid
         assert result.every == "1h"
 
     def test_every_hour_ua(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("щогодини")
         assert result.is_valid
         assert result.every == "1h"
 
     def test_every_hour_ru(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("каждый час")
         assert result.is_valid
         assert result.every == "1h"
 
     def test_every_minute_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("every minute")
         assert result.is_valid
         assert result.every == "1m"
 
     def test_minutely_en(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("minutely")
         assert result.is_valid
         assert result.every == "1m"
 
     def test_every_minute_ua(self):
         from posipaka.core.cron_parser import parse_schedule
+
         result = parse_schedule("щохвилини")
         assert result.is_valid
         assert result.every == "1m"

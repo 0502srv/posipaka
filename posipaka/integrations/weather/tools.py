@@ -147,8 +147,7 @@ async def get_forecast(city: str, days: int = 3) -> str:
             desc = _WMO_CODES.get(code, f"код {code}")
 
             lines.append(
-                f"📅 {date}: {t_min}..{t_max}°C, {desc}, "
-                f"опади {precip}%, вітер {wind} км/год"
+                f"📅 {date}: {t_min}..{t_max}°C, {desc}, опади {precip}%, вітер {wind} км/год"
             )
 
         return "\n".join(lines)

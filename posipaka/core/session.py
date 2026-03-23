@@ -85,6 +85,4 @@ class SessionManager:
 
     def close(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
-        self._named_sessions = {
-            k: v for k, v in self._named_sessions.items() if v.id != session_id
-        }
+        self._named_sessions = {k: v for k, v in self._named_sessions.items() if v.id != session_id}

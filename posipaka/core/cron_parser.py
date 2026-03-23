@@ -114,10 +114,26 @@ _WEEKDAY_MAP: dict[str, str] = {
 }
 
 _SCHEDULE_KEYWORDS: list[str] = [
-    "нагадай", "нагадати", "напомни", "напомнить", "remind",
-    "через", "щодня", "кожні", "кожен", "кожного", "каждый", "каждого",
-    "every day", "every hour", "every min", "monthly", "щомісяця",
-    "schedule", "запланувати", "запланируй",
+    "нагадай",
+    "нагадати",
+    "напомни",
+    "напомнить",
+    "remind",
+    "через",
+    "щодня",
+    "кожні",
+    "кожен",
+    "кожного",
+    "каждый",
+    "каждого",
+    "every day",
+    "every hour",
+    "every min",
+    "monthly",
+    "щомісяця",
+    "schedule",
+    "запланувати",
+    "запланируй",
 ]
 
 # Patterns that require regex match (avoid false positives from bare "in 1" etc.)

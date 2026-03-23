@@ -154,8 +154,7 @@ def route_tools(
         return ToolRouteResult(tools=all_schemas, tool_choice="auto", confident=False)
 
     logger.debug(
-        f"ToolRouter: matched {len(filtered)} tools for query "
-        f"(from {len(all_schemas)} total)"
+        f"ToolRouter: matched {len(filtered)} tools for query (from {len(all_schemas)} total)"
     )
 
     # Force tool call when few tools matched — even weak models handle this

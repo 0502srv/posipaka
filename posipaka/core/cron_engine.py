@@ -28,10 +28,16 @@ _JITTER_FACTOR = 0.2
 _MAX_JOBS = 200
 _DEFAULT_TIMEOUT_SECONDS = 300  # 5 min
 _DEFAULT_AUTO_DISABLE_AFTER = 10  # consecutive failures before auto-disable
-_READONLY_FIELDS = frozenset({
-    "id", "run_count", "consecutive_failures", "last_run", "last_error",
-    "updated_at",
-})
+_READONLY_FIELDS = frozenset(
+    {
+        "id",
+        "run_count",
+        "consecutive_failures",
+        "last_run",
+        "last_error",
+        "updated_at",
+    }
+)
 
 
 class CronType(StrEnum):
@@ -147,9 +153,7 @@ def _validate_enum_fields(data: dict[str, Any]) -> None:
         value = data.get(field)
         if value and value not in {e.value for e in enum_cls}:
             valid = ", ".join(e.value for e in enum_cls)
-            raise ValueError(
-                f"Invalid {field}={value!r} — expected one of: {valid}"
-            )
+            raise ValueError(f"Invalid {field}={value!r} — expected one of: {valid}")
 
 
 def _validate_webhook_url(url: str) -> None:
@@ -160,9 +164,7 @@ def _validate_webhook_url(url: str) -> None:
 
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
-        raise ValueError(
-            f"webhook_url must use http/https scheme, got {parsed.scheme!r}"
-        )
+        raise ValueError(f"webhook_url must use http/https scheme, got {parsed.scheme!r}")
     if not parsed.netloc:
         raise ValueError("webhook_url must have a valid host")
 
@@ -175,7 +177,10 @@ class CronEngine:
     """
 
     def __init__(
-        self, cron_dir: Path, *, max_jobs: int = _MAX_JOBS,
+        self,
+        cron_dir: Path,
+        *,
+        max_jobs: int = _MAX_JOBS,
     ) -> None:
         self._cron_dir = cron_dir
         self._max_jobs = max_jobs
@@ -234,18 +239,17 @@ class CronEngine:
                 f"Remove unused jobs before adding new ones."
             )
         if name in self._name_index:
-            raise ValueError(
-                f"Job with name '{name}' already exists "
-                f"(id={self._name_index[name]})"
-            )
+            raise ValueError(f"Job with name '{name}' already exists (id={self._name_index[name]})")
         self._validate_schedule(cron_type, at=at, cron=cron, every=every)
         _validate_webhook_url(webhook_url)
-        _validate_enum_fields({
-            "type": cron_type,
-            "delivery_mode": delivery_mode,
-            "session_mode": session_mode,
-            "misfire_policy": misfire_policy,
-        })
+        _validate_enum_fields(
+            {
+                "type": cron_type,
+                "delivery_mode": delivery_mode,
+                "session_mode": session_mode,
+                "misfire_policy": misfire_policy,
+            }
+        )
         job_id = self._generate_unique_id()
         job = CronJob(
             id=job_id,
@@ -333,9 +337,7 @@ class CronEngine:
             raise ValueError(f"Unknown fields: {unknown}")
 
         # Validate enum fields if any are being updated
-        enum_update = {
-            k: fields[k] for k in _ENUM_VALIDATORS if k in fields
-        }
+        enum_update = {k: fields[k] for k in _ENUM_VALIDATORS if k in fields}
         if enum_update:
             _validate_enum_fields(enum_update)
 
@@ -350,16 +352,17 @@ class CronEngine:
         new_type = fields.get("type", job.type)
         if {"at", "cron", "every", "type"} & set(fields):
             self._validate_schedule(
-                new_type, at=new_at, cron=new_cron, every=new_every,
+                new_type,
+                at=new_at,
+                cron=new_cron,
+                every=new_every,
             )
 
         # Validate name uniqueness on rename
         new_name = fields.get("name")
         if new_name and new_name != job.name:
             if new_name in self._name_index:
-                raise ValueError(
-                    f"Job with name '{new_name}' already exists"
-                )
+                raise ValueError(f"Job with name '{new_name}' already exists")
             self._name_index.pop(job.name, None)
 
         old_name = job.name
@@ -414,10 +417,7 @@ class CronEngine:
         job = self._jobs.get(job_id)
         if not job:
             return False
-        return (
-            job.max_retries > 0
-            and job.consecutive_failures <= job.max_retries
-        )
+        return job.max_retries > 0 and job.consecutive_failures <= job.max_retries
 
     def get_retry_delay(self, job_id: str) -> float:
         """Exponential backoff delay with jitter (seconds). Capped at 1 hour."""
@@ -425,13 +425,14 @@ class CronEngine:
         if not job:
             return 0
         exponent = min(job.consecutive_failures - 1, 10)
-        base = job.retry_delay_seconds * (2 ** exponent)
+        base = job.retry_delay_seconds * (2**exponent)
         base = min(base, 3600)  # cap at 1 hour
         jitter = random.uniform(0, base * _JITTER_FACTOR)  # noqa: S311
         return float(base + jitter)
 
     def list_jobs(
-        self, user_id: str | None = None,
+        self,
+        user_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """List all jobs, optionally filtered by user."""
         jobs: list[CronJob] = list(self._jobs.values())
@@ -533,48 +534,40 @@ class CronEngine:
         # Mutual exclusivity: exactly one schedule field
         fields_set = sum(bool(f) for f in (at, cron, every))
         if cron_type != CronType.WORKFLOW and fields_set == 0:
-            raise ValueError(
-                "Schedule required: set one of (at, cron, every)"
-            )
+            raise ValueError("Schedule required: set one of (at, cron, every)")
         if cron_type != CronType.WORKFLOW and fields_set > 1:
-            raise ValueError(
-                "Only one of (at, cron, every) can be set"
-            )
+            raise ValueError("Only one of (at, cron, every) can be set")
 
         if cron_type == CronType.ONE_SHOT and at:
             try:
                 datetime.fromisoformat(at)
             except ValueError as e:
-                raise ValueError(
-                    f"Invalid 'at' datetime: {at!r}"
-                ) from e
+                raise ValueError(f"Invalid 'at' datetime: {at!r}") from e
 
         if cron_type == CronType.RECURRING and cron:
             parts = cron.strip().split()
             if len(parts) != 5:
                 raise ValueError(
-                    f"Invalid cron expression: {cron!r} — "
-                    f"expected 5 fields, got {len(parts)}"
+                    f"Invalid cron expression: {cron!r} — expected 5 fields, got {len(parts)}"
                 )
             try:
                 from apscheduler.triggers.cron import CronTrigger
 
                 CronTrigger(
-                    minute=parts[0], hour=parts[1], day=parts[2],
-                    month=parts[3], day_of_week=parts[4],
+                    minute=parts[0],
+                    hour=parts[1],
+                    day=parts[2],
+                    month=parts[3],
+                    day_of_week=parts[4],
                 )
             except (ValueError, KeyError) as e:
-                raise ValueError(
-                    f"Invalid cron expression: {cron!r} — {e}"
-                ) from e
+                raise ValueError(f"Invalid cron expression: {cron!r} — {e}") from e
 
         if cron_type == CronType.INTERVAL and every:
             try:
                 CronEngine.parse_every(every)
             except (ValueError, IndexError) as e:
-                raise ValueError(
-                    f"Invalid 'every' interval: {every!r}"
-                ) from e
+                raise ValueError(f"Invalid 'every' interval: {every!r}") from e
 
     @staticmethod
     def parse_every(every: str) -> int:
