@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re as _re
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -1490,3 +1491,13 @@ class Agent:
             f"Інструментів: {tools_count}\n"
             f"\n{cost_report}"
         )
+
+
+_ELICIT_RE = _re.compile(r"^\[elicit:([a-f0-9]+)\]\s*(.*)", _re.DOTALL)
+
+
+def _match_elicitation_response(text: str) -> tuple[str, str] | None:
+    m = _ELICIT_RE.match(text)
+    if not m:
+        return None
+    return m.group(1), m.group(2)

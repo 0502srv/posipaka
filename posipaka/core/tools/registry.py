@@ -115,7 +115,6 @@ class ToolRegistry:
         if not tool_def.enabled:
             raise ToolDisabledError(f"Tool '{name}' is disabled")
 
-        # Permission check
         if self._permission_checker and user_id:
             allowed = await self._permission_checker.check(user_id, "TOOL_EXEC", resource=name)
             if not allowed:
@@ -130,7 +129,10 @@ class ToolRegistry:
         """Отримати ToolDefinition."""
         return self._tools.get(name)
 
-    # Провайдери що використовують OpenAI-сумісний формат tools
+    def unregister(self, name: str) -> None:
+        """Видалити tool з реєстру."""
+        self._tools.pop(name, None)
+
     _OPENAI_COMPATIBLE = {"openai", "mistral", "groq", "deepseek", "xai", "gemini", "ollama"}
 
     def get_schemas(self, provider: str = "anthropic") -> list[dict]:

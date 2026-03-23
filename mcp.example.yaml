@@ -1,29 +1,130 @@
 # MCP (Model Context Protocol) — конфігурація серверів
 # Копіюйте в ~/.posipaka/mcp.yaml та налаштуйте
+#
+# Кожен MCP сервер надає tools які агент може використовувати.
+# Пріоритет: builtin skills > integrations > MCP servers
+#
+# Підтримувані транспорти:
+#   - stdio (default) — локальний subprocess
+#   - streamable-http — remote HTTP сервер (з опціональною OAuth авторизацією)
+#
+# Формат серверів — dict (ключ = ім'я сервера):
+#   servers:
+#     server-name:
+#       command: "executable"       # Для stdio transport
+#       args: ["arg1", "arg2"]
+#       env:
+#         KEY: "value"
+#         SECRET: "${ENV_VAR}"           # Читає з оточення
+#         WITH_DEFAULT: "${VAR:-fallback}" # З дефолтним значенням
+#       enabled: true
+#       transport: stdio             # або streamable-http
+#       timeout: 30
+#       auto_start: true   # false = lazy loading (запуск при першому виклику)
+#       roots:             # Custom Root paths для list_roots (за замовчуванням: ~/.posipaka/)
+#         - "/home/user/docs"
+#         - "/home/user/projects"
+#
+#     remote-server:
+#       transport: streamable-http   # HTTP transport для remote серверів
+#       url: "http://mcp-server:8000/mcp"
+#       headers:                     # Custom HTTP headers
+#         Authorization: "Bearer ${API_TOKEN}"
+#       oauth:                       # OAuth авторизація (замість headers)
+#         client_name: "posipaka"
+#         redirect_uri: "http://localhost:3000/callback"
+#         scope: "read write"
+#       enabled: true
 
 servers:
-  # Приклад: файлова система
+  # --- Файлова система (stdio) ---
   # filesystem:
   #   command: npx
-  #   args: ["-y", "@anthropic/mcp-filesystem", "/home/user/docs"]
+  #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/docs"]
   #   enabled: true
 
-  # Приклад: базова пам'ять
+  # --- Brave Search (stdio) ---
+  # brave-search:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-brave-search"]
+  #   env:
+  #     BRAVE_API_KEY: "${BRAVE_API_KEY}"
+  #   enabled: true
+
+  # --- GitHub (stdio) ---
+  # github:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-github"]
+  #   env:
+  #     GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
+  #   enabled: true
+
+  # --- PostgreSQL (stdio) ---
+  # postgres:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"]
+  #   enabled: false
+
+  # --- Sqlite (stdio) ---
+  # sqlite:
+  #   command: uvx
+  #   args: ["mcp-server-sqlite", "--db-path", "/path/to/db.sqlite"]
+  #   enabled: false
+
+  # --- Puppeteer (stdio) ---
+  # puppeteer:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-puppeteer"]
+  #   enabled: false
+
+  # --- Memory (stdio) ---
   # memory:
   #   command: npx
-  #   args: ["-y", "@anthropic/mcp-memory"]
-  #   enabled: true
+  #   args: ["-y", "@modelcontextprotocol/server-memory"]
+  #   enabled: false
 
-  # Приклад: пошук в інтернеті
-  # web-search:
-  #   command: npx
-  #   args: ["-y", "@anthropic/mcp-web-search"]
+  # --- Python MCP сервер (stdio) ---
+  # my-python-server:
+  #   command: python
+  #   args: ["-m", "my_mcp_server"]
   #   env:
-  #     BRAVE_API_KEY: "your-key-here"
+  #     API_KEY: "${MY_API_KEY}"
+  #   env_passthrough: ["NODE_OPTIONS"]  # Тільки ці змінні з оточення (+ PATH, HOME, LANG)
+  #   timeout: 60
+  #   enabled: false
+
+  # --- Remote MCP сервер (Streamable HTTP) ---
+  # remote-tools:
+  #   transport: streamable-http
+  #   url: "http://mcp-tools.example.com:8000/mcp"
+  #   timeout: 30
+  #   enabled: false
+
+  # --- Remote MCP з OAuth (Streamable HTTP) ---
+  # remote-oauth:
+  #   transport: streamable-http
+  #   url: "http://mcp-secure.example.com:8000/mcp"
+  #   oauth:
+  #     client_name: "posipaka"
+  #     redirect_uri: "http://localhost:3000/callback"
+  #     scope: "tools:read tools:execute"
+  #   enabled: false
+
+  # --- Remote MCP з custom headers (Streamable HTTP) ---
+  # remote-api:
+  #   transport: streamable-http
+  #   url: "http://mcp-api.example.com:8000/mcp"
+  #   headers:
+  #     Authorization: "Bearer ${MCP_API_TOKEN}"
+  #     X-Client-Id: "posipaka"
   #   enabled: false
 
 # Глобальні налаштування
 settings:
-  lazy_loading: true      # Завантажувати tools тільки при потребі
-  timeout_seconds: 30     # Таймаут запуску сервера
-  max_servers: 10         # Максимум одночасних серверів
+  lazy_loading: true       # true = не запускати сервери автоматично
+  timeout_seconds: 30      # Дефолтний таймаут запуску сервера
+  max_servers: 10          # Максимум одночасних серверів
+  max_concurrent_calls: 5  # Максимум паралельних tool calls на сервер
+  allow_private_networks: true  # false = блокувати RFC1918 (10.x, 172.16-31.x, 192.168.x) для cloud
+  # allowed_commands:       # Додаткові дозволені команди для stdio transport
+  #   - my-custom-server    # За замовчуванням: node, npx, npm, python, python3, uvx, uv, deno, bun, bunx, docker, podman
