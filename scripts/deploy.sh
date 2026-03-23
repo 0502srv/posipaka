@@ -301,20 +301,22 @@ else
     echo -e "${GREEN}${BOLD}Posipaka deployed successfully!${NC}"
 fi
 echo ""
-echo "  Web UI:  http://${_ip}:8080"
+echo "  Web UI:    http://${_ip}:8080"
+echo -e "  Setup:     ${GREEN}${BOLD}http://${_ip}:8080/setup${NC}"
 if [[ -n "$_web_password" ]]; then
-    echo -e "  Password: ${YELLOW}${BOLD}${_web_password}${NC}  (save it, shown only once!)"
+    echo -e "  Password:  ${YELLOW}${BOLD}${_web_password}${NC}  (save it, shown only once!)"
 fi
 echo ""
 if [[ "$DEPLOY_METHOD" == "docker" ]]; then
-    echo "  Logs:    $DOCKER logs posipaka -f"
+    echo "  Logs:      $DOCKER logs posipaka -f"
 else
-    echo "  Logs:    sudo journalctl -u posipaka -f"
+    echo "  Logs:      sudo journalctl -u posipaka -f"
 fi
-echo "  Config:  $INSTALL_DIR/.env"
+echo "  Config:    $INSTALL_DIR/.env"
 echo ""
 if [[ "$IS_UPDATE" == true ]]; then
     echo "Updated & rebuilt. Bot is running."
 else
-    echo "Next: send a message to your Telegram bot!"
+    echo "Open the Setup link above to configure your agent via web interface."
+    echo "Or send a message to your Telegram bot!"
 fi
