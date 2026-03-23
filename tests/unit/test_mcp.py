@@ -3643,7 +3643,7 @@ class TestOAuthCallbackHandler:
     @pytest.mark.asyncio
     async def test_oauth_callback_raises_not_implemented(self, tmp_path):
         """OAuth _callback_handler should raise NotImplementedError."""
-        loader = MCPToolLoader(config_path=tmp_path / "mcp.yaml", data_dir=tmp_path)
+        MCPToolLoader(config_path=tmp_path / "mcp.yaml", data_dir=tmp_path)
         config = MCPServerConfig(
             name="oauth-test",
             command="",
@@ -3695,7 +3695,8 @@ class TestMcpErrorHandling:
 
         result = await loader.call_tool("test-server", "test_tool", {})
         assert result["isError"] is True
-        assert "protocol error" in result["content"][0]["text"].lower() or "error" in result["content"][0]["text"].lower()
+        error_text = result["content"][0]["text"].lower()
+        assert "protocol error" in error_text or "error" in error_text
         # Should NOT retry for protocol errors — only 1 call
         if _McpError is not Exception:
             assert mock_session.call_tool.call_count == 1
@@ -4098,9 +4099,8 @@ class TestEnvPassthroughWarning:
 # ============================================================
 
 
-class TestMCPTransportEnum:
+class TestMCPTransportEnumExtended:
     def test_default_transport_is_enum(self):
-        """MCPServerConfig.transport should be MCPTransport enum."""
         config = MCPServerConfig(name="test", command="echo")
         assert isinstance(config.transport, MCPTransport)
         assert config.transport == MCPTransport.STDIO
@@ -4219,12 +4219,15 @@ class TestSessionResumption:
         state.consecutive_failures = 1
         state.session_id_fn = lambda: "old-session-123"
 
-        # Mock start_server to track what happens
-        with patch.object(loader, "start_server", new_callable=AsyncMock, return_value=True) as mock_start:
-            with patch.object(loader, "_cleanup_server", new_callable=AsyncMock):
-                result = await loader._try_reconnect("test-server")
-                assert result is True
-                mock_start.assert_called_once()
+        with (
+            patch.object(
+                loader, "start_server", new_callable=AsyncMock, return_value=True,
+            ) as mock_start,
+            patch.object(loader, "_cleanup_server", new_callable=AsyncMock),
+        ):
+            result = await loader._try_reconnect("test-server")
+            assert result is True
+            mock_start.assert_called_once()
 
 
 # ============================================================
