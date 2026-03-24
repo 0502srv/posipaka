@@ -931,6 +931,7 @@ class Agent:
             selected_model = selected_profile.model
 
             # Agentic loop
+            _last_tool_error = False
             for _iteration in range(self.MAX_TOOL_LOOPS):
                 # CostGuard check
                 estimated_tokens = sum(
@@ -953,12 +954,13 @@ class Agent:
                     return
 
                 # LLM call with selected model + degradation handling
-                # After first tool execution with confident routing,
-                # don't pass tools — force model to respond with text
+                # iter 0: pass filtered tools with tool_choice hint
+                # iter 1+: if confident routing AND last tool succeeded — no tools (force text)
+                #          if last tool had error — keep tools so model can retry
                 if _iteration == 0:
                     iter_tools = tool_schemas if tool_schemas else None
                     iter_choice = tool_choice
-                elif route.confident and _iteration >= 1:
+                elif route.confident and _iteration >= 1 and not _last_tool_error:
                     iter_tools = None
                     iter_choice = None
                 else:
@@ -1005,9 +1007,41 @@ class Agent:
                     session_id=session_id,
                 )
 
-                # If text response — done
+                # If text response — done (or retry if model ignored tool_choice)
                 if response["stop_reason"] == "end_turn" or not response["tool_use"]:
                     text = response["content"]
+
+                    # Weak model retry: if tool_choice was forced but model
+                    # returned text instead of tool call — retry once with
+                    # explicit instruction in user message
+                    if (
+                        _iteration == 0
+                        and route.confident
+                        and iter_choice
+                        and isinstance(iter_choice, dict)
+                        and text
+                    ):
+                        forced_tool = iter_choice.get("function", {}).get("name", "")
+                        if forced_tool:
+                            logger.debug(
+                                f"Weak model retry: model ignored tool_choice={forced_tool}, "
+                                f"injecting instruction"
+                            )
+                            messages.append({"role": "assistant", "content": text})
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": (
+                                        f"Ти ОБОВ'ЯЗКОВО повинен викликати функцію {forced_tool}. "
+                                        f"Не відповідай текстом — виклич інструмент."
+                                    ),
+                                }
+                            )
+                            # Restore tools for retry
+                            iter_tools = tool_schemas if tool_schemas else None
+                            iter_choice = tool_choice
+                            continue  # retry this iteration
+
                     if text:
                         # Hard limit: обрізати занадто довгі відповіді
                         text = self._truncate_response(text, self.MAX_RESPONSE_LENGTH)
@@ -1096,8 +1130,10 @@ class Agent:
                         result_str = str(result)
                         # Compress large tool outputs to save tokens
                         result_str = self.output_compressor.compress(tool_name, result_str)
+                        _last_tool_error = "Error" in result_str
                     except Exception as e:
                         result_str = f"Error: {e}"
+                        _last_tool_error = True
                         await self.hooks.emit(
                             HookEvent.TOOL_ERROR,
                             {
@@ -1417,7 +1453,10 @@ class Agent:
             "7. Використовуй структуру (заголовки, списки) для читабельності.\n"
             "8. БЕЗ емодзі, якщо користувач не просить. Максимум 1-2 на повідомлення.\n"
             "9. Не повторюй інформацію яку вже сказав.\n"
-            "10. НІКОЛИ не генеруй фейкові URL або посилання на ресурси які не перевірив."
+            "10. НІКОЛИ не генеруй фейкові URL або посилання на ресурси які не перевірив.\n"
+            "11. Якщо тобі доступні інструменти (tools/functions) — ЗАВЖДИ використовуй їх "
+            "замість текстової відповіді. Нагадування — set_reminder, пошук — web_search, "
+            "погода — get_weather. НЕ ІМІТУЙ результат інструменту текстом."
         )
 
         # SOUL.md
