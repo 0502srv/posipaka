@@ -599,27 +599,28 @@ class Agent:
         """Підключити remind skill до CronEngine агента.
 
         Skills завантажуються через importlib.util.spec_from_file_location()
-        як окремі модулі (skill_remind), тому globals відрізняються від
-        posipaka.skills.builtin.remind.tools. Треба знайти реальний модуль
-        через ToolRegistry.
+        як окремий модуль (skill_remind), тому його globals відрізняються від
+        posipaka.skills.builtin.remind.tools. Підключаємо через обидва шляхи.
         """
         try:
-            # Get the actual module that contains set_reminder handler
+            # 1. Attach via handler's actual module (skill_remind)
             tool_def = self.tools.get("set_reminder")
             if tool_def and tool_def.handler:
-                import sys
-
-                handler_module = sys.modules.get(tool_def.handler.__module__)
+                handler_module = __import__("sys").modules.get(
+                    tool_def.handler.__module__
+                )
                 if handler_module and hasattr(handler_module, "_attach_to_agent"):
                     handler_module._attach_to_agent(self)
-                    logger.debug("Remind skill attached to Agent's CronEngine (via handler module)")
-                    return
+                    logger.debug(
+                        f"Remind skill attached via handler module: "
+                        f"{tool_def.handler.__module__}"
+                    )
 
-            # Fallback: direct import (працює якщо модулі співпадають)
+            # 2. Also attach via package import (for direct imports elsewhere)
             from posipaka.skills.builtin.remind.tools import _attach_to_agent
 
             _attach_to_agent(self)
-            logger.debug("Remind skill attached to Agent's CronEngine (via direct import)")
+            logger.debug("Remind skill also attached via package import")
         except Exception as e:
             logger.warning(f"Failed to attach remind skill to CronEngine: {e}")
 

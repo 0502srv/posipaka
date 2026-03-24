@@ -12,39 +12,37 @@ from zoneinfo import ZoneInfo
 
 from loguru import logger
 
-# Lazy references — resolved at first call
-_cron_engine = None
-_scheduler = None
-_cron_executor = None
-_agent_ref = None  # Reference to Agent for gateway access
+# Shared state via mutable container — survives module reimport
+# because dict is a reference type, not module-level global
+_deps: dict[str, Any] = {}
 
 
 def _resolve_deps() -> tuple:
     """Resolve CronEngine, Scheduler, CronExecutor from running Agent."""
-    logger.debug(
-        f"_resolve_deps: engine={_cron_engine is not None}, "
-        f"scheduler={_scheduler is not None}, executor={_cron_executor is not None}, "
-        f"agent={_agent_ref is not None}"
-    )
-    if not _cron_engine or not _scheduler:
-        raise RuntimeError(
-            "Remind skill не підключений до агента. "
-            f"CronEngine={'OK' if _cron_engine else 'None'}, "
-            f"Scheduler={'OK' if _scheduler else 'None'}"
-        )
-    return _cron_engine, _scheduler, _cron_executor
+    engine = _deps.get("cron_engine")
+    scheduler = _deps.get("scheduler")
+    executor = _deps.get("cron_executor")
+    if not engine or not scheduler:
+        # Fallback: try to get from agent directly
+        agent = _deps.get("agent")
+        if agent:
+            engine = getattr(agent, "cron_engine", None)
+            scheduler = getattr(agent, "scheduler", None)
+            executor = getattr(agent, "cron_executor", None)
+    if not engine or not scheduler:
+        raise RuntimeError("Remind: CronEngine або Scheduler відсутні")
+    return engine, scheduler, executor
 
 
 def _attach_to_agent(agent: Any) -> None:
     """Attach to running Agent's CronEngine and Scheduler."""
-    global _cron_engine, _scheduler, _cron_executor, _agent_ref
-    _agent_ref = agent
+    _deps["agent"] = agent
     if hasattr(agent, "cron_engine") and agent.cron_engine:
-        _cron_engine = agent.cron_engine
+        _deps["cron_engine"] = agent.cron_engine
     if hasattr(agent, "scheduler") and agent.scheduler:
-        _scheduler = agent.scheduler
+        _deps["scheduler"] = agent.scheduler
     if hasattr(agent, "cron_executor") and agent.cron_executor:
-        _cron_executor = agent.cron_executor
+        _deps["cron_executor"] = agent.cron_executor
 
 
 def _parse_reminder_time(datetime_str: str, tz: ZoneInfo | None = None) -> datetime:
@@ -106,7 +104,7 @@ async def set_reminder(
 
     # Resolve real user_id from agent's session if model passed generic value
     if not user_id or user_id in ("user", "me", "current", ""):
-        agent = _agent_ref
+        agent = _deps.get("agent")
         if agent and hasattr(agent, "sessions"):
             # Get the most recent active session's user_id
             for _sid, session in agent.sessions._sessions.items():
@@ -155,38 +153,34 @@ async def set_reminder(
                 job_id: str = job.id,
             ) -> None:
                 """Callback для APScheduler — доставити нагадування."""
-                # Read globals at execution time, not closure time
-                import posipaka.skills.builtin.remind.tools as _mod
+                agent = _deps.get("agent")
+                if not agent:
+                    logger.warning(f"Reminder {job_id}: no agent ref")
+                    return
 
-                eng = _mod._cron_engine
-                exc = _mod._cron_executor
-                agent = _mod._agent_ref
+                eng = getattr(agent, "cron_engine", None)
+                exc = getattr(agent, "cron_executor", None)
+                gateway = getattr(agent, "gateway", None)
+
                 if eng and exc:
                     j = eng.get(job_id)
                     if j:
                         await exc.execute_job(j, agent_fn=None)
-                elif eng and agent:
-                    # Fallback: deliver via agent's gateway directly
+                elif eng and gateway:
                     j = eng.get(job_id)
                     if j:
-                        gateway = getattr(agent, "gateway", None)
-                        if gateway:
-                            try:
-                                await gateway.send_to_channel(
-                                    j.effective_channel,
-                                    j.effective_user,
-                                    j.message,
-                                )
-                                eng.mark_success(job_id)
-                                if j.delete_after_run:
-                                    eng.remove(job_id)
-                                logger.info(f"Reminder delivered: {j.message}")
-                            except Exception as ex:
-                                logger.error(f"Reminder delivery failed: {ex}")
-                        else:
-                            logger.warning(f"Reminder {job_id}: no gateway")
+                        try:
+                            await gateway.send_to_channel(
+                                j.effective_channel, j.effective_user, j.message
+                            )
+                            eng.mark_success(job_id)
+                            if j.delete_after_run:
+                                eng.remove(job_id)
+                            logger.info(f"Reminder delivered: {j.message}")
+                        except Exception as ex:
+                            logger.error(f"Reminder delivery failed: {ex}")
                 else:
-                    logger.warning(f"Reminder {job_id}: no engine/executor")
+                    logger.warning(f"Reminder {job_id}: no engine/gateway")
 
             scheduler.add_reminder(
                 f"cron:{job.id}",
