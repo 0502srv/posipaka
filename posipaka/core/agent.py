@@ -950,12 +950,22 @@ class Agent:
                     iter_choice = None
 
                 try:
+                    logger.debug(
+                        f"LLM call: model={selected_model}, "
+                        f"tools={len(iter_tools) if iter_tools else 0}, "
+                        f"tool_choice={iter_choice}, iter={_iteration}"
+                    )
                     response = await self.llm.complete(
                         system=system_prompt,
                         messages=messages,
                         tools=iter_tools,
                         model=selected_model,
                         tool_choice=iter_choice,
+                    )
+                    logger.debug(
+                        f"LLM response: stop={response.get('stop_reason')}, "
+                        f"tool_use={len(response.get('tool_use', []))}, "
+                        f"content_len={len(response.get('content', ''))}"
                     )
                     if self.degradation:
                         self.degradation.report_recovery("llm")
