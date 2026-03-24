@@ -25,10 +25,10 @@ fi
 
 log "Update available: $LOCAL -> $REMOTE"
 
-# Pull changes
-if ! git pull origin main --quiet 2>/dev/null; then
-    log "ERROR: git pull failed, skipping update"
-    exit 1
+# Sync to remote (handles both fast-forward and force push)
+if ! git pull origin main --ff-only --quiet 2>/dev/null; then
+    log "Fast-forward failed, resetting to origin/main"
+    git reset --hard origin/main
 fi
 
 # Install new dependencies if pyproject.toml changed
