@@ -153,6 +153,7 @@ async def set_reminder(
     # Register in APScheduler for immediate scheduling
     if scheduler:
         try:
+
             async def _deliver_reminder(
                 job_id: str = job.id,
             ) -> None:
@@ -185,10 +186,7 @@ async def set_reminder(
     else:
         when = f"через {minutes // 1440} дн"
 
-    return (
-        f"Нагадування встановлено (ID: {job.id}):\n"
-        f"'{message}' — {time_str} ({when})"
-    )
+    return f"Нагадування встановлено (ID: {job.id}):\n'{message}' — {time_str} ({when})"
 
 
 async def list_reminders(user_id: str = "") -> str:
