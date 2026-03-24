@@ -106,11 +106,16 @@ async def set_reminder(
     if not user_id or user_id in ("user", "me", "current", ""):
         agent = _deps.get("agent")
         if agent and hasattr(agent, "sessions"):
-            # Get the most recent active session's user_id
             for _sid, session in agent.sessions._sessions.items():
-                if session.channel == "telegram":
+                if session.channel == channel:
                     user_id = session.user_id
+                    logger.debug(f"Resolved user_id from session: {user_id}")
                     break
+        if not user_id or user_id in ("user", "me", "current", ""):
+            logger.warning(
+                f"Could not resolve user_id, agent={agent is not None}, deps={list(_deps.keys())}"
+            )
+            user_id = "unknown"
 
     try:
         tz = ZoneInfo("Europe/Kyiv")
