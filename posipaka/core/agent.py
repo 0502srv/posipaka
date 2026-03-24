@@ -331,7 +331,8 @@ class Agent:
     """Головний агент Posipaka."""
 
     MAX_TOOL_LOOPS = 10
-    MAX_CONTEXT_MESSAGES = 50
+    MAX_CONTEXT_MESSAGES = 20  # Останні N повідомлень в контексті (економія токенів)
+    MAX_CONTEXT_TOKENS = 12000  # Soft limit: обрізати історію якщо перевищує
     MAX_RESPONSE_LENGTH = 3000  # Hard limit: обрізати відповідь якщо довша
 
     def __init__(self, settings: Settings) -> None:
@@ -907,7 +908,15 @@ class Agent:
                     system_prompt += "\n\n" + tz_info
 
             # Get recent history (deduplicate consecutive same-role messages)
+            # Trim to MAX_CONTEXT_TOKENS to avoid wasting tokens on old messages
             recent = await self.memory.get_recent(session_id, self.MAX_CONTEXT_MESSAGES)
+            # Token budget: trim from oldest until under limit
+            total_chars = sum(len(m.get("content", "")) for m in recent)
+            estimated_tokens = total_chars // 3  # ~3 chars per token for UA/mixed
+            while estimated_tokens > self.MAX_CONTEXT_TOKENS and len(recent) > 2:
+                removed = recent.pop(0)
+                estimated_tokens -= len(removed.get("content", "")) // 3
+
             messages: list[dict[str, str]] = []
             for m in recent:
                 role, content_text = m["role"], m["content"]
