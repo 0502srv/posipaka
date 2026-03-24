@@ -21,9 +21,16 @@ _agent_ref = None  # Reference to Agent for gateway access
 
 def _resolve_deps() -> tuple:
     """Resolve CronEngine, Scheduler, CronExecutor from running Agent."""
+    logger.debug(
+        f"_resolve_deps: engine={_cron_engine is not None}, "
+        f"scheduler={_scheduler is not None}, executor={_cron_executor is not None}, "
+        f"agent={_agent_ref is not None}"
+    )
     if not _cron_engine or not _scheduler:
         raise RuntimeError(
-            "Remind skill не підключений до агента. CronEngine або Scheduler відсутні."
+            "Remind skill не підключений до агента. "
+            f"CronEngine={'OK' if _cron_engine else 'None'}, "
+            f"Scheduler={'OK' if _scheduler else 'None'}"
         )
     return _cron_engine, _scheduler, _cron_executor
 
