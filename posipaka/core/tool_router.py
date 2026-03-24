@@ -32,8 +32,14 @@ _TOOL_ROUTES: list[tuple[re.Pattern, list[str]]] = [
             re.IGNORECASE,
         ),
         [
-            "log_weight", "log_sleep", "log_mood", "log_set",
-            "get_pr", "log_exercise", "log_water", "health_report",
+            "log_weight",
+            "log_sleep",
+            "log_mood",
+            "log_set",
+            "get_pr",
+            "log_exercise",
+            "log_water",
+            "health_report",
             "get_garmin_daily",
         ],
     ),
@@ -65,14 +71,17 @@ _TOOL_ROUTES: list[tuple[re.Pattern, list[str]]] = [
     # Reminders
     (
         re.compile(
-            r"нагадай|нагадати|нагадування|remind|reminder|"
+            r"нагадай|нагадати|нагадуй|нагадування|remind|reminder|"
             r"через.*хвилин|через.*годин|через.*хв|"
             r"за \d+.*хвилин|за \d+.*годин|"
             r"заплануй|запланувати|план.*нагад|"
-            r"о \d{1,2}:\d{2}",
+            r"щоранку|щодня|щотижня|щогодини|"
+            r"робочі дні|вихідні|кожен день|кожного дня|"
+            r"о \d{1,2}:\d{2}|"
+            r"recurring|schedule|daily|weekly",
             re.IGNORECASE,
         ),
-        ["set_reminder", "list_reminders", "cancel_reminder"],
+        ["set_reminder", "set_recurring_reminder", "list_reminders", "cancel_reminder"],
     ),
     # Knowledge / informational / factual queries — EXPANDED
     (

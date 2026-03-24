@@ -267,6 +267,97 @@ async def cancel_reminder(reminder_id: str) -> str:
     return f"Нагадування '{msg}' скасовано."
 
 
+async def set_recurring_reminder(
+    message: str,
+    cron_expression: str,
+    user_id: str = "",
+    channel: str = "telegram",
+) -> str:
+    """Встановити повторюване нагадування (щодня, робочі дні, тощо).
+
+    cron_expression: стандартний cron (хвилина година день місяць день_тижня)
+    Приклади:
+      "0 7 * * 1-5"  — робочі дні о 07:00
+      "30 8 * * 0,6"  — вихідні о 08:30
+      "0 9 * * *"     — щодня о 09:00
+    """
+    from posipaka.core.cron_engine import CronType, DeliveryMode
+
+    cron_engine, scheduler, _ = _resolve_deps()
+
+    # Resolve user_id
+    _is_real_id = user_id.isdigit() and len(user_id) >= 5
+    if not _is_real_id:
+        agent = _deps.get("agent")
+        if agent and hasattr(agent, "sessions"):
+            for _sid, session in agent.sessions._sessions.items():
+                if session.channel == channel and session.user_id.isdigit():
+                    user_id = session.user_id
+                    break
+
+    now = datetime.now(ZoneInfo("Europe/Kyiv"))
+    name = f"reminder_{now.strftime('%H%M%S')}_{message[:20]}"
+
+    try:
+        job = cron_engine.add(
+            name=name,
+            message=f"НАГАДУВАННЯ: {message}",
+            user_id=user_id,
+            cron_type=CronType.RECURRING,
+            cron=cron_expression,
+            channel=channel,
+            target_channel=channel,
+            target_user_id=user_id,
+            delivery_mode=DeliveryMode.ANNOUNCE,
+            delete_after_run=False,
+            timezone="Europe/Kyiv",
+        )
+    except Exception as e:
+        logger.error(f"Recurring reminder failed: {e}")
+        return f"Помилка: {e}"
+
+    # Register in APScheduler
+    if scheduler:
+        try:
+
+            async def _deliver(job_id: str = job.id) -> None:
+                import posipaka.skills.builtin.remind.tools as _mod
+
+                agent = _mod._deps.get("agent")
+                if not agent:
+                    return
+                eng = getattr(agent, "cron_engine", None)
+                exc = getattr(agent, "cron_executor", None)
+                gateway = getattr(agent, "gateway", None)
+                if eng and exc:
+                    j = eng.get(job_id)
+                    if j:
+                        await exc.execute_job(j, agent_fn=None)
+                elif eng and gateway:
+                    j = eng.get(job_id)
+                    if j:
+                        try:
+                            await gateway.send_to_channel(
+                                j.effective_channel, j.effective_user, j.message
+                            )
+                            eng.mark_success(job_id)
+                        except Exception as ex:
+                            logger.error(f"Recurring delivery failed: {ex}")
+
+            scheduler.add_cron(
+                f"cron:{job.id}",
+                _deliver,
+                cron_expression=cron_expression,
+                timezone="Europe/Kyiv",
+            )
+        except Exception as e:
+            logger.warning(f"APScheduler cron registration failed: {e}")
+
+    return (
+        f"Повторюване нагадування створено (ID: {job.id}):\n'{message}'\nРозклад: {cron_expression}"
+    )
+
+
 def register(registry: Any) -> None:
     from posipaka.core.tools.registry import ToolDefinition
 
@@ -345,5 +436,43 @@ def register(registry: Any) -> None:
                 },
             },
             tags=["reminder"],
+        )
+    )
+
+    registry.register(
+        ToolDefinition(
+            name="set_recurring_reminder",
+            description=(
+                "Set a recurring reminder (daily, weekdays, weekends, weekly). "
+                "Use cron expression for schedule. Examples: "
+                "'0 7 * * 1-5' = weekdays 07:00, "
+                "'30 8 * * 0,6' = weekends 08:30, "
+                "'0 9 * * *' = every day 09:00. "
+                "Use when user asks for repeated reminders like "
+                "'щоранку', 'щодня', 'в робочі дні', 'щотижня'."
+            ),
+            category="skill",
+            handler=set_recurring_reminder,
+            input_schema={
+                "type": "object",
+                "required": ["message", "cron_expression"],
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Reminder message text",
+                    },
+                    "cron_expression": {
+                        "type": "string",
+                        "description": (
+                            "Cron schedule: minute hour day month weekday. "
+                            "Examples: '0 7 * * 1-5' (weekdays 7am), "
+                            "'30 8 * * 0,6' (weekends 8:30am)"
+                        ),
+                    },
+                    "user_id": {"type": "string"},
+                    "channel": {"type": "string", "default": "telegram"},
+                },
+            },
+            tags=["reminder", "scheduler", "cron", "recurring"],
         )
     )
