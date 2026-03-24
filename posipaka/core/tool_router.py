@@ -204,8 +204,16 @@ def route_tools(
         f"ToolRouter: matched {len(filtered)} tools for query (from {len(all_schemas)} total)"
     )
 
-    # Force tool call when few tools matched — even weak models handle this
-    tool_choice: str | dict = "required" if len(filtered) <= 5 else "auto"
+    # Force specific tool call for weak models
+    # "required" is often ignored by mistral-small, so use specific tool name
+    first_tool_name = matched_names[0] if matched_names else ""
+    if len(filtered) <= 5 and first_tool_name and first_tool_name in schema_map:
+        tool_choice: str | dict = {
+            "type": "function",
+            "function": {"name": first_tool_name},
+        }
+    else:
+        tool_choice = "auto"
 
     return ToolRouteResult(
         tools=filtered,
