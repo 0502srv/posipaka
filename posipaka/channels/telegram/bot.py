@@ -148,14 +148,26 @@ class TelegramChannel(BaseChannel):
             )
             logger.info("Telegram webhook started")
         else:
-            # Polling mode: use run_polling()-style init to avoid Conflict
-            # Don't call start() separately — start_polling handles everything
             await self._app.initialize()
             await self._app.bot.delete_webhook(drop_pending_updates=True)
+
+            # Custom error callback: suppress Conflict (409) errors silently
+            # They happen when Telegram API thinks another poller is active
+            # but are harmless — polling recovers automatically
+            from telegram.error import Conflict as TgConflict
+
+            async def _on_error(update, context):
+                if isinstance(context.error, TgConflict):
+                    return  # Suppress — polling will retry
+                logger.error(f"Telegram error: {context.error}")
+
+            self._app.add_error_handler(_on_error)
+
             await self._app.updater.start_polling(
-                poll_interval=1.0,
-                timeout=10,
-                read_timeout=15,
+                poll_interval=0.5,
+                timeout=15,
+                read_timeout=20,
+                allowed_updates=["message", "callback_query"],
             )
             await self._app.start()
             logger.info("Telegram polling started")
