@@ -15,6 +15,28 @@ from loguru import logger
 # Mapping: keyword patterns → relevant tool names
 # Порядок має значення — перша відповідність перемагає
 _TOOL_ROUTES: list[tuple[re.Pattern, list[str]]] = [
+    # Health / Fitness / Training / Weight
+    (
+        re.compile(
+            r"вага|ваг[иу]|зважи|weight|"
+            r"тренуванн|workout|підхід|set|повторенн|reps|"
+            r"рекорд|PR|персональн|"
+            r"жим|тяга|присід|підтягуванн|махи|розводк|"
+            r"bench|press|pullup|row|deadlift|"
+            r"сон|sleep|спав|виспа|"
+            r"настрій|mood|"
+            r"garmin|годинник|watch|пульс|heart|hrv|"
+            r"готовність.*тренуванн|training.*readiness|"
+            r"звіт.*здоров|health.*report|"
+            r"калорі|calori|вод[аиу]|water",
+            re.IGNORECASE,
+        ),
+        [
+            "log_weight", "log_sleep", "log_mood", "log_set",
+            "get_pr", "log_exercise", "log_water", "health_report",
+            "get_garmin_daily",
+        ],
+    ),
     # Weather
     (
         re.compile(
