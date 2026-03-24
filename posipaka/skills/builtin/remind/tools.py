@@ -21,33 +21,11 @@ _agent_ref = None  # Reference to Agent for gateway access
 
 def _resolve_deps() -> tuple:
     """Resolve CronEngine, Scheduler, CronExecutor from running Agent."""
-    global _cron_engine, _scheduler, _cron_executor
-    if _cron_engine and _scheduler:
-        return _cron_engine, _scheduler, _cron_executor
-
-    try:
-        from posipaka.config.settings import get_settings
-
-        settings = get_settings()
-        data_dir = settings.data_dir
-        cron_dir = data_dir / "cron"
-
-        # Try to get from running agent via gateway (if available)
-        # Fallback: create standalone instances
-        from posipaka.core.cron_engine import CronEngine
-
-        _cron_engine = CronEngine(cron_dir)
-        _cron_engine.init()
-
-        from posipaka.core.scheduler import PosipakScheduler
-
-        _scheduler = PosipakScheduler()
-        _scheduler.start()
-
-        return _cron_engine, _scheduler, _cron_executor
-    except Exception as e:
-        logger.error(f"Remind: failed to resolve dependencies: {e}")
-        raise RuntimeError(f"Система нагадувань не ініціалізована: {e}") from e
+    if not _cron_engine or not _scheduler:
+        raise RuntimeError(
+            "Remind skill не підключений до агента. CronEngine або Scheduler відсутні."
+        )
+    return _cron_engine, _scheduler, _cron_executor
 
 
 def _attach_to_agent(agent: Any) -> None:
