@@ -8,4 +8,5 @@ tags: [productivity, scheduler]
 ---
 
 # Remind Skill
-Uses APScheduler to set reminders.
+Persistent reminders via CronEngine + APScheduler.
+Jobs saved to `~/.posipaka/cron/`, survive restarts, delivered via Gateway (Telegram etc.).
