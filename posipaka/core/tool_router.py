@@ -40,7 +40,17 @@ _TOOL_ROUTES: list[tuple[re.Pattern, list[str]]] = [
         ),
         ["get_news", "get_top_headlines"],
     ),
-    # Knowledge / informational queries
+    # Reminders
+    (
+        re.compile(
+            r"нагадай|нагадати|нагадування|remind|reminder|"
+            r"через.*хвилин|через.*годин|через.*хв|"
+            r"о \d{1,2}:\d{2}",
+            re.IGNORECASE,
+        ),
+        ["set_reminder", "list_reminders", "cancel_reminder"],
+    ),
+    # Knowledge / informational / factual queries — EXPANDED
     (
         re.compile(
             r"розкажи|розповідь|розповісти|опиши|описати|"
@@ -49,10 +59,22 @@ _TOOL_ROUTES: list[tuple[re.Pattern, list[str]]] = [
             r"як працює|як діє|як влаштован|"
             r"порівняй|різниця між|відмінність|"
             r"переваги|недоліки|плюси|мінуси|"
-            r"tell me about|describe|explain|what is|who is|how does",
+            # Factual questions (expanded)
+            r"чому |навіщо |де знаходи|звідки |коли був|"
+            r"скільки |яка різниця|який найб|яке найб|"
+            r"хто створ|хто винайш|хто написав|"
+            r"що означа|що значить|визначення|"
+            # Product/medicine/brand questions
+            r"що це за |для чого |як приймати|як використовувати|"
+            r"інструкці[яю]|склад |побічні|протипоказан|"
+            r"ціна |вартість |де купити|"
+            # English patterns
+            r"tell me about|describe|explain|what is|who is|how does|"
+            r"why |where is|when was|how many|how much|"
+            r"definition of|meaning of",
             re.IGNORECASE,
         ),
-        ["wikipedia_search", "wikipedia_summary", "web_search", "web_fetch"],
+        ["web_search", "wikipedia_search", "wikipedia_summary", "web_fetch"],
     ),
     # Web search
     (
@@ -105,6 +127,14 @@ _TOOL_ROUTES: list[tuple[re.Pattern, list[str]]] = [
     ),
 ]
 
+# Patterns that indicate a factual question requiring web search verification.
+# Used as fallback when no specific route matches — adds web_search to tools.
+_FACTUAL_FALLBACK_PATTERN = re.compile(
+    r"\?$|"  # Ends with question mark
+    r"^(що|хто|де|коли|чому|як|скільки|яка?|яке?|які?|чи) ",  # UA question words
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class ToolRouteResult:
@@ -144,6 +174,21 @@ def route_tools(
             break  # First match wins
 
     if not matched_names:
+        # Fallback: if query looks like a factual question, add web search tools
+        if _FACTUAL_FALLBACK_PATTERN.search(query.strip()):
+            web_tools = ["web_search", "wikipedia_search", "wikipedia_summary"]
+            filtered = [schema_map[n] for n in web_tools if n in schema_map]
+            if filtered:
+                logger.debug(
+                    f"ToolRouter: factual fallback — adding {len(filtered)} web search tools"
+                )
+                # Return web tools with "auto" — let model decide if search is needed
+                return ToolRouteResult(
+                    tools=filtered + all_schemas,
+                    tool_choice="auto",
+                    confident=False,
+                )
+
         # No specific match — return all tools with "auto"
         return ToolRouteResult(tools=all_schemas, tool_choice="auto", confident=False)
 

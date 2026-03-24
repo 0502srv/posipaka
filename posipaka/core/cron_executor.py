@@ -306,7 +306,8 @@ class CronExecutor:
             )
 
         if not agent_fn:
-            return f"[cron:{job.name}] No agent function configured"
+            # Для нагадувань та інших задач без LLM — повернути message напряму
+            return job.message
 
         if self._cost_guard and job.type != CronType.WORKFLOW:
             allowed, reason = self._cost_guard.check_before_call(

@@ -128,18 +128,19 @@ class ModelRouter:
                 profiles={
                     "default": ModelProfile(
                         model=default_model,
+                        max_tokens=2048,
                         description="Стандартні запити",
                     ),
                     "simple": ModelProfile(
                         model=fast_model,
-                        temperature=0.5,
-                        max_tokens=2048,
+                        temperature=0.4,
+                        max_tokens=1024,
                         description="Прості запити (привіт, погода)",
                     ),
                     "complex": ModelProfile(
                         model=complex_model,
-                        temperature=0.7,
-                        max_tokens=4096,
+                        temperature=0.5,
+                        max_tokens=2048,
                         description="Складні задачі (код, аналіз)",
                     ),
                 },

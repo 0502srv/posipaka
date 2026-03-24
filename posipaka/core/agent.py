@@ -332,6 +332,7 @@ class Agent:
 
     MAX_TOOL_LOOPS = 10
     MAX_CONTEXT_MESSAGES = 50
+    MAX_RESPONSE_LENGTH = 3000  # Hard limit: обрізати відповідь якщо довша
 
     def __init__(self, settings: Settings) -> None:
         # Apply runtime config (JSON) over env-based settings
@@ -409,6 +410,9 @@ class Agent:
 
         # 5. Cron engine (persistent)
         self._init_cron_engine()
+
+        # 5.1 Attach remind skill to CronEngine
+        self._attach_remind_to_cron()
 
         # 6. Create default files
         self._ensure_default_files()
@@ -590,6 +594,16 @@ class Agent:
         except Exception as e:
             self.cron_executor = None
             logger.warning(f"CronExecutor init error: {e}")
+
+    def _attach_remind_to_cron(self) -> None:
+        """Підключити remind skill до CronEngine агента."""
+        try:
+            from posipaka.skills.builtin.remind.tools import _attach_to_agent
+
+            _attach_to_agent(self)
+            logger.debug("Remind skill attached to Agent's CronEngine")
+        except Exception as e:
+            logger.warning(f"Failed to attach remind skill to CronEngine: {e}")
 
     def _schedule_update_check(self) -> None:
         """Фонова перевірка оновлень при старті (не блокує).
@@ -964,6 +978,8 @@ class Agent:
                 if response["stop_reason"] == "end_turn" or not response["tool_use"]:
                     text = response["content"]
                     if text:
+                        # Hard limit: обрізати занадто довгі відповіді
+                        text = self._truncate_response(text, self.MAX_RESPONSE_LENGTH)
                         response_time = time.time() - msg_start_time
                         await self.memory.add(session_id, {"role": "assistant", "content": text})
                         await self.memory.maybe_extract_facts(session_id, content)
@@ -1132,6 +1148,53 @@ class Agent:
             yield f"Виникла помилка: {e}"
         finally:
             self.status = AgentStatus.READY
+
+    @staticmethod
+    def _truncate_response(text: str, max_length: int) -> str:
+        """Страховка: обрізати відповідь якщо модель проігнорувала промпт.
+
+        Дедуплікує абзаци + hard truncate по межі абзацу.
+        Основний контроль довжини — через max_tokens та system prompt.
+        """
+        if len(text) <= max_length:
+            # Навіть короткий текст: дедуплікувати абзаци
+            paragraphs = text.split("\n\n")
+            seen: set[str] = set()
+            unique: list[str] = []
+            for p in paragraphs:
+                norm = p.strip()
+                if not norm or norm in seen:
+                    continue
+                seen.add(norm)
+                unique.append(p)
+            return "\n\n".join(unique).rstrip()
+
+        # Дедуплікація абзаців
+        paragraphs = text.split("\n\n")
+        seen: set[str] = set()
+        unique: list[str] = []
+        for p in paragraphs:
+            norm = p.strip()
+            if not norm or norm in seen:
+                continue
+            seen.add(norm)
+            unique.append(p)
+        text = "\n\n".join(unique).rstrip()
+
+        if len(text) <= max_length:
+            return text
+
+        # Hard truncate: обрізати до останнього повного абзацу
+        truncated = text[:max_length]
+        last_para = truncated.rfind("\n\n")
+        if last_para > max_length // 2:
+            truncated = truncated[:last_para]
+        else:
+            last_nl = truncated.rfind("\n")
+            if last_nl > max_length // 2:
+                truncated = truncated[:last_nl]
+
+        return truncated.rstrip()
 
     async def handle_command(self, command: str, args: str, user_id: str) -> str:
         """Обробка /команд."""
@@ -1312,9 +1375,18 @@ class Agent:
             tz = ZoneInfo("UTC")
         now = datetime.now(tz)
         parts.append(
-            f"Поточна дата: {now.strftime('%Y-%m-%d %H:%M')} ({now.tzname()})\n"
-            "Відповідай стисло і по суті. Максимум 1500 символів, якщо користувач "
-            "не просить детальніше. Використовуй структуру (заголовки, списки) для читабельності."
+            f"Поточна дата: {now.strftime('%Y-%m-%d %H:%M')} ({now.tzname()})\n\n"
+            "КРИТИЧНІ ПРАВИЛА ВІДПОВІДЕЙ (порушення неприпустиме):\n"
+            "1. МАКСИМУМ 1500 символів у відповіді. НІКОЛИ не перевищуй цей ліміт.\n"
+            "2. ЗАБОРОНЕНО додавати P.S., P.P.S., повторні запрошення, уточнення після відповіді.\n"
+            "3. Відповів на питання — ЗУПИНИСЬ. Не питай 'Хочеш ще?', 'Граємо?', 'Твій вибір?'.\n"
+            "4. Одна відповідь = одна тема. Без розгалужень на інші теми.\n"
+            "5. Не вигадуй посилання, URL, факти. Якщо не знаєш — скажи прямо.\n"
+            "6. Якщо потрібна фактична інформація — ОБОВ'ЯЗКОВО використай web_search або wikipedia_search.\n"
+            "7. Використовуй структуру (заголовки, списки) для читабельності.\n"
+            "8. БЕЗ емодзі, якщо користувач не просить. Максимум 1-2 на повідомлення.\n"
+            "9. Не повторюй інформацію яку вже сказав.\n"
+            "10. НІКОЛИ не генеруй фейкові URL або посилання на ресурси які не перевірив."
         )
 
         # SOUL.md
