@@ -19,8 +19,11 @@ _CREDS_PATH = Path.home() / ".posipaka" / "garmin_credentials.json"
 _DATA_DIR = Path.home() / ".posipaka" / "health" / "garmin"
 
 
+_TOKEN_DIR = Path.home() / ".posipaka" / "garmin_tokens"
+
+
 def _get_client():
-    """Authenticate with Garmin Connect."""
+    """Authenticate with Garmin Connect with token caching."""
     try:
         from garminconnect import Garmin
     except ImportError:
@@ -30,9 +33,27 @@ def _get_client():
         return None
 
     creds = json.loads(_CREDS_PATH.read_text())
-    client = Garmin(creds.get("email", ""), creds.get("password", ""))
-    client.login()
-    return client
+    email = creds.get("email", "")
+    password = creds.get("password", "")
+
+    _TOKEN_DIR.mkdir(parents=True, exist_ok=True)
+    client = Garmin(email, password)
+
+    # Try cached tokens first (avoids 429 rate limits)
+    try:
+        client.login(_TOKEN_DIR)
+        return client
+    except Exception:
+        pass
+
+    # Fresh login + save tokens
+    try:
+        client.login()
+        client.garth.dump(_TOKEN_DIR)
+        return client
+    except Exception as e:
+        logger.error(f"Garmin login failed: {e}")
+        return None
 
 
 def _safe_get(func, *args, default=None):
