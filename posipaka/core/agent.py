@@ -783,20 +783,28 @@ class Agent:
             logger.error(f"Auto-backup failed: {e}")
 
     def _ensure_default_files(self) -> None:
-        """Створити SOUL.md, USER.md, MEMORY.md якщо не існують."""
+        """Створити SOUL.md, USER.md, MEMORY.md, MEMORY-CORE.md, MEMORY-DYNAMIC.md."""
         from posipaka.config.defaults import (
             HEARTBEAT_DEFAULT_CONTENT,
+            MEMORY_CORE_DEFAULT_CONTENT,
             MEMORY_DEFAULT_CONTENT,
+            MEMORY_DYNAMIC_DEFAULT_CONTENT,
             SOUL_DEFAULT_CONTENT,
             USER_DEFAULT_CONTENT,
         )
 
-        heartbeat_path = self.settings.data_dir / "HEARTBEAT.md"
+        data_dir = self.settings.data_dir
+        heartbeat_path = data_dir / "HEARTBEAT.md"
+        core_path = data_dir / "MEMORY-CORE.md"
+        dynamic_path = data_dir / "MEMORY-DYNAMIC.md"
+
         for path, content in [
             (self.settings.soul_md_path, SOUL_DEFAULT_CONTENT),
             (self.settings.user_md_path, USER_DEFAULT_CONTENT),
             (self.settings.memory_md_path, MEMORY_DEFAULT_CONTENT),
             (heartbeat_path, HEARTBEAT_DEFAULT_CONTENT),
+            (core_path, MEMORY_CORE_DEFAULT_CONTENT),
+            (dynamic_path, MEMORY_DYNAMIC_DEFAULT_CONTENT),
         ]:
             if not path.exists():
                 path.write_text(content, encoding="utf-8")
@@ -1471,15 +1479,28 @@ class Agent:
         if user_path.exists():
             parts.append(user_path.read_text(encoding="utf-8"))
 
-        # MEMORY.md — тільки релевантні факти
+        # 3-tier memory: CORE (stable) + DYNAMIC (weekly) + MEMORY.md (facts)
+        data_dir = self.settings.data_dir
+        core_path = data_dir / "MEMORY-CORE.md"
+        dynamic_path = data_dir / "MEMORY-DYNAMIC.md"
+
+        if core_path.exists():
+            core_content = core_path.read_text(encoding="utf-8").strip()
+            if core_content:
+                parts.append(core_content)
+
+        if dynamic_path.exists():
+            dynamic_content = dynamic_path.read_text(encoding="utf-8").strip()
+            if dynamic_content:
+                parts.append(dynamic_content)
+
+        # MEMORY.md — auto-extracted facts
         if self.memory:
             memory_md = self.memory.get_memory_md()
             if memory_md:
-                # Якщо MEMORY.md невеликий — включити цілком
                 if len(memory_md) < 2000:
                     parts.append(f"# Пам'ять\n{memory_md}")
                 else:
-                    # Для великих MEMORY.md — включити тільки релевантні рядки
                     relevant_lines = self._select_relevant_facts(
                         memory_md,
                         session_id,

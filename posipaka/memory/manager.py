@@ -180,11 +180,25 @@ class MemoryManager:
         return messages
 
     async def search_relevant(self, session_id: str, query: str, limit: int = 5) -> list[str]:
-        """Cascade search: Tantivy BM25 + ChromaDB vector з RRF fusion."""
+        """Cascade search: session-scoped first, then global fallback."""
         if self._hybrid:
-            return await self._hybrid.search(query, session_id, limit)
+            results = await self._hybrid.search(query, session_id, limit)
+            if results:
+                return results
+            return await self._hybrid.search(query, None, limit)
         if self._chroma and self._chroma.available:
-            return await self._chroma.search(query, session_id, limit)
+            results = await self._chroma.search(query, session_id, limit)
+            if results:
+                return results
+            return await self._chroma.search(query, None, limit)
+        return []
+
+    async def search_global(self, query: str, limit: int = 10) -> list[str]:
+        """Глобальний пошук по ВСІХ розмовах (без прив'язки до сесії)."""
+        if self._hybrid:
+            return await self._hybrid.search(query, None, limit)
+        if self._chroma and self._chroma.available:
+            return await self._chroma.search(query, None, limit)
         return []
 
     async def maybe_extract_facts(self, session_id: str, text: str) -> None:
