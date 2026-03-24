@@ -901,6 +901,11 @@ class Agent:
             route = route_tools(content, all_schemas, self.settings.llm.provider)
             tool_schemas = route.tools
             tool_choice = route.tool_choice
+            logger.debug(
+                f"ToolRouter: {len(tool_schemas)} tools, "
+                f"choice={tool_choice}, confident={route.confident}, "
+                f"names={[s.get('function',{}).get('name') or s.get('name','') for s in tool_schemas[:5]]}"
+            )
 
             # Model routing — вибрати оптимальну модель + settings
             selected_profile = self.model_router.select_profile(
