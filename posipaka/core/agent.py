@@ -395,6 +395,8 @@ class Agent:
             memory_md_path=self.settings.memory_md_path,
             short_term_limit=self.settings.memory.short_term_limit,
             chroma_enabled=self.settings.memory.chroma_enabled,
+            tantivy_path=self.settings.data_dir / "tantivy",
+            tantivy_enabled=True,
         )
         await self.memory.init()
 

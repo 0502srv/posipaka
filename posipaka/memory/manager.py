@@ -1,9 +1,10 @@
-"""MemoryManager — агрегує 4 шари пам'яті."""
+"""MemoryManager — агрегує 4 шари пам'яті з cascade search."""
 
 from __future__ import annotations
 
 import asyncio
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -11,15 +12,17 @@ from loguru import logger
 
 from posipaka.memory.backends.chroma_backend import ChromaBackend
 from posipaka.memory.backends.sqlite_backend import SQLiteBackend
+from posipaka.memory.backends.tantivy_backend import TantivyBackend
+from posipaka.memory.hybrid_search import HybridSearcher
 
 
 class MemoryManager:
     """
-    4-шарова система пам'яті:
+    4-шарова система пам'яті з cascade search:
     1. SHORT-TERM RAM (dict)
     2. SESSION DB (SQLite)
     3. LONG-TERM FACTS (MEMORY.md)
-    4. SEMANTIC SEARCH (ChromaDB)
+    4. HYBRID SEARCH (Tantivy BM25 + ChromaDB vector, RRF fusion)
     """
 
     # MEMORY.md size limit
@@ -33,9 +36,13 @@ class MemoryManager:
         memory_md_path: Path,
         short_term_limit: int = 50,
         chroma_enabled: bool = True,
+        tantivy_path: Path | None = None,
+        tantivy_enabled: bool = True,
     ) -> None:
         self._sqlite = SQLiteBackend(sqlite_path)
         self._chroma = ChromaBackend(chroma_path) if chroma_enabled else None
+        self._tantivy = TantivyBackend(tantivy_path) if tantivy_enabled and tantivy_path else None
+        self._hybrid = None  # initialized in init()
         self._memory_md_path = memory_md_path
         self._short_term_limit = short_term_limit
 
@@ -50,18 +57,38 @@ class MemoryManager:
         await self._sqlite.init()
         if self._chroma:
             await self._chroma.init()
-        logger.info("MemoryManager initialized")
+        if self._tantivy:
+            await self._tantivy.init()
+
+        # HybridSearcher: cascade BM25 + vector з RRF fusion
+        has_tantivy = self._tantivy and self._tantivy.available
+        has_chroma = self._chroma and self._chroma.available
+        if has_tantivy or has_chroma:
+            self._hybrid = HybridSearcher(
+                tantivy=self._tantivy if has_tantivy else None,
+                chroma=self._chroma if has_chroma else None,
+            )
+
+        backends = []
+        if has_tantivy:
+            backends.append("Tantivy")
+        if has_chroma:
+            backends.append("ChromaDB")
+        search_mode = f"hybrid ({'+'.join(backends)})" if backends else "SQLite only"
+        logger.info(f"MemoryManager initialized — search: {search_mode}")
 
     async def close(self) -> None:
         await self._sqlite.close()
         if self._chroma:
             await self._chroma.close()
+        if self._tantivy:
+            await self._tantivy.close()
 
     async def add(self, session_id: str, message: dict) -> None:
         """Додати повідомлення до всіх шарів.
 
         RAM — синхронно (миттєво).
-        SQLite + ChromaDB — у фоні (не блокують відповідь).
+        SQLite + ChromaDB + Tantivy — у фоні (не блокують відповідь).
         """
         role = message.get("role", "user")
         content = message.get("content", "")
@@ -90,13 +117,30 @@ class MemoryManager:
             )
         )
 
-        # Layer 4: ChromaDB (фоновий запис, найповільніший)
+        # Layer 4a: ChromaDB (фоновий запис, семантичний індекс)
         if self._chroma and self._chroma.available:
             self._track_task(
                 asyncio.create_task(
                     self._safe_write(
                         self._chroma.add(session_id, content),
                         "ChromaDB",
+                    )
+                )
+            )
+
+        # Layer 4b: Tantivy (фоновий запис, BM25 індекс)
+        if self._tantivy and self._tantivy.available:
+            self._track_task(
+                asyncio.create_task(
+                    self._safe_write(
+                        self._tantivy.add(
+                            doc_id=str(uuid.uuid4()),
+                            session_id=session_id,
+                            role=role,
+                            content=content,
+                            timestamp=time.time(),
+                        ),
+                        "Tantivy",
                     )
                 )
             )
@@ -136,7 +180,9 @@ class MemoryManager:
         return messages
 
     async def search_relevant(self, session_id: str, query: str, limit: int = 5) -> list[str]:
-        """Семантичний пошук через ChromaDB."""
+        """Cascade search: Tantivy BM25 + ChromaDB vector з RRF fusion."""
+        if self._hybrid:
+            return await self._hybrid.search(query, session_id, limit)
         if self._chroma and self._chroma.available:
             return await self._chroma.search(query, session_id, limit)
         return []
@@ -195,7 +241,6 @@ class MemoryManager:
         unique_lines: list[str] = []
         for line in lines:
             stripped = line.strip()
-            # Зберігати headers та порожні рядки
             if not stripped or stripped.startswith("#"):
                 unique_lines.append(line)
                 continue
@@ -214,6 +259,8 @@ class MemoryManager:
         """Очистити сесію з усіх шарів."""
         self._ram.pop(session_id, None)
         await self._sqlite.clear_session(session_id)
+        if self._tantivy and self._tantivy.available:
+            await self._tantivy.delete_session(session_id)
 
     async def get_stats(self, session_id: str) -> dict:
         """Статистика сесії."""
@@ -223,4 +270,6 @@ class MemoryManager:
             "ram_messages": ram_count,
             "db_messages": db_stats.get("count", 0),
             "chroma_available": bool(self._chroma and self._chroma.available),
+            "tantivy_available": bool(self._tantivy and self._tantivy.available),
+            "hybrid_search": self._hybrid is not None,
         }
