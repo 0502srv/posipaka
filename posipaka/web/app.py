@@ -366,7 +366,7 @@ def create_app(
         form = await request.form()
         generate_docker = form.get("generate_docker") == "on"
         _web_wizard.save(generate_docker=generate_docker)
-        return HTMLResponse(_web_wizard.render_step(12))
+        return HTMLResponse(_web_wizard.render_step(13))
 
     def _tool_row(t: dict) -> str:
         icon = "✅" if t["enabled"] else "❌"

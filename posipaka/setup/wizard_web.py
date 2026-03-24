@@ -22,7 +22,7 @@ from posipaka.config.defaults import (
 class WebSetupWizard:
     """Web-based setup wizard — generates HTML steps and processes form data."""
 
-    TOTAL_STEPS = 12
+    TOTAL_STEPS = 13
 
     def __init__(self, data_dir: Path | None = None) -> None:
         self.data_dir = data_dir or Path.home() / ".posipaka"
@@ -44,9 +44,10 @@ class WebSetupWizard:
             7: self._render_whatsapp,
             8: self._render_signal,
             9: self._render_google,
-            10: self._render_agent,
-            11: self._render_summary,
-            12: self._render_done,
+            10: self._render_health,
+            11: self._render_agent,
+            12: self._render_summary,
+            13: self._render_done,
         }
         renderer = renderers.get(step, self._render_welcome)
         return renderer()
@@ -345,7 +346,7 @@ class WebSetupWizard:
     def _render_google(self) -> str:
         content = f"""
         <form hx-post="/setup/step/10" hx-target="#wizard-step" hx-swap="outerHTML">
-            <p class="text-gray-400 mb-4">Опційно: підключіть Google сервіси.</p>
+            <p class="text-gray-400 mb-4">Опційно: Google сервіси.</p>
             <div class="space-y-3 mb-4">
                 <label class="flex items-center gap-3 p-3 bg-gray-700 rounded cursor-pointer
                               hover:bg-gray-600">
@@ -376,10 +377,61 @@ class WebSetupWizard:
         """
         return self._step_wrapper(9, "Google (опційно)", content)
 
+    def _render_health(self) -> str:
+        content = f"""
+        <form hx-post="/setup/step/11" hx-target="#wizard-step" hx-swap="outerHTML">
+            <p class="text-gray-400 mb-4">
+                Опційно: підключіть пристрої для відстеження здоров'я.
+            </p>
+
+            <div class="bg-gray-700 p-4 rounded mb-4">
+                <h3 class="font-bold mb-2">Garmin Connect</h3>
+                <p class="text-xs text-gray-400 mb-3">
+                    Сон, пульс, HRV, стрес, Body Battery, Training Readiness
+                </p>
+                <label class="block mb-1 text-sm text-gray-300">Email</label>
+                <input type="email" name="garmin_email"
+                       value="{self.config.get("garmin_email", "")}"
+                       placeholder="your@email.com"
+                       class="w-full p-2 rounded bg-gray-600 border border-gray-500 mb-2">
+                <label class="block mb-1 text-sm text-gray-300">Пароль</label>
+                <input type="password" name="garmin_password"
+                       value="{self.config.get("garmin_password", "")}"
+                       placeholder="Garmin Connect password"
+                       class="w-full p-2 rounded bg-gray-600 border border-gray-500">
+            </div>
+
+            <div class="bg-gray-700 p-4 rounded mb-4">
+                <h3 class="font-bold mb-2">Zepp / Amazfit Scale</h3>
+                <p class="text-xs text-gray-400 mb-3">
+                    Вага, BMI, жир, м'язова маса, вісцеральний жир
+                </p>
+                <label class="block mb-1 text-sm text-gray-300">Email</label>
+                <input type="email" name="zepp_email"
+                       value="{self.config.get("zepp_email", "")}"
+                       placeholder="your@email.com"
+                       class="w-full p-2 rounded bg-gray-600 border border-gray-500 mb-2">
+                <label class="block mb-1 text-sm text-gray-300">Пароль</label>
+                <input type="password" name="zepp_password"
+                       value="{self.config.get("zepp_password", "")}"
+                       placeholder="Zepp/Amazfit password"
+                       class="w-full p-2 rounded bg-gray-600 border border-gray-500">
+            </div>
+
+            <p class="text-xs text-gray-500 mb-4">
+                Credentials зберігаються локально в ~/.posipaka/ з правами 600.
+                Ніколи не передаються третім сторонам.
+            </p>
+
+            {self._nav_buttons(10)}
+        </form>
+        """
+        return self._step_wrapper(10, "Health Integrations (опційно)", content)
+
     def _render_agent(self) -> str:
         soul_content = SOUL_DEFAULT_CONTENT
         content = f"""
-        <form hx-post="/setup/step/11" hx-target="#wizard-step" hx-swap="outerHTML">
+        <form hx-post="/setup/step/12" hx-target="#wizard-step" hx-swap="outerHTML">
             <label class="block mb-2 text-sm text-gray-300">Ім'я агента</label>
             <input type="text" name="soul_name" value="Posipaka"
                    class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4">
@@ -404,10 +456,10 @@ class WebSetupWizard:
                       class="w-full p-2 rounded bg-gray-700 border border-gray-600 mb-4
                              font-mono text-sm">{soul_content}</textarea>
 
-            {self._nav_buttons(10)}
+            {self._nav_buttons(11)}
         </form>
         """
-        return self._step_wrapper(10, "Персоналізація агента", content)
+        return self._step_wrapper(11, "Персоналізація агента", content)
 
     def _render_summary(self) -> str:
         channels = ", ".join(self.config.get("enabled_channels", ["cli"]))
@@ -453,6 +505,18 @@ class WebSetupWizard:
             "налаштовано" if self.config.get("google_credentials_path") else "---"
         }</td>
                 </tr>
+                <tr class="border-b border-gray-700">
+                    <td class="py-2 text-gray-400">Garmin</td>
+                    <td class="py-2">{
+            "налаштовано" if self.config.get("garmin_email") else "---"
+        }</td>
+                </tr>
+                <tr class="border-b border-gray-700">
+                    <td class="py-2 text-gray-400">Zepp/Amazfit</td>
+                    <td class="py-2">{
+            "налаштовано" if self.config.get("zepp_email") else "---"
+        }</td>
+                </tr>
             </table>
 
             <label class="flex items-center gap-3 mb-4">
@@ -468,13 +532,13 @@ class WebSetupWizard:
                 Зберегти та завершити
             </button>
             <button type="button"
-                    hx-get="/setup/step/10" hx-target="#wizard-step" hx-swap="outerHTML"
+                    hx-get="/setup/step/11" hx-target="#wizard-step" hx-swap="outerHTML"
                     class="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded mt-2">
                 &larr; Назад
             </button>
         </form>
         """
-        return self._step_wrapper(11, "Підсумок", content)
+        return self._step_wrapper(12, "Підсумок", content)
 
     def _render_done(self) -> str:
         content = """
@@ -607,6 +671,37 @@ class WebSetupWizard:
         if self.config.get("google_credentials_path"):
             env_lines.append(f"GOOGLE_CREDENTIALS_PATH={self.config['google_credentials_path']}")
 
+        # Health integration credentials (saved as JSON files, not in .env)
+        if self.config.get("garmin_email"):
+            import json
+
+            garmin_creds = self.data_dir / "garmin_credentials.json"
+            garmin_creds.write_text(
+                json.dumps(
+                    {
+                        "email": self.config["garmin_email"],
+                        "password": self.config.get("garmin_password", ""),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            garmin_creds.chmod(0o600)
+
+        if self.config.get("zepp_email"):
+            import json
+
+            zepp_creds = self.data_dir / "zepp_credentials.json"
+            zepp_creds.write_text(
+                json.dumps(
+                    {
+                        "email": self.config["zepp_email"],
+                        "password": self.config.get("zepp_password", ""),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            zepp_creds.chmod(0o600)
+
         env_lines.append(f"SOUL_NAME={self.config.get('soul_name', 'Posipaka')}")
         env_lines.append(f"SOUL_LANGUAGE={self.config.get('soul_language', 'auto')}")
         env_lines.append(f"SOUL_TIMEZONE={self.config.get('soul_timezone', 'Europe/Kyiv')}")
@@ -635,6 +730,7 @@ class WebSetupWizard:
             if "key" not in k
             and "token" not in k
             and "secret" not in k
+            and "password" not in k
             and "sid" not in k
             and "content" not in k
         }
