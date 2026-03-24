@@ -606,14 +606,11 @@ class Agent:
             # 1. Attach via handler's actual module (skill_remind)
             tool_def = self.tools.get("set_reminder")
             if tool_def and tool_def.handler:
-                handler_module = __import__("sys").modules.get(
-                    tool_def.handler.__module__
-                )
+                handler_module = __import__("sys").modules.get(tool_def.handler.__module__)
                 if handler_module and hasattr(handler_module, "_attach_to_agent"):
                     handler_module._attach_to_agent(self)
                     logger.debug(
-                        f"Remind skill attached via handler module: "
-                        f"{tool_def.handler.__module__}"
+                        f"Remind skill attached via handler module: {tool_def.handler.__module__}"
                     )
 
             # 2. Also attach via package import (for direct imports elsewhere)
@@ -923,7 +920,7 @@ class Agent:
             logger.debug(
                 f"ToolRouter: {len(tool_schemas)} tools, "
                 f"choice={tool_choice}, confident={route.confident}, "
-                f"names={[s.get('function',{}).get('name') or s.get('name','') for s in tool_schemas[:5]]}"
+                f"names={[s.get('function', {}).get('name') or s.get('name', '') for s in tool_schemas[:5]]}"
             )
 
             # Model routing — вибрати оптимальну модель + settings
