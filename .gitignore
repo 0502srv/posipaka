@@ -56,11 +56,16 @@ MASTER.md
 PLANNING.md
 DEV_NOTES.md
 TODO_PRIVATE.md
+plan.md
+
+# Documentation (keep locally, not in repo)
+# Exception: SKILL.md and PERSONA.md are used by code
+*.md
+!**/SKILL.md
+!**/PERSONA.md
 
 # Editor configs
 .claude/
-CLAUDE.md
-**/CLAUDE.md
 .cursor/
 .cursorrules
 .cursorignore
