@@ -142,8 +142,20 @@ elif [[ "$_current_key" == "sk-ant-your-key-here" || "$_current_key" == "your-ap
             read -r _api_key < /dev/tty
             ;;
     esac
+    # Safe .env writer — no sed injection, handles any characters in values
+    _set_env() {
+        local key="$1" val="$2" file="$INSTALL_DIR/.env"
+        if grep -q "^${key}=" "$file" 2>/dev/null; then
+            # Use awk to safely replace — no regex interpretation of val
+            awk -v k="$key" -v v="$val" 'BEGIN{FS=OFS="="} $1==k{$2=v; found=1} {print} END{if(!found) print k"="v}' "$file" > "${file}.tmp"
+            mv "${file}.tmp" "$file"
+        else
+            printf '%s=%s\n' "$key" "$val" >> "$file"
+        fi
+    }
+
     if [[ -n "$_api_key" ]]; then
-        sed -i "s/^LLM_API_KEY=.*/LLM_API_KEY=${_api_key}/" "$INSTALL_DIR/.env"
+        _set_env "LLM_API_KEY" "$_api_key"
     fi
 
     # Telegram
@@ -152,13 +164,8 @@ elif [[ "$_current_key" == "sk-ant-your-key-here" || "$_current_key" == "your-ap
     echo -e -n "${BLUE}Telegram bot token (or Enter to skip): ${NC}"
     read -r _tg_token < /dev/tty
     if [[ -n "$_tg_token" ]]; then
-        sed -i "s/^TELEGRAM_TOKEN=.*/TELEGRAM_TOKEN=${_tg_token}/" "$INSTALL_DIR/.env"
-        # Enable telegram channel
-        if grep -q "^ENABLED_CHANNELS=" "$INSTALL_DIR/.env"; then
-            sed -i 's/^ENABLED_CHANNELS=.*/ENABLED_CHANNELS=["telegram"]/' "$INSTALL_DIR/.env"
-        else
-            echo 'ENABLED_CHANNELS=["telegram"]' >> "$INSTALL_DIR/.env"
-        fi
+        _set_env "TELEGRAM_TOKEN" "$_tg_token"
+        _set_env "ENABLED_CHANNELS" '["telegram"]'
     fi
 
     # Agent name
@@ -167,7 +174,7 @@ elif [[ "$_current_key" == "sk-ant-your-key-here" || "$_current_key" == "your-ap
     echo -e -n "${BLUE}Agent name [Posipaka]: ${NC}"
     read -r _name < /dev/tty
     if [[ -n "$_name" ]]; then
-        sed -i "s/^SOUL_NAME=.*/SOUL_NAME=${_name}/" "$INSTALL_DIR/.env"
+        _set_env "SOUL_NAME" "$_name"
     fi
 
     echo ""
@@ -237,6 +244,8 @@ WorkingDirectory=${INSTALL_DIR}
 ExecStart=${INSTALL_DIR}/.venv/bin/posipaka start
 Restart=on-failure
 RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=300
 Environment=HOME=$HOME
 EnvironmentFile=${INSTALL_DIR}/.env
 

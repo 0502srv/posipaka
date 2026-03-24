@@ -19,15 +19,13 @@ jobs:
         run: ruff format --check posipaka/ tests/
 
       - name: Type check (mypy)
-        continue-on-error: true
         run: mypy posipaka/ --ignore-missing-imports
 
       - name: Security scan (bandit)
-        continue-on-error: true
         run: pip install bandit && bandit -r posipaka/ -ll -q
 
       - name: Vulnerability scan (pip-audit)
-        run: pip install pip-audit && pip-audit --strict || true
+        run: pip install pip-audit && pip-audit --strict
 
   test:
     runs-on: ubuntu-latest
@@ -53,19 +51,3 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           file: coverage.xml
-
-  verify-signatures:
-    name: Verify commit signatures
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Check for signed commits
-        run: |
-          UNSIGNED=$(git log --format='%H %GG' origin/main..HEAD 2>/dev/null | grep -c 'N' || echo 0)
-          if [ "$UNSIGNED" -gt 0 ]; then
-            echo "::warning::$UNSIGNED unsigned commit(s). Consider signing with GPG/SSH."
-          fi
