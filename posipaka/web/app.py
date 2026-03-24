@@ -1060,7 +1060,64 @@ def create_app(
                     </div>
                 </div>
 
-                <!-- Section 7: Security -->
+                <!-- Section 7: Integrations -->
+                <div class="{section_cls}">
+                    <h2 class="text-xl font-bold mb-4">Інтеграції</h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="bg-gray-700 p-4 rounded">
+                            <h3 class="font-bold mb-2">Garmin Connect</h3>
+                            <p class="text-xs text-gray-400 mb-3">
+                                Сон, пульс, HRV, стрес, готовність
+                            </p>
+                            <form hx-post="/settings/integrations/garmin"
+                                  hx-target="#garmin-result">
+                                <input type="hidden" name="csrf_token"
+                                       value="{csrf_token}">
+                                <input type="email" name="garmin_email"
+                                       placeholder="Email"
+                                       class="{input_cls} mb-2 text-sm">
+                                <input type="password" name="garmin_password"
+                                       placeholder="Пароль"
+                                       class="{input_cls} mb-2 text-sm">
+                                <button type="submit"
+                                        class="{btn_save} w-full">
+                                    Зберегти
+                                </button>
+                            </form>
+                            <div id="garmin-result" class="mt-2 text-sm">
+                                {"&#10003; Налаштовано" if (_data_dir / "garmin_credentials.json").exists() else "Не налаштовано"}
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-700 p-4 rounded">
+                            <h3 class="font-bold mb-2">Zepp / Amazfit</h3>
+                            <p class="text-xs text-gray-400 mb-3">
+                                Вага, BMI, жир, м'язи, вісцеральний жир
+                            </p>
+                            <form hx-post="/settings/integrations/zepp"
+                                  hx-target="#zepp-result">
+                                <input type="hidden" name="csrf_token"
+                                       value="{csrf_token}">
+                                <input type="email" name="zepp_email"
+                                       placeholder="Email"
+                                       class="{input_cls} mb-2 text-sm">
+                                <input type="password" name="zepp_password"
+                                       placeholder="Пароль"
+                                       class="{input_cls} mb-2 text-sm">
+                                <button type="submit"
+                                        class="{btn_save} w-full">
+                                    Зберегти
+                                </button>
+                            </form>
+                            <div id="zepp-result" class="mt-2 text-sm">
+                                {"&#10003; Налаштовано" if (_data_dir / "zepp_credentials.json").exists() else "Не налаштовано"}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 8: Security (was 7) -->
                 <div class="{section_cls}">
                     <h2 class="text-xl font-bold mb-4">Безпека</h2>
                     <div class="flex flex-wrap items-start gap-4 mb-4">
@@ -1356,6 +1413,42 @@ def create_app(
         )
 
     # ─── Restart ─────────────────────────────────────────────────────
+    @app.post("/settings/integrations/garmin", response_class=HTMLResponse)
+    async def settings_garmin(request: Request):
+        """Save Garmin Connect credentials."""
+        form = await request.form()
+        email = str(form.get("garmin_email", "")).strip()
+        password = str(form.get("garmin_password", "")).strip()
+        if not email or not password:
+            return HTMLResponse('<span class="text-red-400">Email i пароль обов\'язкові</span>')
+        creds_path = _data_dir / "garmin_credentials.json"
+        creds_path.write_text(
+            json.dumps({"email": email, "password": password}),
+            encoding="utf-8",
+        )
+        creds_path.chmod(0o600)
+        if agent:
+            agent.audit.log("garmin_configured", {"email": email})
+        return HTMLResponse('<span class="text-green-400">&#10003; Garmin налаштовано</span>')
+
+    @app.post("/settings/integrations/zepp", response_class=HTMLResponse)
+    async def settings_zepp(request: Request):
+        """Save Zepp/Amazfit credentials."""
+        form = await request.form()
+        email = str(form.get("zepp_email", "")).strip()
+        password = str(form.get("zepp_password", "")).strip()
+        if not email or not password:
+            return HTMLResponse('<span class="text-red-400">Email i пароль обов\'язкові</span>')
+        creds_path = _data_dir / "zepp_credentials.json"
+        creds_path.write_text(
+            json.dumps({"email": email, "password": password}),
+            encoding="utf-8",
+        )
+        creds_path.chmod(0o600)
+        if agent:
+            agent.audit.log("zepp_configured", {"email": email})
+        return HTMLResponse('<span class="text-green-400">&#10003; Zepp налаштовано</span>')
+
     @app.post("/settings/restart", response_class=HTMLResponse)
     async def settings_restart(request: Request):
         """Restart the agent process (for channel changes that need full restart)."""
