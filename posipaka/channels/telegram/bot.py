@@ -136,14 +136,10 @@ class TelegramChannel(BaseChannel):
         self._app.add_handler(MessageHandler(filters.PHOTO, self._handle_photo))
 
         logger.info("Telegram bot starting...")
-        await self._app.initialize()
-
-        # Скинути webhook перед polling щоб уникнути Conflict
-        await self._app.bot.delete_webhook(drop_pending_updates=True)
-
-        await self._app.start()
 
         if self.settings.telegram.use_webhook and self.settings.telegram.webhook_url:
+            await self._app.initialize()
+            await self._app.start()
             await self._app.updater.start_webhook(
                 listen="0.0.0.0",
                 port=8443,
@@ -152,11 +148,16 @@ class TelegramChannel(BaseChannel):
             )
             logger.info("Telegram webhook started")
         else:
+            # Polling mode: use run_polling()-style init to avoid Conflict
+            # Don't call start() separately — start_polling handles everything
+            await self._app.initialize()
+            await self._app.bot.delete_webhook(drop_pending_updates=True)
             await self._app.updater.start_polling(
                 poll_interval=1.0,
                 timeout=10,
                 read_timeout=15,
             )
+            await self._app.start()
             logger.info("Telegram polling started")
 
     async def stop(self) -> None:
