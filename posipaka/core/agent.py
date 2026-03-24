@@ -426,6 +426,9 @@ class Agent:
         # 8. Background update check
         self._schedule_update_check()
 
+        # 9. Init tool router keyword cache (LLM-generated, async)
+        await self._init_tool_router()
+
         self.status = AgentStatus.READY
         await self.hooks.emit(HookEvent.AGENT_START)
         self.audit.log("agent_start", {"version": "0.1.0"})
@@ -623,6 +626,16 @@ class Agent:
             logger.debug("Remind skill also attached via package import")
         except Exception as e:
             logger.warning(f"Failed to attach remind skill to CronEngine: {e}")
+
+    async def _init_tool_router(self) -> None:
+        """Initialize tool router with LLM-generated keyword cache."""
+        try:
+            from posipaka.core.tool_router import init_router
+
+            all_schemas = self.tools.get_schemas(self.settings.llm.provider)
+            await init_router(all_schemas, self.llm)
+        except Exception as e:
+            logger.debug(f"Tool router init: {e}")
 
     def _schedule_update_check(self) -> None:
         """Фонова перевірка оновлень при старті (не блокує).
