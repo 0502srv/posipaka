@@ -225,9 +225,13 @@ class ToolRegistry:
         try:
             import importlib.util
 
-            spec = importlib.util.spec_from_file_location(f"skill_{path.name}", str(tools_py))
+            module_name = f"skill_{path.name}"
+            spec = importlib.util.spec_from_file_location(module_name, str(tools_py))
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
+                import sys
+
+                sys.modules[module_name] = module
                 spec.loader.exec_module(module)
                 if hasattr(module, "register"):
                     module.register(self)
