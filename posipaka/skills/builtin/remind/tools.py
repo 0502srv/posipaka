@@ -102,20 +102,25 @@ async def set_reminder(
 
     cron_engine, scheduler, executor = _resolve_deps()
 
-    # Resolve real user_id from agent's session if model passed generic value
-    if not user_id or user_id in ("user", "me", "current", ""):
+    # Resolve real user_id from agent's session if model passed generic/fake value.
+    # Real Telegram user_id is always numeric (e.g. "123456789").
+    # Models often pass "user", "user_id", "me", "current_user" etc.
+    _is_real_id = user_id.isdigit() and len(user_id) >= 5
+    if not _is_real_id:
         agent = _deps.get("agent")
+        resolved = False
         if agent and hasattr(agent, "sessions"):
             for _sid, session in agent.sessions._sessions.items():
-                if session.channel == channel:
+                if session.channel == channel and session.user_id.isdigit():
                     user_id = session.user_id
                     logger.debug(f"Resolved user_id from session: {user_id}")
+                    resolved = True
                     break
-        if not user_id or user_id in ("user", "me", "current", ""):
+        if not resolved:
             logger.warning(
-                f"Could not resolve user_id, agent={agent is not None}, deps={list(_deps.keys())}"
+                f"Could not resolve user_id (got '{user_id}'), "
+                f"agent={agent is not None}, deps={list(_deps.keys())}"
             )
-            user_id = "unknown"
 
     try:
         tz = ZoneInfo("Europe/Kyiv")
