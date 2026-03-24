@@ -163,24 +163,8 @@ async def set_reminder(
                     j = eng.get(job_id)
                     if j:
                         await exc.execute_job(j, agent_fn=None)
-                elif eng:
-                    # Fallback: direct gateway delivery
-                    j = eng.get(job_id)
-                    if j:
-                        try:
-                            # Try to find gateway from agent
-                            from posipaka.config.settings import get_settings
-
-                            settings = get_settings()
-                            # Mark as executed
-                            eng.mark_success(job_id)
-                            if j.delete_after_run:
-                                eng.remove(job_id)
-                            logger.info(
-                                f"Reminder delivered (no executor): {j.message}"
-                            )
-                        except Exception as ex:
-                            logger.error(f"Reminder delivery failed: {ex}")
+                else:
+                    logger.warning(f"Reminder {job_id}: no executor for delivery")
 
             scheduler.add_reminder(
                 f"cron:{job.id}",
