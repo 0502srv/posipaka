@@ -295,13 +295,31 @@ async def set_recurring_reminder(
                     user_id = session.user_id
                     break
 
+    # Dedup: check if recurring reminder with same cron + similar message exists
+    existing_jobs = cron_engine.list_jobs()
+    full_message = f"НАГАДУВАННЯ: {message}"
+    for ej in existing_jobs:
+        if (
+            ej.get("type") == "recurring"
+            and ej.get("cron") == cron_expression
+            and ej.get("enabled")
+        ):
+            existing_msg = ej.get("message", "")
+            # Same or very similar message
+            if existing_msg == full_message or message.lower() in existing_msg.lower():
+                return (
+                    f"Таке нагадування вже існує (ID: {ej['id'][:8]}):\n"
+                    f"'{existing_msg.replace('НАГАДУВАННЯ: ', '')}'\n"
+                    f"Розклад: {cron_expression}"
+                )
+
     now = datetime.now(ZoneInfo("Europe/Kyiv"))
     name = f"reminder_{now.strftime('%H%M%S')}_{message[:20]}"
 
     try:
         job = cron_engine.add(
             name=name,
-            message=f"НАГАДУВАННЯ: {message}",
+            message=full_message,
             user_id=user_id,
             cron_type=CronType.RECURRING,
             cron=cron_expression,
