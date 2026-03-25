@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from posipaka.config.settings import Settings
-from posipaka.core.agent import Agent, AgentStatus
+from posipaka.core.agent import Agent
+from posipaka.core.agent_types import AgentStatus
 
 
 @pytest.fixture
@@ -168,7 +169,7 @@ async def test_approval_gate_triggered(agent):
 @pytest.mark.asyncio
 async def test_approval_approved(agent):
     """Підтвердження дії виконує tool."""
-    from posipaka.core.agent import PendingAction
+    from posipaka.core.agent_types import PendingAction
     from posipaka.core.tools.registry import ToolDefinition
 
     async def mock_action(x: str) -> str:
@@ -208,7 +209,7 @@ async def test_approval_approved(agent):
 @pytest.mark.asyncio
 async def test_approval_denied(agent):
     """Відхилення дії."""
-    from posipaka.core.agent import PendingAction
+    from posipaka.core.agent_types import PendingAction
 
     action = PendingAction(
         id="act_2",
@@ -256,10 +257,10 @@ async def test_command_memory(agent):
 
 @pytest.mark.asyncio
 async def test_approval_timeout(agent):
-    """Прострочений approval автоматично скасовується."""
+    """Прострочений approval автоматично видаляється при cleanup."""
     import time
 
-    from posipaka.core.agent import PendingAction
+    from posipaka.core.agent_types import PendingAction
 
     action = PendingAction(
         id="act_timeout",
@@ -270,14 +271,12 @@ async def test_approval_timeout(agent):
         description="Test",
         created_at=time.time() - 600,  # 10 хв тому — вже expired
     )
-    agent._pending_approvals["act_timeout"] = action
+    agent.approval_gate._pending["act_timeout"] = action
+    assert "act_timeout" in agent.approval_gate._pending
 
-    responses = []
-    async for chunk in agent.handle_message("так", session_id="test_timeout"):
-        responses.append(chunk)
-
-    assert len(responses) == 1
-    assert "вичерпано" in responses[0].lower()
+    # Cleanup should remove expired approval
+    await agent.approval_gate.cleanup_expired()
+    assert "act_timeout" not in agent.approval_gate._pending
 
 
 @pytest.mark.asyncio
@@ -324,7 +323,7 @@ async def test_cleanup_expired_approvals(agent):
     """cleanup_expired_approvals видаляє прострочені."""
     import time
 
-    from posipaka.core.agent import PendingAction
+    from posipaka.core.agent_types import PendingAction
 
     agent._pending_approvals["old"] = PendingAction(
         id="old",

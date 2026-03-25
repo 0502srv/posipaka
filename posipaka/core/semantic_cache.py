@@ -12,6 +12,24 @@ if TYPE_CHECKING:
     from posipaka.memory.backends.chroma_backend import ChromaBackend
 
 
+_SKIP_CACHE_KEYWORDS = frozenset(
+    {
+        "зараз",
+        "now",
+        "fresh",
+        "актуальн",
+        "оновлен",
+        "latest",
+        "current",
+        "поточн",
+        "сьогодні",
+        "today",
+        "щойно",
+        "тепер",
+    }
+)
+
+
 class SemanticResponseCache:
     """
     Кешує ВІДПОВІДІ агента на семантично схожі питання.
@@ -37,6 +55,11 @@ class SemanticResponseCache:
 
     async def check(self, query: str, session_id: str = "") -> str | None:
         """Перевірити чи є cached відповідь. None якщо немає."""
+        # Skip cache for queries requesting fresh data
+        query_lower = query.lower()
+        if any(kw in query_lower for kw in _SKIP_CACHE_KEYWORDS):
+            return None
+
         # Simple in-memory cache first
         key = self._cache_key(query, session_id)
         if key in self._memory_cache:

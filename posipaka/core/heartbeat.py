@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 
 if TYPE_CHECKING:
-    from posipaka.core.agent import LLMClient
+    from posipaka.core.llm import LLMClient
 
 HEARTBEAT_OK_TOKEN = "HEARTBEAT_OK"
 

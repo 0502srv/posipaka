@@ -142,11 +142,24 @@ class TestInjectionDetector:
         assert risk.score >= 0.7
 
     def test_sanitize_external_content(self):
-        """sanitize_external_content обгортає контент."""
+        """sanitize_external_content обгортає контент з рандомним boundary."""
         result = sanitize_external_content("Hello world", source="email")
-        assert '<external_content source="email"' in result
+        assert 'source="email"' in result
+        assert "external_content_" in result
         assert "EXTERNAL DATA" in result
         assert "Hello world" in result
+
+    def test_sanitize_boundary_is_random(self):
+        """Кожен виклик генерує унікальний boundary."""
+        r1 = sanitize_external_content("test", source="a")
+        r2 = sanitize_external_content("test", source="a")
+        # Extract boundary tags — they should differ
+        import re
+
+        tags1 = re.findall(r"external_content_([a-f0-9]+)", r1)
+        tags2 = re.findall(r"external_content_([a-f0-9]+)", r2)
+        assert tags1 and tags2
+        assert tags1[0] != tags2[0]
 
 
 # ─── ShellSandbox ────────────────────────────────────────────────────────────

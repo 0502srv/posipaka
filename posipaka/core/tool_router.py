@@ -19,6 +19,7 @@ from loguru import logger
 
 _CACHE_FILE = Path.home() / ".posipaka" / "tool_keywords_cache.json"
 _MIN_WORD_LEN = 3
+_CACHE_TTL_SECONDS = 30 * 24 * 3600  # 30 days
 
 
 def _extract_words(text: str) -> list[str]:
@@ -77,11 +78,18 @@ async def generate_keyword_cache(schemas: list[dict], llm_client) -> dict:
     """Generate UA/RU keywords via LLM and cache them."""
     current_hash = _tools_hash(schemas)
 
-    # Check existing cache
+    # Check existing cache (with TTL)
     cached = _load_cache()
     if cached and cached.get("hash") == current_hash:
-        logger.debug(f"ToolRouter: using cached keywords ({len(cached.get('keywords', {}))} tools)")
-        return cached.get("keywords", {})
+        import time as _time
+
+        cached_at = cached.get("cached_at", 0)
+        if _time.time() - cached_at < _CACHE_TTL_SECONDS:
+            logger.debug(
+                f"ToolRouter: using cached keywords ({len(cached.get('keywords', {}))} tools)"
+            )
+            return cached.get("keywords", {})
+        logger.info("ToolRouter: cache TTL expired, regenerating")
 
     # Generate new keywords via LLM
     prompt = _generate_keywords_prompt(schemas)
@@ -120,7 +128,9 @@ async def generate_keyword_cache(schemas: list[dict], llm_client) -> dict:
                 keywords_map[name] = combined
 
         # Save cache
-        cache_data = {"hash": current_hash, "keywords": keywords_map}
+        import time as _time
+
+        cache_data = {"hash": current_hash, "keywords": keywords_map, "cached_at": _time.time()}
         _save_cache(cache_data)
         logger.info(f"ToolRouter: keyword cache generated ({len(keywords_map)} tools)")
         return keywords_map
@@ -135,7 +145,9 @@ async def generate_keyword_cache(schemas: list[dict], llm_client) -> dict:
             desc = func.get("description") or s.get("description", "")
             if name:
                 keywords_map[name] = _extract_words(f"{name.replace('_', ' ')} {desc}")
-        cache_data = {"hash": current_hash, "keywords": keywords_map}
+        import time as _time
+
+        cache_data = {"hash": current_hash, "keywords": keywords_map, "cached_at": _time.time()}
         _save_cache(cache_data)
         return keywords_map
 

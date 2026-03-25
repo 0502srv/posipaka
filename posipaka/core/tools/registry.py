@@ -11,6 +11,58 @@ from typing import Any
 
 from loguru import logger
 
+_JSON_TYPE_MAP: dict[str, tuple[type, ...]] = {
+    "string": (str,),
+    "number": (int, float),
+    "integer": (int,),
+    "boolean": (bool,),
+    "array": (list,),
+    "object": (dict,),
+}
+
+
+def _validate_tool_input(
+    input_data: dict,
+    schema: dict,
+    tool_name: str,
+) -> dict:
+    """Validate input_data against JSON Schema and return cleaned data.
+
+    Checks required fields, type correctness, removes unknown fields.
+    Raises ToolInputValidationError on invalid input.
+    """
+    if not schema or schema.get("type") != "object":
+        return input_data
+
+    properties = schema.get("properties", {})
+    required = set(schema.get("required", []))
+
+    # Check required fields
+    missing = required - set(input_data.keys())
+    if missing:
+        raise ToolInputValidationError(
+            f"Tool '{tool_name}': missing required fields: {', '.join(sorted(missing))}"
+        )
+
+    # Validate types and filter to known properties
+    validated: dict = {}
+    for key, value in input_data.items():
+        if key not in properties:
+            continue  # drop unknown fields silently
+        prop_schema = properties[key]
+        expected_type = prop_schema.get("type")
+        if expected_type and expected_type in _JSON_TYPE_MAP:
+            allowed_types = _JSON_TYPE_MAP[expected_type]
+            if not isinstance(value, allowed_types):
+                raise ToolInputValidationError(
+                    f"Tool '{tool_name}': field '{key}' expected {expected_type}, "
+                    f"got {type(value).__name__}"
+                )
+        validated[key] = value
+
+    # Re-check required after filtering (should still be present)
+    return validated
+
 
 @dataclass
 class ToolDefinition:
@@ -44,6 +96,10 @@ class ToolDefinition:
                 "parameters": self.input_schema,
             },
         }
+
+
+class ToolInputValidationError(Exception):
+    pass
 
 
 class ToolNotFoundError(Exception):
@@ -106,7 +162,7 @@ class ToolRegistry:
     async def execute(self, name: str, input_data: dict, user_id: str = "") -> Any:
         """Виконати інструмент за ім'ям.
 
-        Включає перевірку дозволів перед виконанням.
+        Включає перевірку дозволів та валідацію input перед виконанням.
         """
         if name not in self._tools:
             raise ToolNotFoundError(f"Tool '{name}' not found")
@@ -120,10 +176,13 @@ class ToolRegistry:
             if not allowed:
                 raise ToolPermissionError(f"Tool '{name}' not permitted for user {user_id}")
 
+        # Validate input against schema before execution
+        validated = _validate_tool_input(input_data, tool_def.input_schema, name)
+
         handler = tool_def.handler
         if inspect.iscoroutinefunction(handler):
-            return await handler(**input_data)
-        return handler(**input_data)
+            return await handler(**validated)
+        return handler(**validated)
 
     def get(self, name: str) -> ToolDefinition | None:
         """Отримати ToolDefinition."""

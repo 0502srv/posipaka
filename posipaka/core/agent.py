@@ -5,18 +5,19 @@ from __future__ import annotations
 import asyncio
 import re as _re
 import time
-import uuid
 from collections.abc import AsyncIterator
-from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import Any
 
 from loguru import logger
 
 from posipaka.config.settings import Settings
+from posipaka.core.agent_types import AgentStatus, PendingAction
+from posipaka.core.approval_gate import ALL_TRIGGER_WORDS, ApprovalGate
 from posipaka.core.cost_guard import CostGuard
 from posipaka.core.hooks.manager import HookEvent, HookManager
+from posipaka.core.llm import LLMClient
 from posipaka.core.model_router import ModelRouter
+from posipaka.core.prompt_builder import SystemPromptBuilder
 from posipaka.core.semantic_cache import SemanticResponseCache
 from posipaka.core.session import SessionManager
 from posipaka.core.tools.compressor import ToolOutputCompressor
@@ -24,307 +25,6 @@ from posipaka.core.tools.registry import ToolRegistry
 from posipaka.memory.manager import MemoryManager
 from posipaka.security.audit import AuditLogger
 from posipaka.security.injection import InjectionDetector
-
-
-class AgentStatus(StrEnum):
-    INITIALIZING = "initializing"
-    READY = "ready"
-    PROCESSING = "processing"
-    ERROR = "error"
-    STOPPED = "stopped"
-
-
-@dataclass
-class Message:
-    role: str
-    content: str
-    channel: str = "cli"
-    user_id: str = ""
-    username: str = ""
-    metadata: dict = field(default_factory=dict)
-    timestamp: float = field(default_factory=time.time)
-    message_id: str = ""
-
-
-@dataclass
-class PendingAction:
-    id: str
-    tool_name: str
-    tool_input: dict
-    session_id: str
-    user_id: str
-    description: str
-    created_at: float = field(default_factory=time.time)
-
-
-_PROVIDER_BASE_URLS: dict[str, str] = {
-    "mistral": "https://api.mistral.ai/v1",
-    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
-    "groq": "https://api.groq.com/openai/v1",
-    "deepseek": "https://api.deepseek.com/v1",
-    "xai": "https://api.x.ai/v1",
-}
-
-
-class LLMClient:
-    """Абстракція над LLM провайдерами (Anthropic / OpenAI / Ollama + OpenAI-сумісні)."""
-
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
-        self._primary_client: Any = None
-        self._fallback_client: Any = None
-
-    def reinitialize(self) -> None:
-        """Скинути кешовані клієнти — наступний complete() створить нових."""
-        self._primary_client = None
-        self._fallback_client = None
-        logger.info("LLM client reset — will reinitialize on next call")
-
-    def _init_clients(self) -> None:
-        provider = self._settings.llm.provider
-        api_key = self._settings.llm.api_key.get_secret_value()
-
-        if provider == "anthropic" and api_key:
-            try:
-                import anthropic
-
-                self._primary_client = anthropic.AsyncAnthropic(api_key=api_key)
-            except ImportError:
-                logger.warning("anthropic package not installed")
-        elif provider == "openai" and api_key:
-            try:
-                import openai
-
-                self._primary_client = openai.AsyncOpenAI(api_key=api_key)
-            except ImportError:
-                logger.warning("openai package not installed")
-        elif provider == "ollama":
-            try:
-                import openai
-
-                base_url = self._settings.llm.base_url or "http://localhost:11434/v1"
-                self._primary_client = openai.AsyncOpenAI(base_url=base_url, api_key="ollama")
-            except ImportError:
-                logger.warning("openai package not installed")
-        elif provider in _PROVIDER_BASE_URLS and api_key:
-            try:
-                import openai
-
-                self._primary_client = openai.AsyncOpenAI(
-                    base_url=_PROVIDER_BASE_URLS[provider],
-                    api_key=api_key,
-                )
-            except ImportError:
-                logger.warning("openai package not installed")
-
-    async def complete(
-        self,
-        system: str,
-        messages: list[dict],
-        tools: list[dict] | None = None,
-        model: str | None = None,
-        tool_choice: str | dict | None = None,
-    ) -> dict:
-        """
-        Виклик LLM.
-
-        Returns: {content, stop_reason, tool_use, usage}
-        """
-        if self._primary_client is None:
-            self._init_clients()
-
-        provider = self._settings.llm.provider
-        model = model or self._settings.llm.model
-
-        try:
-            if provider == "anthropic":
-                return await self._call_anthropic(system, messages, tools, model)
-            else:
-                return await self._call_openai(system, messages, tools, model, tool_choice)
-        except Exception as e:
-            logger.error(f"LLM primary error: {e}")
-            # Try fallback
-            if self._settings.llm.fallback_provider:
-                logger.info("Switching to fallback LLM")
-                try:
-                    return await self._call_fallback(system, messages, tools)
-                except Exception as fe:
-                    logger.error(f"LLM fallback error: {fe}")
-            raise
-
-    async def _call_anthropic(
-        self, system: str, messages: list[dict], tools: list[dict] | None, model: str
-    ) -> dict:
-        if self._primary_client is None:
-            raise RuntimeError("Anthropic client not initialized")
-
-        kwargs: dict[str, Any] = {
-            "model": model,
-            "max_tokens": self._settings.llm.max_tokens,
-            "system": system,
-            "messages": messages,
-        }
-        if tools:
-            kwargs["tools"] = tools
-
-        response = await self._primary_client.messages.create(**kwargs)
-
-        content = ""
-        tool_use: list[dict] = []
-        for block in response.content:
-            if block.type == "text":
-                content += block.text
-            elif block.type == "tool_use":
-                tool_use.append(
-                    {
-                        "name": block.name,
-                        "input": block.input,
-                        "id": block.id,
-                    }
-                )
-
-        return {
-            "content": content,
-            "stop_reason": response.stop_reason,
-            "tool_use": tool_use,
-            "usage": {
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-            },
-        }
-
-    async def _call_openai(
-        self,
-        system: str,
-        messages: list[dict],
-        tools: list[dict] | None,
-        model: str,
-        tool_choice: str | dict | None = None,
-    ) -> dict:
-        if self._primary_client is None:
-            raise RuntimeError("OpenAI client not initialized")
-
-        oai_messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
-        prev_role = "system"
-        for msg in messages:
-            role = msg["role"]
-            # Tool-related messages pass through as-is (structured format)
-            if role == "tool" or "tool_calls" in msg:
-                oai_messages.append(msg)
-                prev_role = role
-                continue
-            # Merge consecutive same-role messages (Mistral requires alternation)
-            if role == prev_role and oai_messages:
-                oai_messages[-1]["content"] += "\n" + msg["content"]
-            else:
-                oai_messages.append({"role": role, "content": msg["content"]})
-                prev_role = role
-        # Ensure last message is user or tool (required by Mistral)
-        while (
-            len(oai_messages) > 1
-            and oai_messages[-1]["role"] == "assistant"
-            and "tool_calls" not in oai_messages[-1]
-        ):
-            oai_messages.pop()
-
-        kwargs: dict[str, Any] = {
-            "model": model,
-            "messages": oai_messages,
-            "max_tokens": self._settings.llm.max_tokens,
-        }
-        if tools:
-            kwargs["tools"] = [
-                t
-                if "type" in t
-                else {
-                    "type": "function",
-                    "function": {
-                        "name": t["name"],
-                        "description": t.get("description", ""),
-                        "parameters": t.get("input_schema", {}),
-                    },
-                }
-                for t in tools
-            ]
-            if tool_choice:
-                kwargs["tool_choice"] = tool_choice
-
-        response = await self._primary_client.chat.completions.create(**kwargs)
-        choice = response.choices[0]
-
-        tool_use: list[dict] = []
-        if choice.message.tool_calls:
-            import json
-
-            for tc in choice.message.tool_calls:
-                tool_use.append(
-                    {
-                        "name": tc.function.name,
-                        "input": json.loads(tc.function.arguments),
-                        "id": tc.id,
-                    }
-                )
-
-        return {
-            "content": choice.message.content or "",
-            "stop_reason": "tool_use" if tool_use else "end_turn",
-            "tool_use": tool_use,
-            "usage": {
-                "input_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "output_tokens": response.usage.completion_tokens if response.usage else 0,
-            },
-        }
-
-    async def _call_fallback(
-        self, system: str, messages: list[dict], tools: list[dict] | None
-    ) -> dict:
-        fb_provider = self._settings.llm.fallback_provider
-        fb_model = self._settings.llm.fallback_model
-        fb_key = self._settings.llm.fallback_api_key.get_secret_value()
-
-        if fb_provider == "anthropic" and fb_key:
-            import anthropic
-
-            old_client = self._primary_client
-            self._primary_client = anthropic.AsyncAnthropic(api_key=fb_key)
-            try:
-                return await self._call_anthropic(system, messages, tools, fb_model)
-            finally:
-                self._primary_client = old_client
-        elif fb_provider == "openai" and fb_key:
-            import openai
-
-            old_client = self._primary_client
-            self._primary_client = openai.AsyncOpenAI(api_key=fb_key)
-            try:
-                return await self._call_openai(system, messages, tools, fb_model)
-            finally:
-                self._primary_client = old_client
-        elif fb_provider == "ollama":
-            import openai
-
-            old_client = self._primary_client
-            self._primary_client = openai.AsyncOpenAI(
-                base_url="http://localhost:11434/v1", api_key="ollama"
-            )
-            try:
-                return await self._call_openai(system, messages, tools, fb_model)
-            finally:
-                self._primary_client = old_client
-        elif fb_provider in _PROVIDER_BASE_URLS and fb_key:
-            import openai
-
-            old_client = self._primary_client
-            self._primary_client = openai.AsyncOpenAI(
-                base_url=_PROVIDER_BASE_URLS[fb_provider],
-                api_key=fb_key,
-            )
-            try:
-                return await self._call_openai(system, messages, tools, fb_model)
-            finally:
-                self._primary_client = old_client
-
-        raise RuntimeError("No fallback LLM available")
 
 
 class Agent:
@@ -364,6 +64,19 @@ class Agent:
         self.model_router = self._init_model_router(settings)
         self.semantic_cache = SemanticResponseCache()
         self.output_compressor = ToolOutputCompressor()
+        self.approval_gate = ApprovalGate(
+            tools=self.tools,
+            audit=self.audit,
+            hooks=self.hooks,
+            timeout_seconds=settings.security.approval_timeout_seconds,
+        )
+        self._pending_approvals = self.approval_gate.pending_approvals
+        self.prompt_builder = SystemPromptBuilder(
+            soul_md_path=settings.soul_md_path,
+            user_md_path=settings.user_md_path,
+            data_dir=settings.data_dir,
+            timezone=settings.soul.timezone,
+        )
 
         # Advanced modules (lazy init in _init_advanced_modules)
         self.degradation = None
@@ -386,9 +99,14 @@ class Agent:
         self.heartbeat = None
 
     async def initialize(self) -> None:
-        """Ініціалізація всіх підсистем."""
+        """Ініціалізація всіх підсистем.
+
+        Phase 1 (CRITICAL): memory, tools, security — fail = don't start.
+        Phase 2 (OPTIONAL): personas, cron, advanced — fail = log + continue.
+        """
         self.settings.ensure_data_dir()
 
+        # ── Phase 1: CRITICAL (failure here = agent won't start) ──
         # 1. Memory
         self.memory = MemoryManager(
             sqlite_path=self.settings.sqlite_db_path,
@@ -405,20 +123,21 @@ class Agent:
         self.tools.load_all_integrations()
         self._load_builtin_skills()
 
-        # 3. Multi-agent orchestrator
+        # 3. Create default files
+        self._ensure_default_files()
+
+        # ── Phase 2: OPTIONAL (failure here = log warning, continue) ──
+        # 4. Multi-agent orchestrator
         self._init_orchestrator()
 
-        # 4. Persona manager
+        # 5. Persona manager
         self._init_personas()
 
-        # 5. Cron engine (persistent)
+        # 6. Cron engine (persistent)
         self._init_cron_engine()
 
-        # 5.1 Attach remind skill to CronEngine
+        # 6.1 Attach remind skill to CronEngine
         self._attach_remind_to_cron()
-
-        # 6. Create default files
-        self._ensure_default_files()
 
         # 7. Advanced modules
         self._init_advanced_modules()
@@ -887,9 +606,12 @@ class Agent:
                 )
                 return
 
+            # Cleanup expired approvals
+            await self.approval_gate.cleanup_expired()
+
             # Check pending approvals
-            if content.lower().strip() in ("так", "yes", "ні", "no", "cancel"):
-                result = await self._handle_approval_response(content, session_id)
+            if content.lower().strip() in ALL_TRIGGER_WORDS:
+                result = await self.approval_gate.process_response(content, session_id)
                 if result:
                     yield result
                     return
@@ -902,11 +624,14 @@ class Agent:
                 return
 
             # Save to memory
-            assert self.memory is not None
+            if self.memory is None:
+                raise RuntimeError("Agent.initialize() must be called before handle_message")
             await self.memory.add(session_id, {"role": "user", "content": content})
 
             # Build system prompt (з persona addon якщо активна)
-            system_prompt = await self._build_system_prompt(session_id)
+            system_prompt = await self.prompt_builder.build(
+                session_id, memory=self.memory, tools=self.tools
+            )
             if self.persona_manager and self.persona_manager.active:
                 system_prompt += "\n\n" + self.persona_manager.get_system_prompt_addon()
             # Add complexity level addon
@@ -1020,6 +745,8 @@ class Agent:
                     if self.degradation:
                         self.degradation.report_recovery("llm")
                 except Exception as e:
+                    if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                        raise
                     logger.error(f"LLM call failed: {e}")
                     if self.degradation:
                         self.degradation.report_failure("llm", str(e))
@@ -1126,28 +853,15 @@ class Agent:
                     )
 
                     # Check if approval needed
-                    if self._requires_approval(tool_name, tool_input):
-                        action = PendingAction(
-                            id=str(uuid.uuid4()),
-                            tool_name=tool_name,
-                            tool_input=tool_input,
-                            session_id=session_id,
-                            user_id="",
-                            description=self.tools.describe_action(tool_name, tool_input),
-                        )
-                        self._pending_approvals[action.id] = action
-                        self.audit.log(
-                            "approval_requested",
-                            {
-                                "action_id": action.id,
-                                "tool": tool_name,
-                            },
+                    if self.approval_gate.requires_approval(tool_name):
+                        action = self.approval_gate.request(
+                            tool_name,
+                            tool_input,
+                            session_id,
                         )
                         await self.hooks.emit(
                             HookEvent.APPROVAL_REQUESTED,
-                            {
-                                "action": action,
-                            },
+                            {"action": action},
                         )
                         yield (
                             f"Потрібне підтвердження:\n"
@@ -1460,204 +1174,9 @@ class Agent:
                 return f"Невідомий часовий пояс: '{args}'. Приклад: Europe/Kyiv, US/Eastern"
         return f"Невідома команда: /{command}"
 
-    async def _build_system_prompt(self, session_id: str) -> str:
-        """Побудова system prompt з SOUL.md + USER.md + MEMORY.md + semantic search."""
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-
-        parts = []
-
-        # Current date/time — щоб модель знала поточну дату
-        try:
-            tz = ZoneInfo(self.settings.soul.timezone)
-        except (KeyError, ImportError):
-            tz = ZoneInfo("UTC")
-        now = datetime.now(tz)
-        parts.append(
-            f"Поточна дата: {now.strftime('%Y-%m-%d %H:%M')} ({now.tzname()})\n\n"
-            "КРИТИЧНІ ПРАВИЛА ВІДПОВІДЕЙ (порушення неприпустиме):\n"
-            "1. МАКСИМУМ 1500 символів у відповіді. НІКОЛИ не перевищуй цей ліміт.\n"
-            "2. ЗАБОРОНЕНО додавати P.S., P.P.S., повторні запрошення, уточнення після відповіді.\n"
-            "3. Відповів на питання — ЗУПИНИСЬ. Не питай 'Хочеш ще?', 'Граємо?', 'Твій вибір?'.\n"
-            "4. Одна відповідь = одна тема. Без розгалужень на інші теми.\n"
-            "5. Не вигадуй посилання, URL, факти. Якщо не знаєш — скажи прямо.\n"
-            "6. Якщо потрібна фактична інформація — ОБОВ'ЯЗКОВО використай web_search або wikipedia_search.\n"
-            "7. Використовуй структуру (заголовки, списки) для читабельності.\n"
-            "8. БЕЗ емодзі, якщо користувач не просить. Максимум 1-2 на повідомлення.\n"
-            "9. Не повторюй інформацію яку вже сказав.\n"
-            "10. НІКОЛИ не генеруй фейкові URL або посилання на ресурси які не перевірив.\n"
-            "11. Якщо тобі доступні інструменти (tools/functions) — ЗАВЖДИ використовуй їх "
-            "замість текстової відповіді. Нагадування — set_reminder, пошук — web_search, "
-            "погода — get_weather. НЕ ІМІТУЙ результат інструменту текстом."
-        )
-
-        # SOUL.md
-        soul_path = self.settings.soul_md_path
-        if soul_path.exists():
-            parts.append(soul_path.read_text(encoding="utf-8"))
-
-        # USER.md
-        user_path = self.settings.user_md_path
-        if user_path.exists():
-            parts.append(user_path.read_text(encoding="utf-8"))
-
-        # 3-tier memory: CORE (stable) + DYNAMIC (weekly) + MEMORY.md (facts)
-        data_dir = self.settings.data_dir
-        core_path = data_dir / "MEMORY-CORE.md"
-        dynamic_path = data_dir / "MEMORY-DYNAMIC.md"
-
-        if core_path.exists():
-            core_content = core_path.read_text(encoding="utf-8").strip()
-            if core_content:
-                parts.append(core_content)
-
-        if dynamic_path.exists():
-            dynamic_content = dynamic_path.read_text(encoding="utf-8").strip()
-            if dynamic_content:
-                parts.append(dynamic_content)
-
-        # MEMORY.md — auto-extracted facts
-        if self.memory:
-            memory_md = self.memory.get_memory_md()
-            if memory_md:
-                if len(memory_md) < 2000:
-                    parts.append(f"# Пам'ять\n{memory_md}")
-                else:
-                    relevant_lines = self._select_relevant_facts(
-                        memory_md,
-                        session_id,
-                    )
-                    if relevant_lines:
-                        parts.append(f"# Пам'ять (релевантне)\n{relevant_lines}")
-
-        # Skill metadata
-        skill_meta = self.tools.get_skill_metadata()
-        if skill_meta:
-            parts.append(skill_meta)
-
-        return "\n\n---\n\n".join(parts)
-
-    def _select_relevant_facts(
-        self,
-        memory_md: str,
-        session_id: str,
-    ) -> str:
-        """Вибрати тільки релевантні факти з MEMORY.md."""
-        lines = memory_md.strip().split("\n")
-        # Always include headers and non-empty fact lines
-        headers = [ln for ln in lines if ln.startswith("#")]
-        facts = [ln for ln in lines if ln.strip() and not ln.startswith("#")]
-
-        # If few facts, include all
-        if len(facts) <= 10:
-            return memory_md
-
-        # Include last 10 facts (most recent) + all headers
-        selected = headers + facts[-10:]
-        return "\n".join(selected)
-
-    async def _build_cached_system(self, session_id: str) -> list[dict]:
-        """
-        Структурований system prompt для Anthropic prompt caching.
-        Статичний контент першим (кешується), динамічний останнім.
-        """
-        blocks = []
-
-        # BLOCK 1: Статична особистість (кешується)
-        soul_path = self.settings.soul_md_path
-        if soul_path.exists():
-            blocks.append(
-                {
-                    "type": "text",
-                    "text": soul_path.read_text(encoding="utf-8"),
-                    "cache_control": {"type": "ephemeral"},
-                }
-            )
-
-        # BLOCK 2: Tools metadata (кешується — змінюється рідко)
-        skill_meta = self.tools.get_skill_metadata()
-        if skill_meta:
-            blocks.append(
-                {
-                    "type": "text",
-                    "text": f"# Available Skills\n{skill_meta}",
-                    "cache_control": {"type": "ephemeral"},
-                }
-            )
-
-        # BLOCK 3: User profile (кешується)
-        user_path = self.settings.user_md_path
-        if user_path.exists():
-            blocks.append(
-                {
-                    "type": "text",
-                    "text": user_path.read_text(encoding="utf-8"),
-                    "cache_control": {"type": "ephemeral"},
-                }
-            )
-
-        # BLOCK 4: Динамічна пам'ять (НЕ кешується)
-        dynamic_parts = []
-        if self.memory:
-            memory_md = self.memory.get_memory_md()
-            if memory_md:
-                dynamic_parts.append(memory_md)
-            relevant = await self.memory.search_relevant(session_id, "", 5)
-            if relevant:
-                dynamic_parts.append("\n".join(relevant))
-        if dynamic_parts:
-            blocks.append({"type": "text", "text": f"# Context\n{''.join(dynamic_parts)}"})
-
-        return blocks
-
-    def _requires_approval(self, tool_name: str, tool_input: dict) -> bool:
-        """Чи потребує дія підтвердження."""
-        tool_def = self.tools.get(tool_name)
-        return bool(tool_def and tool_def.requires_approval)
-
-    async def _handle_approval_response(self, content: str, session_id: str) -> str | None:
-        """Обробити відповідь на approval."""
-        # Find pending for this session
-        for action_id, action in list(self._pending_approvals.items()):
-            if action.session_id != session_id:
-                continue
-
-            # Check timeout
-            if time.time() - action.created_at > self.settings.security.approval_timeout_seconds:
-                del self._pending_approvals[action_id]
-                return "Час підтвердження вичерпано. Дія скасована."
-
-            lower = content.lower().strip()
-            if lower in ("так", "yes"):
-                del self._pending_approvals[action_id]
-                self.audit.log("approval_granted", {"action_id": action_id})
-                await self.hooks.emit(HookEvent.APPROVAL_GRANTED, {"action_id": action_id})
-                try:
-                    result = await self.tools.execute(action.tool_name, action.tool_input)
-                    return f"Виконано: {result}"
-                except Exception as e:
-                    return f"Помилка при виконанні: {e}"
-            elif lower in ("ні", "no", "cancel"):
-                del self._pending_approvals[action_id]
-                self.audit.log("approval_denied", {"action_id": action_id})
-                await self.hooks.emit(HookEvent.APPROVAL_DENIED, {"action_id": action_id})
-                return "Дію скасовано."
-
-        return None
-
     async def cleanup_expired_approvals(self) -> None:
-        """Видалити прострочені approval requests."""
-        now = time.time()
-        timeout = self.settings.security.approval_timeout_seconds
-        expired = [
-            aid
-            for aid, action in self._pending_approvals.items()
-            if now - action.created_at > timeout
-        ]
-        for aid in expired:
-            action = self._pending_approvals.pop(aid)
-            logger.info(f"Approval expired: {aid} ({action.tool_name})")
-            self.audit.log("approval_expired", {"action_id": aid})
+        """Delegate to ApprovalGate."""
+        await self.approval_gate.cleanup_expired()
 
     async def shutdown(self) -> None:
         """Graceful shutdown."""
