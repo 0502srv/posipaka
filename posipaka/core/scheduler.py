@@ -218,11 +218,12 @@ class PosipakScheduler:
             if not apjob.id.startswith("cron:"):
                 continue
             job_id = apjob.id[5:]  # strip "cron:" prefix
-            if apjob.next_run_time:
-                cron_engine.update_next_run(
-                    job_id,
-                    apjob.next_run_time.isoformat(),
-                )
+            try:
+                next_run = getattr(apjob, "next_run_time", None)
+                if next_run:
+                    cron_engine.update_next_run(job_id, next_run.isoformat())
+            except Exception as e:
+                logger.debug(f"Cannot sync next_run for {apjob.id}: {e}")
 
     def register_history_cleanup(
         self,

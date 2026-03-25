@@ -118,8 +118,9 @@ class MessageGateway:
         cron_executor = getattr(self.agent, "cron_executor", None)
         if not (scheduler and cron_engine and cron_executor):
             return
+        # Register jobs (non-fatal if fails)
         try:
-            # Provider resolves agent_fn at call time (not registration time)
+
             def agent_fn_provider():
                 return getattr(self.agent, "_cron_agent_fn", None)
 
@@ -128,8 +129,11 @@ class MessageGateway:
                 cron_executor,
                 agent_fn_provider,
             )
+        except Exception as e:
+            logger.warning(f"Cron job registration error (non-fatal): {e}")
 
-            # Daily cleanup of old execution history (03:00)
+        # Daily cleanup of old execution history (03:00)
+        try:
             cron_history = getattr(self.agent, "cron_history", None)
             if cron_history:
 
@@ -142,10 +146,14 @@ class MessageGateway:
                     hour=3,
                     minute=0,
                 )
+        except Exception as e:
+            logger.warning(f"Cron cleanup registration error: {e}")
 
+        # ALWAYS start scheduler — even if registration partially failed
+        try:
             scheduler.start()
         except Exception as e:
-            logger.error(f"Failed to start cron scheduler: {e}")
+            logger.error(f"Failed to start scheduler: {e}")
 
     async def send_to_channel(self, channel_name: str, user_id: str, text: str) -> None:
         """Надіслати повідомлення через конкретний канал."""
