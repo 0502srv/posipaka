@@ -71,7 +71,7 @@ memory = ["chromadb>=0.5,<1.0", "sentence-transformers>=3.0,<4.0"]
 tui = ["textual>=0.52,<1.0"]
 voice = ["edge-tts>=6.1,<7.0"]
 docs = ["pdfplumber>=0.10,<1.0", "python-docx>=1.1,<2.0", "pandas>=2.2,<3.0"]
-monitor = ["psutil>=5.9,<7.0"]
+monitor = ["psutil>=5.9,<8.0"]
 all = [
     "posipaka[telegram,discord,slack,whatsapp,google,browser,github,notion,memory,tui,voice,docs,monitor]",
 ]
