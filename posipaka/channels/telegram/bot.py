@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from posipaka.channels.base import BaseChannel
-from posipaka.utils.formatting import split_message
+from posipaka.utils.formatting import markdown_to_telegram_html, split_message
 from posipaka.utils.i18n.translator import get_translator
 from posipaka.utils.rate_limiter import RateLimiter
 
@@ -189,18 +189,19 @@ class TelegramChannel(BaseChannel):
         """Надіслати повідомлення."""
         if not self._app:
             return
-        for chunk in split_message(text, 4096):
+        html_text = markdown_to_telegram_html(text)
+        for chunk in split_message(html_text, 4096):
             try:
                 await self._app.bot.send_message(
                     chat_id=int(user_id),
                     text=chunk,
-                    parse_mode="Markdown",
+                    parse_mode="HTML",
                 )
             except Exception:
-                # Fallback to plain text if Markdown fails
+                # Fallback to plain text if HTML fails
                 await self._app.bot.send_message(
                     chat_id=int(user_id),
-                    text=chunk,
+                    text=text,
                 )
 
     async def _cmd_start(self, update, context) -> None:
@@ -320,7 +321,8 @@ class TelegramChannel(BaseChannel):
                 sent = await update.message.reply_text(part, reply_markup=keyboard)
             else:
                 try:
-                    sent = await update.message.reply_text(part, parse_mode="Markdown")
+                    html_part = markdown_to_telegram_html(part)
+                    sent = await update.message.reply_text(html_part, parse_mode="HTML")
                 except Exception:
                     sent = await update.message.reply_text(part)
             # Cache for reply context
