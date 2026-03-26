@@ -59,6 +59,7 @@ class Agent:
             per_request_max_usd=settings.cost.per_request_max_usd,
             per_session_max_usd=settings.cost.per_session_max_usd,
             warning_threshold=settings.cost.warning_threshold,
+            persist_path=settings.data_dir / "cost_daily.json",
         )
         self._pending_approvals: dict[str, PendingAction] = {}
         self.model_router = self._init_model_router(settings)
@@ -77,6 +78,7 @@ class Agent:
             data_dir=settings.data_dir,
             timezone=settings.soul.timezone,
         )
+        self._active_messages = 0  # in-flight handle_message counter
 
         # Advanced modules (lazy init in _init_advanced_modules)
         self.degradation = None
@@ -141,6 +143,10 @@ class Agent:
 
         # 7. Advanced modules
         self._init_advanced_modules()
+
+        # 7.1 Wire DegradationManager to memory backends
+        if self.degradation and self.memory:
+            self.memory.set_degradation(self.degradation)
 
         # 8. Background update check
         self._schedule_update_check()
@@ -563,6 +569,7 @@ class Agent:
     ) -> AsyncIterator[str]:
         """Головна точка входу для повідомлень."""
         msg_start_time = time.time()
+        self._active_messages += 1
         self.status = AgentStatus.PROCESSING
         try:
             # Audit
@@ -630,7 +637,7 @@ class Agent:
 
             # Build system prompt (з persona addon якщо активна)
             system_prompt = await self.prompt_builder.build(
-                session_id, memory=self.memory, tools=self.tools
+                session_id, memory=self.memory, tools=self.tools, query=content
             )
             if self.persona_manager and self.persona_manager.active:
                 system_prompt += "\n\n" + self.persona_manager.get_system_prompt_addon()
@@ -649,11 +656,16 @@ class Agent:
             # Trim to MAX_CONTEXT_TOKENS to avoid wasting tokens on old messages
             recent = await self.memory.get_recent(session_id, self.MAX_CONTEXT_MESSAGES)
             # Token budget: trim from oldest until under limit
-            total_chars = sum(len(m.get("content", "")) for m in recent)
-            estimated_tokens = total_chars // 3  # ~3 chars per token for UA/mixed
+            # Use CostGuard model-aware estimation instead of crude chars//3
+            _est_model = self.settings.llm.model
+            estimated_tokens = sum(
+                self.cost_guard.estimate_tokens(m.get("content", ""), _est_model) for m in recent
+            )
             while estimated_tokens > self.MAX_CONTEXT_TOKENS and len(recent) > 2:
                 removed = recent.pop(0)
-                estimated_tokens -= len(removed.get("content", "")) // 3
+                estimated_tokens -= self.cost_guard.estimate_tokens(
+                    removed.get("content", ""), _est_model
+                )
 
             messages: list[dict[str, str]] = []
             for m in recent:
@@ -689,6 +701,7 @@ class Agent:
 
             # Agentic loop
             _last_tool_error = False
+            _tool_call_hashes: list[str] = []  # for loop detection
             for _iteration in range(self.MAX_TOOL_LOOPS):
                 # CostGuard check
                 estimated_tokens = sum(
@@ -837,6 +850,27 @@ class Agent:
                     tool_input = tool_call["input"]
                     tool_id = tool_call["id"]
 
+                    # Tool loop detection: break if same call repeated 3+ times
+                    import hashlib as _hashlib
+                    import json as _json
+
+                    _call_hash = _hashlib.md5(
+                        f"{tool_name}:{_json.dumps(tool_input, sort_keys=True, default=str)}".encode()
+                    ).hexdigest()[:12]
+                    _tool_call_hashes.append(_call_hash)
+                    _repeat_count = _tool_call_hashes.count(_call_hash)
+                    if _repeat_count >= 3:
+                        logger.warning(
+                            f"Tool loop detected: {tool_name} called {_repeat_count} times "
+                            f"with same input, breaking"
+                        )
+                        self.audit.log(
+                            "tool_loop_detected",
+                            {"tool": tool_name, "repeats": _repeat_count},
+                        )
+                        yield "Виявлено зациклення виклику інструменту. Спробуйте інакше."
+                        return
+
                     self.audit.log(
                         "tool_call",
                         {
@@ -960,6 +994,7 @@ class Agent:
             await self.hooks.emit(HookEvent.AGENT_ERROR, {"error": str(e)})
             yield f"Виникла помилка: {e}"
         finally:
+            self._active_messages = max(0, self._active_messages - 1)
             self.status = AgentStatus.READY
 
     @staticmethod
@@ -1178,9 +1213,17 @@ class Agent:
         """Delegate to ApprovalGate."""
         await self.approval_gate.cleanup_expired()
 
-    async def shutdown(self) -> None:
-        """Graceful shutdown."""
+    async def shutdown(self, timeout: float = 30.0) -> None:
+        """Graceful shutdown — чекає завершення in-flight повідомлень."""
         self.status = AgentStatus.STOPPED
+        # Wait for in-flight messages to complete
+        if self._active_messages > 0:
+            logger.info(f"Waiting for {self._active_messages} in-flight message(s)...")
+            deadline = time.time() + timeout
+            while self._active_messages > 0 and time.time() < deadline:
+                await asyncio.sleep(0.5)
+            if self._active_messages > 0:
+                logger.warning(f"Shutdown timeout: {self._active_messages} message(s) still active")
         if self.memory:
             await self.memory.close()
         self.audit.log("agent_stop", {})

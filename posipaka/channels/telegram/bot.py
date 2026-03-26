@@ -140,11 +140,17 @@ class TelegramChannel(BaseChannel):
         if self.settings.telegram.use_webhook and self.settings.telegram.webhook_url:
             await self._app.initialize()
             await self._app.start()
+            # Generate secret token for webhook validation (prevents fake updates)
+            import hashlib as _hashlib
+
+            _bot_token = self.settings.telegram.bot_token.get_secret_value()
+            _secret = _hashlib.sha256(f"posipaka:{_bot_token}".encode()).hexdigest()[:32]
             await self._app.updater.start_webhook(
                 listen="0.0.0.0",
                 port=8443,
                 url_path="webhooks/telegram",
                 webhook_url=f"{self.settings.telegram.webhook_url}/webhooks/telegram",
+                secret_token=_secret,
             )
             logger.info("Telegram webhook started")
         else:

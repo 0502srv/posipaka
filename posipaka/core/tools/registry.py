@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import inspect
 from collections.abc import Callable
@@ -180,9 +181,12 @@ class ToolRegistry:
         validated = _validate_tool_input(input_data, tool_def.input_schema, name)
 
         handler = tool_def.handler
-        if inspect.iscoroutinefunction(handler):
-            return await handler(**validated)
-        return handler(**validated)
+        try:
+            if inspect.iscoroutinefunction(handler):
+                return await asyncio.wait_for(handler(**validated), timeout=120.0)
+            return handler(**validated)
+        except TimeoutError:
+            raise TimeoutError(f"Tool '{name}' timed out after 120s") from None
 
     def get(self, name: str) -> ToolDefinition | None:
         """Отримати ToolDefinition."""

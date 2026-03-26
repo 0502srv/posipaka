@@ -50,6 +50,7 @@ class SystemPromptBuilder:
         session_id: str,
         memory: MemoryManager | None = None,
         tools: ToolRegistry | None = None,
+        query: str = "",
     ) -> str:
         """Побудова system prompt з усіх джерел."""
         parts = []
@@ -96,6 +97,15 @@ class SystemPromptBuilder:
                     relevant_lines = select_relevant_facts(memory_md)
                     if relevant_lines:
                         parts.append(f"# Пам'ять (релевантне)\n{relevant_lines}")
+
+        # Semantic search — relevant context from memory
+        if memory and query:
+            try:
+                relevant = await memory.search_relevant(session_id, query, 5)
+                if relevant:
+                    parts.append("# Релевантний контекст\n" + "\n".join(relevant))
+            except Exception:
+                pass  # graceful degradation
 
         # Skill metadata
         if tools:

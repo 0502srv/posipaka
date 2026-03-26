@@ -51,6 +51,7 @@ class MemoryManager:
 
         # Tracked background tasks
         self._pending_tasks: set[asyncio.Task] = set()
+        self._degradation = None  # set via set_degradation()
 
     async def init(self) -> None:
         """Ініціалізація всіх backends."""
@@ -150,13 +151,22 @@ class MemoryManager:
         self._pending_tasks.add(task)
         task.add_done_callback(self._pending_tasks.discard)
 
-    @staticmethod
-    async def _safe_write(coro: Any, backend: str) -> None:
+    def set_degradation(self, degradation) -> None:
+        """Wire DegradationManager for failure/recovery reporting."""
+        self._degradation = degradation
+
+    async def _safe_write(self, coro: Any, backend: str) -> None:
         """Безпечний фоновий запис — помилки логуються, не падають."""
         try:
             await coro
+            if self._degradation:
+                component = backend.lower().replace("db", "")  # "ChromaDB" -> "chroma"
+                self._degradation.report_recovery(component)
         except Exception as e:
             logger.warning(f"Memory background write ({backend}): {e}")
+            if self._degradation:
+                component = backend.lower().replace("db", "")
+                self._degradation.report_failure(component, str(e))
 
     async def flush(self) -> None:
         """Дочекатись завершення всіх фонових записів.

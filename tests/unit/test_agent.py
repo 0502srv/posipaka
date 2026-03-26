@@ -313,9 +313,10 @@ async def test_max_loops_protection(agent):
         async for chunk in agent.handle_message("loop", session_id="test_loop"):
             responses.append(chunk)
 
-    # Should hit max iterations message
+    # Should hit tool loop detection or max iterations message
     assert len(responses) >= 1
-    assert "ітерацій" in responses[-1].lower() or "iteration" in responses[-1].lower()
+    last = responses[-1].lower()
+    assert "зациклення" in last or "ітерацій" in last or "loop" in last
 
 
 @pytest.mark.asyncio

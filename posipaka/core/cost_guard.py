@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 from datetime import UTC
+from pathlib import Path
 
 from loguru import logger
 
@@ -61,6 +63,7 @@ class CostGuard:
         per_session_max_usd: float = 2.0,
         warning_threshold: float = 0.8,
         timezone: str = "UTC",
+        persist_path: Path | None = None,
     ) -> None:
         self.daily_budget = daily_budget_usd
         self.per_request_max = per_request_max_usd
@@ -69,6 +72,8 @@ class CostGuard:
         self._timezone = timezone
         self._records: list[CostRecord] = []
         self._warning_sent_today = False
+        self._persist_path = persist_path
+        self._load_persisted()
 
     # Коефіцієнти токенізації по провайдерах/моделях.
     # char_per_token: скільки символів у середньому на 1 токен.
@@ -167,6 +172,7 @@ class CostGuard:
         cost = input_tokens * pricing["input"] + output_tokens * pricing["output"]
         rec = CostRecord(time.time(), model, input_tokens, output_tokens, cost, session_id)
         self._records.append(rec)
+        self._persist()
         return rec
 
     def get_daily_report(self) -> str:
@@ -198,3 +204,56 @@ class CostGuard:
 
     def _get_session_total(self, session_id: str) -> float:
         return sum(r.cost_usd for r in self._records if r.session_id == session_id)
+
+    def _persist(self) -> None:
+        """Зберегти записи на диск для переживання рестартів."""
+        if not self._persist_path:
+            return
+        try:
+            today_start = self._today_start()
+            today_records = [
+                {
+                    "ts": r.timestamp,
+                    "model": r.model,
+                    "in": r.input_tokens,
+                    "out": r.output_tokens,
+                    "cost": r.cost_usd,
+                    "sid": r.session_id,
+                }
+                for r in self._records
+                if r.timestamp >= today_start
+            ]
+            self._persist_path.write_text(
+                json.dumps({"date": today_start, "records": today_records}),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            logger.debug(f"CostGuard persist failed: {e}")
+
+    def _load_persisted(self) -> None:
+        """Відновити записи з диску після рестарту."""
+        if not self._persist_path or not self._persist_path.exists():
+            return
+        try:
+            data = json.loads(self._persist_path.read_text(encoding="utf-8"))
+            today_start = self._today_start()
+            if abs(data.get("date", 0) - today_start) > 86400:
+                return  # stale data from different day
+            for r in data.get("records", []):
+                self._records.append(
+                    CostRecord(
+                        timestamp=r["ts"],
+                        model=r["model"],
+                        input_tokens=r["in"],
+                        output_tokens=r["out"],
+                        cost_usd=r["cost"],
+                        session_id=r["sid"],
+                    )
+                )
+            if self._records:
+                logger.debug(
+                    f"CostGuard: restored {len(self._records)} records, "
+                    f"daily total ${self._get_daily_total():.3f}"
+                )
+        except Exception as e:
+            logger.debug(f"CostGuard load failed: {e}")
