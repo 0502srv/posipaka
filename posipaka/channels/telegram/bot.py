@@ -318,7 +318,13 @@ class TelegramChannel(BaseChannel):
                         ]
                     ]
                 )
-                sent = await update.message.reply_text(part, reply_markup=keyboard)
+                try:
+                    html_part = markdown_to_telegram_html(part)
+                    sent = await update.message.reply_text(
+                        html_part, reply_markup=keyboard, parse_mode="HTML"
+                    )
+                except Exception:
+                    sent = await update.message.reply_text(part, reply_markup=keyboard)
             else:
                 try:
                     html_part = markdown_to_telegram_html(part)
