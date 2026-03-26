@@ -39,13 +39,11 @@ class SQLiteBackend:
             CREATE TABLE IF NOT EXISTS facts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT,
-                user_id TEXT,
                 fact TEXT NOT NULL,
                 source TEXT DEFAULT 'auto',
                 created_at REAL NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_facts_session ON facts(session_id);
-            CREATE INDEX IF NOT EXISTS idx_facts_user ON facts(user_id);
 
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
