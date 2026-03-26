@@ -658,13 +658,19 @@ class Agent:
             # Token budget: trim from oldest until under limit
             # Use CostGuard model-aware estimation instead of crude chars//3
             _est_model = self.settings.llm.model
+
+            def _content_str(msg: dict) -> str:
+                """Safely extract string content from message (may be list for tool_result)."""
+                c = msg.get("content", "")
+                return c if isinstance(c, str) else str(c)
+
             estimated_tokens = sum(
-                self.cost_guard.estimate_tokens(m.get("content", ""), _est_model) for m in recent
+                self.cost_guard.estimate_tokens(_content_str(m), _est_model) for m in recent
             )
             while estimated_tokens > self.MAX_CONTEXT_TOKENS and len(recent) > 2:
                 removed = recent.pop(0)
                 estimated_tokens -= self.cost_guard.estimate_tokens(
-                    removed.get("content", ""), _est_model
+                    _content_str(removed), _est_model
                 )
 
             messages: list[dict[str, str]] = []
@@ -989,7 +995,9 @@ class Agent:
             yield "Досягнуто максимальну кількість ітерацій. Спробуйте спростити запит."
 
         except Exception as e:
-            logger.error(f"Agent error: {e}")
+            import traceback
+
+            logger.error(f"Agent error: {e}\n{traceback.format_exc()}")
             self.audit.log("agent_error", {"error": str(e)})
             await self.hooks.emit(HookEvent.AGENT_ERROR, {"error": str(e)})
             yield f"Виникла помилка: {e}"
@@ -998,12 +1006,14 @@ class Agent:
             self.status = AgentStatus.READY
 
     @staticmethod
-    def _truncate_response(text: str, max_length: int) -> str:
+    def _truncate_response(text: str | list, max_length: int) -> str:
         """Страховка: обрізати відповідь якщо модель проігнорувала промпт.
 
         Дедуплікує абзаци + hard truncate по межі абзацу.
         Основний контроль довжини — через max_tokens та system prompt.
         """
+        if not isinstance(text, str):
+            text = str(text)
         if len(text) <= max_length:
             # Навіть короткий текст: дедуплікувати абзаци
             paragraphs = text.split("\n\n")
