@@ -77,8 +77,8 @@ from posipaka.core.agent_types import AgentStatus
         fi
     fi
 
-    # Check 3: Smoke tests (if available and fast)
-    if [ "$PREFLIGHT_OK" = true ] && [ -d "$PREFLIGHT_DIR/tests/smoke" ]; then
+    # Check 3: Unit tests (only if pytest is installed)
+    if [ "$PREFLIGHT_OK" = true ] && "$VENV/bin/python" -c "import pytest" 2>/dev/null; then
         if ! PYTHONPATH="$PREFLIGHT_DIR" "$VENV/bin/python" -m pytest \
             "$PREFLIGHT_DIR/tests/unit/test_settings.py" \
             "$PREFLIGHT_DIR/tests/unit/test_tools.py" \
