@@ -63,7 +63,9 @@ class Agent:
         )
         self._pending_approvals: dict[str, PendingAction] = {}
         self.model_router = self._init_model_router(settings)
-        self.semantic_cache = SemanticResponseCache()
+        self.semantic_cache = SemanticResponseCache(
+            persist_path=settings.data_dir / "semantic_cache.json",
+        )
         self.output_compressor = ToolOutputCompressor()
         self.approval_gate = ApprovalGate(
             tools=self.tools,
@@ -79,6 +81,7 @@ class Agent:
             timezone=settings.soul.timezone,
         )
         self._active_messages = 0  # in-flight handle_message counter
+        self.user_profile_learner = None  # initialized in initialize()
 
         # Advanced modules (lazy init in _init_advanced_modules)
         self.degradation = None
@@ -127,6 +130,14 @@ class Agent:
 
         # 3. Create default files
         self._ensure_default_files()
+
+        # 3.1 User profile learner
+        try:
+            from posipaka.memory.user_profile import UserProfileLearner
+
+            self.user_profile_learner = UserProfileLearner(self.settings.user_md_path)
+        except Exception as e:
+            logger.debug(f"UserProfileLearner: {e}")
 
         # ── Phase 2: OPTIONAL (failure here = log warning, continue) ──
         # 4. Multi-agent orchestrator
@@ -635,6 +646,10 @@ class Agent:
                 raise RuntimeError("Agent.initialize() must be called before handle_message")
             await self.memory.add(session_id, {"role": "user", "content": content})
 
+            # Learn user preferences from message
+            if self.user_profile_learner:
+                self.user_profile_learner.observe_message(content, "user")
+
             # Build system prompt (з persona addon якщо активна)
             system_prompt = await self.prompt_builder.build(
                 session_id, memory=self.memory, tools=self.tools, query=content
@@ -826,6 +841,9 @@ class Agent:
                         response_time = time.time() - msg_start_time
                         await self.memory.add(session_id, {"role": "assistant", "content": text})
                         await self.memory.maybe_extract_facts(session_id, content)
+                        # Update user profile if enough data
+                        if self.user_profile_learner:
+                            self.user_profile_learner.maybe_update()
                         # Cache response for similar future queries
                         await self.semantic_cache.store(content, text, session_id)
                         self.audit.log(
@@ -917,6 +935,8 @@ class Agent:
                         # Compress large tool outputs to save tokens
                         result_str = self.output_compressor.compress(tool_name, result_str)
                         _last_tool_error = "Error" in result_str
+                        if self.user_profile_learner and not _last_tool_error:
+                            self.user_profile_learner.observe_tool_use(tool_name)
                     except Exception as e:
                         result_str = f"Error: {e}"
                         _last_tool_error = True

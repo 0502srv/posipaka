@@ -1,13 +1,26 @@
-"""Hybrid Search — Tantivy BM25 + ChromaDB vector + RRF fusion."""
+"""Hybrid Search — Tantivy BM25 + ChromaDB vector + RRF fusion + temporal decay."""
 
 from __future__ import annotations
 
 import asyncio
+import math
+import time
 
 from loguru import logger
 
 from posipaka.memory.backends.chroma_backend import ChromaBackend
 from posipaka.memory.backends.tantivy_backend import TantivyBackend
+
+HALF_LIFE_DAYS = 30.0  # Факти старші 30 днів отримують 50% ваги
+
+
+def temporal_decay(timestamp: float, half_life_days: float = HALF_LIFE_DAYS) -> float:
+    """Exponential decay: score *= exp(-lambda * age_days). halfLife=30d."""
+    age_days = (time.time() - timestamp) / 86400
+    if age_days <= 0:
+        return 1.0
+    lam = math.log(2) / half_life_days
+    return math.exp(-lam * age_days)
 
 
 def reciprocal_rank_fusion(

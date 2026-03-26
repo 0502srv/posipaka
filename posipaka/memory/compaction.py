@@ -25,6 +25,27 @@ COMPACTION_PROMPT = """\
 SUMMARY:
 """
 
+MEMORY_FLUSH_PROMPT = """\
+Ти — система збереження пам'яті AI-асистента.
+Проаналізуй розмову нижче та витягни ВСІ факти про користувача які варто зберегти назавжди.
+
+Категорії:
+- Ім'я, мова, місто, часовий пояс
+- Уподобання (їжа, музика, теми)
+- Робота, професія, навички
+- Важливі дати (дні народження, події)
+- Звички, розпорядок дня
+- Незавершені задачі, домовленості
+
+Формат: один факт на рядок, починається з "- ".
+Якщо фактів немає — поверни порожній рядок.
+
+РОЗМОВА:
+{conversation}
+
+ФАКТИ:
+"""
+
 
 class ContextCompactor:
     """
@@ -45,6 +66,68 @@ class ContextCompactor:
     async def should_compact(self, session_id: str) -> bool:
         stats = await self._sqlite.get_stats(session_id)
         return stats.get("count", 0) > self.COMPACTION_THRESHOLD
+
+    async def flush_to_memory_md(
+        self,
+        session_id: str,
+        memory_md_path,
+        llm_complete_fn=None,
+    ) -> int:
+        """Extract important facts from recent conversation and append to MEMORY.md.
+
+        Called before compaction to preserve user information.
+        Returns number of facts extracted.
+        """
+        if not llm_complete_fn:
+            return 0
+
+        messages = await self._sqlite.get_recent(session_id, limit=self.COMPACTION_THRESHOLD)
+        if len(messages) < 10:
+            return 0
+
+        conversation = "\n".join(f"[{m['role']}]: {m['content'][:200]}" for m in messages[-30:])
+
+        try:
+            prompt = MEMORY_FLUSH_PROMPT.format(conversation=conversation)
+            facts_text = await llm_complete_fn(
+                system="You are a fact extraction system. Return only facts, one per line.",
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except Exception as e:
+            logger.warning(f"Memory flush LLM error: {e}")
+            return 0
+
+        if not facts_text or not facts_text.strip():
+            return 0
+
+        # Parse facts (lines starting with "- ")
+        facts = [
+            line.strip() for line in facts_text.strip().split("\n") if line.strip().startswith("- ")
+        ]
+
+        if not facts:
+            return 0
+
+        # Append to MEMORY.md (avoid duplicates)
+        from pathlib import Path
+
+        path = Path(memory_md_path) if not isinstance(memory_md_path, Path) else memory_md_path
+        existing = path.read_text(encoding="utf-8") if path.exists() else ""
+        existing_lower = existing.lower()
+
+        new_facts = []
+        for fact in facts:
+            if fact.lower() not in existing_lower:
+                new_facts.append(fact)
+
+        if new_facts:
+            path.write_text(
+                existing.rstrip() + "\n" + "\n".join(new_facts) + "\n",
+                encoding="utf-8",
+            )
+            logger.info(f"Memory flush: {len(new_facts)} facts saved to MEMORY.md")
+
+        return len(new_facts)
 
     async def compact(self, session_id: str, llm_complete_fn=None) -> str:
         """

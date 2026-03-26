@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -49,9 +51,15 @@ class SemanticResponseCache:
         "default": 1800,  # 30 min
     }
 
-    def __init__(self, chroma: ChromaBackend | None = None) -> None:
+    def __init__(
+        self,
+        chroma: ChromaBackend | None = None,
+        persist_path: Path | None = None,
+    ) -> None:
         self._chroma = chroma
         self._memory_cache: dict[str, tuple[str, float, int]] = {}  # key → (response, ts, ttl)
+        self._persist_path = persist_path
+        self._load_persisted()
 
     async def check(self, query: str, session_id: str = "") -> str | None:
         """Перевірити чи є cached відповідь. None якщо немає."""
@@ -97,6 +105,10 @@ class SemanticResponseCache:
         if len(self._memory_cache) > 1000:
             self._evict_expired()
 
+        # Persist to disk periodically (every 10th store)
+        if len(self._memory_cache) % 10 == 0:
+            self._persist()
+
     def invalidate(self, session_id: str = "") -> None:
         """Інвалідувати кеш для сесії."""
         if session_id:
@@ -124,3 +136,39 @@ class SemanticResponseCache:
     def _cache_key(query: str, session_id: str) -> str:
         h = hashlib.md5(query.lower().strip().encode()).hexdigest()[:12]
         return f"{session_id}:{h}" if session_id else h
+
+    def _persist(self) -> None:
+        """Save cache to disk for restart survival."""
+        if not self._persist_path:
+            return
+        try:
+            data = {
+                k: {"response": r, "ts": ts, "ttl": ttl}
+                for k, (r, ts, ttl) in self._memory_cache.items()
+                if time.time() - ts < ttl  # only non-expired
+            }
+            # Keep only last 200 entries
+            if len(data) > 200:
+                sorted_keys = sorted(data, key=lambda k: data[k]["ts"], reverse=True)
+                data = {k: data[k] for k in sorted_keys[:200]}
+            self._persist_path.write_text(json.dumps(data), encoding="utf-8")
+        except Exception as e:
+            logger.debug(f"SemanticCache persist failed: {e}")
+
+    def _load_persisted(self) -> None:
+        """Load cache from disk after restart."""
+        if not self._persist_path or not self._persist_path.exists():
+            return
+        try:
+            data = json.loads(self._persist_path.read_text(encoding="utf-8"))
+            now = time.time()
+            loaded = 0
+            for k, v in data.items():
+                ts, ttl = v["ts"], v["ttl"]
+                if now - ts < ttl:  # still valid
+                    self._memory_cache[k] = (v["response"], ts, ttl)
+                    loaded += 1
+            if loaded:
+                logger.debug(f"SemanticCache: restored {loaded} entries from disk")
+        except Exception as e:
+            logger.debug(f"SemanticCache load failed: {e}")

@@ -39,11 +39,13 @@ class SQLiteBackend:
             CREATE TABLE IF NOT EXISTS facts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT,
+                user_id TEXT,
                 fact TEXT NOT NULL,
                 source TEXT DEFAULT 'auto',
                 created_at REAL NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_facts_session ON facts(session_id);
+            CREATE INDEX IF NOT EXISTS idx_facts_user ON facts(user_id);
 
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
@@ -65,6 +67,26 @@ class SQLiteBackend:
                 ON embeddings(content_hash);
         """)
         await self._db.commit()
+
+        # Migration: add user_id column to facts if missing
+        try:
+            cursor = await self._db.execute("PRAGMA table_info(facts)")
+            columns = {row[1] for row in await cursor.fetchall()}
+            if "user_id" not in columns:
+                await self._db.execute("ALTER TABLE facts ADD COLUMN user_id TEXT DEFAULT ''")
+                await self._db.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_facts_user ON facts(user_id)"
+                )
+                # Backfill user_id from session_id
+                await self._db.execute(
+                    "UPDATE facts SET user_id = SUBSTR(session_id, 1, INSTR(session_id, ':') - 1) "
+                    "WHERE user_id = '' AND session_id LIKE '%:%'"
+                )
+                await self._db.commit()
+                logger.info("Migration: added user_id column to facts table")
+        except Exception as e:
+            logger.debug(f"Facts migration check: {e}")
+
         logger.debug(f"SQLite initialized: {self._db_path}")
 
     def _ensure_db(self) -> aiosqlite.Connection:
@@ -145,19 +167,33 @@ class SQLiteBackend:
             "last": row["last"],
         }
 
-    async def add_fact(self, session_id: str, fact: str, source: str = "auto") -> None:
+    async def add_fact(
+        self, session_id: str, fact: str, source: str = "auto", user_id: str = ""
+    ) -> None:
         """Додати факт."""
         db = self._ensure_db()
+        # Extract user_id from session_id if not provided (format: "user_id:channel")
+        if not user_id and ":" in session_id:
+            user_id = session_id.split(":")[0]
         await db.execute(
-            "INSERT INTO facts (session_id, fact, source, created_at) VALUES (?, ?, ?, ?)",
-            (session_id, fact, source, time.time()),
+            "INSERT INTO facts (session_id, user_id, fact, source, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (session_id, user_id, fact, source, time.time()),
         )
         await db.commit()
 
-    async def get_facts(self, session_id: str | None = None) -> list[dict]:
-        """Отримати факти."""
+    async def get_facts(
+        self, session_id: str | None = None, user_id: str | None = None
+    ) -> list[dict]:
+        """Отримати факти (з ізоляцією по user_id якщо вказано)."""
         db = self._ensure_db()
-        if session_id:
+        if user_id:
+            # User-scoped: return facts for this user across all sessions
+            cursor = await db.execute(
+                "SELECT fact, source, created_at FROM facts WHERE user_id = ? ORDER BY created_at",
+                (user_id,),
+            )
+        elif session_id:
             cursor = await db.execute(
                 "SELECT fact, source, created_at FROM facts "
                 "WHERE session_id = ? ORDER BY created_at",

@@ -252,6 +252,60 @@ class MemoryManager:
             return True
         return False
 
+    def compile_memory_md(self) -> str:
+        """Compile MEMORY.md from CORE + DYNAMIC + existing facts.
+
+        Called weekly by cron. Merges MEMORY-CORE.md (stable rules)
+        + MEMORY-DYNAMIC.md (weekly context) + existing MEMORY.md facts.
+        """
+        data_dir = self._memory_md_path.parent
+        core_path = data_dir / "MEMORY-CORE.md"
+        dynamic_path = data_dir / "MEMORY-DYNAMIC.md"
+
+        parts = []
+
+        # 1. Core (stable, immutable rules)
+        if core_path.exists():
+            core = core_path.read_text(encoding="utf-8").strip()
+            if core:
+                parts.append(core)
+
+        # 2. Dynamic (weekly-updated context)
+        if dynamic_path.exists():
+            dynamic = dynamic_path.read_text(encoding="utf-8").strip()
+            if dynamic:
+                parts.append(dynamic)
+
+        # 3. Existing facts from MEMORY.md (auto-extracted)
+        if self._memory_md_path.exists():
+            existing = self._memory_md_path.read_text(encoding="utf-8")
+            # Extract only fact lines (starting with "- ")
+            facts = [line for line in existing.split("\n") if line.strip().startswith("- ")]
+            if facts:
+                parts.append("# Факти\n" + "\n".join(facts))
+
+        if not parts:
+            return "Немає даних для компіляції."
+
+        compiled = "\n\n---\n\n".join(parts)
+
+        # Dedup and write
+        seen: set[str] = set()
+        unique_lines: list[str] = []
+        for line in compiled.split("\n"):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or stripped.startswith("---"):
+                unique_lines.append(line)
+                continue
+            if stripped not in seen:
+                seen.add(stripped)
+                unique_lines.append(line)
+
+        result = "\n".join(unique_lines)
+        self.update_memory_md(result)
+        logger.info(f"MEMORY.md compiled: {len(result)} chars from CORE + DYNAMIC + facts")
+        return f"MEMORY.md скомпільовано: {len(result)} символів."
+
     def compact_memory_md(self) -> str:
         """Стиснути MEMORY.md — видалити дублікати та старі записи."""
         if not self._memory_md_path.exists():
